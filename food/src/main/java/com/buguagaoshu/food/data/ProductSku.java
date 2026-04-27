@@ -24,7 +24,9 @@ public class ProductSku {
     /**
      * 该SKU的价格
      */
-    private BigDecimal price;
+    private BigDecimal unitPrice;   // 单价（固定价格=总价，称重=每斤单价）
+
+    private String unit;            // 单位：份、斤、克
 
     /**
      * 该SKU的库存

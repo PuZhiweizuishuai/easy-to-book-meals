@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.data;
 
+import com.buguagaoshu.food.enums.PriceType;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -36,6 +37,11 @@ public class BaseFood {
      * 其它图片数组 ["url1","url2"]
      * */
     private String imageList;
+
+    /**
+     * 计价方式，默认按份
+     * */
+    private Integer priceType = PriceType.FIXED.code;
 
 
     /**

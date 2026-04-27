@@ -25,14 +25,15 @@ public class FoodService {
     }
 
     @Transactional(rollbackFor = Exception.class)
-    public void saveFood(BaseFood food) {
+    public BaseFood saveFood(BaseFood food) {
         food.setAllSales(0);
         food.setMonthlySales(0);
         food.setStatus(WebConstant.ENABLE);
-        this.baseFoodRepository.save(food);
+        BaseFood savedFood = this.baseFoodRepository.save(food);
         // 关联分类信息
         if (food.getCategoryIds() != null && !food.getCategoryIds().isEmpty()) {
-            foodWithTagService.associationTag(food.getId(), food.getCategoryIds());
+            foodWithTagService.associationTag(savedFood.getId(), food.getCategoryIds());
         }
+        return savedFood;
     }
 }

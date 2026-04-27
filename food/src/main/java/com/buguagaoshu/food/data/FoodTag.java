@@ -3,6 +3,11 @@ package com.buguagaoshu.food.data;
 import jakarta.persistence.*;
 import lombok.Data;
 
+/**
+  *@author  Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
+  *@create  2026-04-26
+ * 食物分类
+  */
 @Data
 @Entity
 @Table(name = "food_tag_table")
@@ -11,11 +16,19 @@ public class FoodTag {
     @GeneratedValue(strategy = GenerationType.AUTO)
     private Long id;
 
+    /**
+     * 分类名称
+     * */
     private String name;
 
+    /**
+     * 分类下菜品数量
+     * */
     private Integer count;
 
-    private Integer status;
 
+    /**
+     * 创建时间
+     * */
     private Long createTime;
 }

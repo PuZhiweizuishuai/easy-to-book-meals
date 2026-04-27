@@ -25,31 +25,49 @@ const router = createRouter({
           path: 'dashboard',
           name: 'dashboard',
           component: Dashboard,
+          meta: {
+            requiresAuth: true,
+          },
         },
         {
           path: 'orders',
           name: 'orders',
           component: OrderManagement,
+          meta: {
+            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+          },
         },
         {
           path: 'dishes',
           name: 'dishes',
           component: DishManagement,
+          meta: {
+            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+          },
         },
         {
           path: 'tables',
           name: 'tables',
           component: TableManagement,
+          meta: {
+            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+          },
         },
         {
           path: 'categories',
           name: 'categories',
           component: CategoryManagement,
+          meta: {
+            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+          },
         },
         {
           path: 'memberships',
           name: 'memberships',
           component: MembershipManagement,
+          meta: {
+            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+          },
         },
       ],
     },

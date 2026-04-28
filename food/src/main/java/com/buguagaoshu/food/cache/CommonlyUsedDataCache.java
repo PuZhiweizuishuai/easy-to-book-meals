@@ -11,5 +11,5 @@ import java.util.Map;
  * 如缓存食品分类
  */
 public class CommonlyUsedDataCache {
-    public static Map<Long, FoodTag>  foodTagMap;
+    public static Map<Long, FoodTag> foodTagMap;
 }

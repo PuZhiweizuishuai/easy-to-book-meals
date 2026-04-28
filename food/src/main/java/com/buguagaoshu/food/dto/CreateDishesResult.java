@@ -15,4 +15,6 @@ public class CreateDishesResult {
     private BaseFood food;
 
     private List<ProductSku> skuList;
+
+    private List<SpecGroup> specGroups;
 }

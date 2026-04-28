@@ -3,6 +3,7 @@ package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.BaseFood;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.data.SpecValue;
@@ -72,6 +73,7 @@ public class DishesService {
         baseFood.setStock(createDishes.getStock());
         baseFood.setStatus(createDishes.getStatus());
         baseFood = foodService.saveFood(baseFood);
+  
 
         // 2. 创建 SpecGroup 并保存
         List<SpecGroup> specGroups = createDishes.getSpecGroups();
@@ -117,7 +119,8 @@ public class DishesService {
                 ProductSku sku = new ProductSku();
                 sku.setDishId(baseFood.getId());
                 sku.setUnitPrice(BigDecimal.ZERO);
-                sku.setUnit("份");
+                // unit 与 stock 相关，根据菜品的 priceType 来判断
+                sku.setUnit(PriceType.getMsg(baseFood.getPriceType()));
                 sku.setStock(0);
                 sku.setDiscount(1.0);
                 sku.setDiscountEndTime(0L);
@@ -140,6 +143,27 @@ public class DishesService {
         CreateDishesResult result = new CreateDishesResult();
         result.setFood(baseFood);
         result.setSkuList(skuList);
+        result.setSpecGroups(specGroups);
+        return result;
+    }
+
+
+    /**
+     * 获取该菜品的菜品信息与所有 SKU
+     */
+    public CreateDishesResult getDishes(Long id) {
+        CreateDishesResult result = new CreateDishesResult();
+        BaseFood baseFood = foodService.getFood(id);
+        if (baseFood == null) {
+            throw new BusinessException(404, "菜品不存在");
+        }
+        result.setFood(baseFood);
+        // 从数据库中获取该菜品的所有 SKU
+        List<ProductSku> skuList = productSkuService.getProductSkuByDishId(id);
+        result.setSkuList(skuList);
+        // 从数据库中获取该菜品的所有规格组
+        List<SpecGroup> specGroups = specGroupService.getSpecGroupByDishId(id);
+        result.setSpecGroups(specGroups);
         return result;
     }
     

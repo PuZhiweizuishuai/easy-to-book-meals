@@ -19,4 +19,14 @@ public enum PriceType {
         this.code = code;
         this.msg = msg;
     }
+
+    public static String getMsg(int code) {
+        for (PriceType type : PriceType.values()) {
+            if (type.code == code) {
+                return type.msg;
+            }
+        }
+        // 默认返回份
+        return "份";
+    }
 }

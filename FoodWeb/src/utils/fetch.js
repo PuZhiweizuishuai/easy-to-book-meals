@@ -1,86 +1,70 @@
+// src/utils/http.js
 
+// 假设你使用 Vite，环境变量可以通过 import.meta.env 访问
+// 如果在其他环境，请调整获取 baseURL 的方式
+const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api';
+
+// 检查未授权访问的函数
+const checkUnauthorized = function(json) {
+  // 在这里实现你的未授权检查逻辑
+  // 例如：if (json && json.status === 0) { ... }
+  return false;
+};
+
+/**
+ * 通用的请求处理函数，避免代码重复
+ * @param {string} url - 请求地址
+ * @param {object} options - fetch 的配置项
+ * @returns {Promise} - 返回一个 Promise 对象
+ */
+const request = (url, options) => {
+  return fetch(`${BASE_URL}${url}`, {
+    credentials: 'include',
+    ...options,
+  })
+    .then((response) => response.json())
+    .then((json) => {
+      if (checkUnauthorized(json)) {
+        // 如果未授权，可以返回一个特定的错误对象，或者直接在这里处理路由跳转
+        // 为了保持函数纯粹，这里只返回一个标记
+        return Promise.reject({ type: 'UNAUTHORIZED', data: json });
+      }
+      return json;
+    });
+};
+
+// 导出独立的工具函数
+export const httpGet = (url) => {
+  return request(url, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+  });
+};
+
+export const httpPost = (url, data) => {
+  return request(url, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json; charset=UTF-8',
+    },
+    body: JSON.stringify(data),
+  });
+};
+
+export const uploadFiles = (url, form) => {
+  return request(url, {
+    method: 'POST',
+    // 上传文件时，浏览器会自动设置 Content-Type 为 multipart/form-data
+    // 所以这里不需要手动设置 headers
+    body: form,
+  });
+};
+
+// 导出一个默认对象，方便按需导入
 export default {
-  install: (app) => {
-    // 检查未授权访问的函数
-    const checkUnauthorized = function(json, context) {
-    //   if (json && json.status === 0 && json.message === "登录过期或未登录") {
-    //     const userStore = useUserStore();
-    //     userStore.deleteUserData();
-        
-    //     // 使用Vue实例中的router导航
-    //     if (context && context.$router) {
-    //       context.$router.push('/login');
-    //     } else {
-    //       // 备用方案，直接使用window.location
-    //       window.location.href = '/login';
-    //     }
-    //     return true;
-    //   }
-      return false;
-    };
-    
-    app.config.globalProperties.httpGet = function (url, cb) {
-      fetch(`${this.SERVER_API_URL}${url}`, {
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          //'X-XSRF-TOKEN': this.$cookies.get('XSRF-TOKEN')
-        },
-        method: 'GET',
-        credentials: 'include',
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          if (!checkUnauthorized(json, this)) {
-            cb(json);
-          }
-        })
-        .catch((error) => {
-          console.error('HTTP Get Error:', error)
-          return null
-        })
-    }
-
-    app.config.globalProperties.httpPost = function (url, data, cb) {
-      fetch(`${this.SERVER_API_URL}${url}`, {
-        headers: {
-          'Content-Type': 'application/json; charset=UTF-8',
-          //'X-XSRF-TOKEN': this.$cookies.get('XSRF-TOKEN')
-        },
-        method: 'POST',
-        credentials: 'include',
-        body: JSON.stringify(data),
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          if (!checkUnauthorized(json, this)) {
-            cb(json);
-          }
-        })
-        .catch((error) => {
-          console.error('HTTP Post Error:', error)
-          return null
-        })
-    }
-
-    app.config.globalProperties.uploadFiles = function (url, form, cb) {
-      fetch(`${this.SERVER_API_URL}${url}`, {
-        headers: {
-          //'X-XSRF-TOKEN': this.$cookies.get('XSRF-TOKEN')
-        },
-        method: 'POST',
-        credentials: 'include',
-        body: form,
-      })
-        .then((response) => response.json())
-        .then((json) => {
-          if (!checkUnauthorized(json, this)) {
-            cb(json);
-          }
-        })
-        .catch((error) => {
-          console.error('Upload Files Error:', error)
-          return null
-        })
-    }
-  },
-}
+  httpGet,
+  httpPost,
+  uploadFiles
+};

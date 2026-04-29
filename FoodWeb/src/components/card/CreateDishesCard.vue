@@ -1,171 +1,262 @@
 <template>
-  <div>
-    <div class="flex justify-between items-center mb-6">
-      <h3 class="text-xl font-bold">{{ isEdit ? '编辑菜品' : '添加菜品' }}</h3>
-      <button @click="$emit('cancel')" class="btn btn-circle btn-ghost btn-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <div class="bg-base-100 rounded-box relative">
+    <div class="flex justify-between items-center mb-6 pb-4 border-b border-base-200">
+      <h3 class="text-xl font-bold flex items-center gap-2">
+        <span class="w-1.5 h-6 bg-primary rounded-full"></span>
+        {{ isEdit ? '编辑菜品' : '添加菜品' }}
+      </h3>
+      <button @click="$emit('cancel')" type="button"
+        class="btn btn-circle btn-ghost btn-sm bg-base-200/50 hover:bg-base-300">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="space-y-5">
-      <!-- 菜品名称 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">菜品名称</span>
-          <span class="label-text-alt text-error">必填</span>
-        </label>
-        <input v-model="formData.name" type="text" placeholder="请输入菜品名称" class="input input-bordered" required />
-      </div>
+    <form @submit.prevent="handleSubmit" class="flex-1 flex flex-col">
+      <div class="space-y-8 pb-24">
 
-      <!-- 菜品描述 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">菜品描述</span>
-        </label>
-        <textarea v-model="formData.description" placeholder="请输入菜品描述" class="textarea textarea-bordered" rows="3"></textarea>
-      </div>
+        <section class="space-y-4">
+          <h4 class="text-sm font-bold text-base-content/50 uppercase tracking-widest flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            基本信息
+          </h4>
 
-      <!-- 首选显示图片 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">首选显示图片URL</span>
-        </label>
-        <input v-model="formData.topImage" type="text" placeholder="请输入首选图片URL" class="input input-bordered" />
-      </div>
+          <div class="form-control w-full">
+            <label class="label"><span class="label-text font-medium">菜品名称 <span
+                  class="text-error">*</span></span></label>
+            <input v-model="formData.name" type="text" placeholder="请输入菜品名称"
+              class="input input-bordered w-full focus:input-primary transition-colors" required />
+          </div>
 
-      <!-- 其它图片列表 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">其它图片URL</span>
-          <span class="label-text-alt">多个用英文逗号分隔</span>
-        </label>
-        <input v-model="imageListText" type="text" placeholder="图片URL1,图片URL2,图片URL3" class="input input-bordered" />
-      </div>
+          <div class="form-control w-full">
+            <label class="label"><span class="label-text font-medium">菜品描述</span></label>
+            <textarea v-model="formData.description" placeholder="一句话介绍这道菜..."
+              class="textarea textarea-bordered h-24 focus:textarea-primary transition-colors"></textarea>
+          </div>
+        </section>
 
-      <!-- 计价方式和默认价格 -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <!-- 计价方式 -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">计价方式</span>
-            <span class="label-text-alt text-error">必填</span>
-          </label>
-          <select v-model="formData.priceType" class="select select-bordered" required>
-            <option :value="0">按份</option>
-            <option :value="1">按斤</option>
-            <option :value="2">按时</option>
-          </select>
-        </div>
+        <section class="space-y-4">
+          <h4 class="text-sm font-bold text-base-content/50 uppercase tracking-widest flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            图片设置
+          </h4>
 
-        <!-- 默认价格 -->
-        <div class="form-control">
-          <label class="label">
-            <span class="label-text">默认价格</span>
-          </label>
-          <input v-model.number="formData.unitPrice" type="number" placeholder="请输入默认价格" class="input input-bordered" min="0" step="0.01" />
-        </div>
-      </div>
+          <div class="form-control w-full">
+            <label class="label"><span class="label-text font-medium">首选显示图片URL</span></label>
+            <label
+              class="input input-bordered flex items-center gap-2 focus-within:input-primary transition-colors text-base-content/70">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              <input v-model="formData.topImage" type="url" class="grow text-base-content" placeholder="https://" />
+            </label>
+          </div>
 
-      <!-- 分类选择 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">分类标签</span>
-        </label>
-        <div class="flex flex-wrap gap-2">
-          <span v-if="isLoadingTags" class="loading loading-spinner"></span>
-          <button v-for="category in categories" :key="category.id" type="button" @click="toggleCategory(category)"
-            :class="[
-              'btn',
-              selectedCategories.includes(category.id)
-                ? 'btn-primary'
-                : 'btn-outline btn-primary'
-            ]">
-            {{ category.name }}
-          </button>
-          <span v-if="!isLoadingTags && categories.length === 0" class="text-gray-500">暂无标签</span>
-        </div>
-      </div>
+          <div class="form-control w-full">
+            <label class="label">
+              <span class="label-text font-medium">其它图片URL</span>
+              <span class="label-text-alt text-base-content/50">多个用英文逗号分隔</span>
+            </label>
+            <label
+              class="input input-bordered flex items-center gap-2 focus-within:input-primary transition-colors text-base-content/70">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <input v-model="imageListText" type="text" class="grow text-base-content" placeholder="URL1, URL2..." />
+            </label>
+          </div>
+        </section>
 
-      <!-- 菜品状态 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">菜品状态</span>
-          <span class="label-text-alt text-error">必填</span>
-        </label>
-        <select v-model="formData.status" class="select select-bordered" required>
-          <option :value="0">下架</option>
-          <option :value="1">上架</option>
-        </select>
-      </div>
+        <section class="space-y-4">
+          <h4 class="text-sm font-bold text-base-content/50 uppercase tracking-widest flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            售卖规则
+          </h4>
 
-      <!-- 规格分组 -->
-      <div class="form-control">
-        <label class="label">
-          <span class="label-text">规格配置</span>
-        </label>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-medium">计价方式 <span
+                    class="text-error">*</span></span></label>
+              <select v-model="formData.priceType" class="select select-bordered w-full focus:select-primary" required>
+                <option :value="0">按份</option>
+                <option :value="1">按斤</option>
+                <option :value="2">按时</option>
+              </select>
+            </div>
 
-        <!-- 添加规格组按钮 -->
-        <button type="button" @click="addSpecGroup" class="btn btn-outline btn-secondary w-full mb-4">
-          + 添加规格组
-        </button>
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-medium">默认价格 <span
+                    class="text-error">*</span></span></label>
+              <label class="input input-bordered flex items-center gap-2 focus-within:input-primary">
+                <span class="text-base-content/50 font-bold">¥</span>
+                <input v-model.number="formData.unitPrice" type="number" placeholder="0.00" class="grow" min="0"
+                  step="0.01" required />
+              </label>
+            </div>
 
-        <!-- 规格组列表 -->
-        <div v-for="(group, groupIndex) in formData.specGroups" :key="groupIndex" class="space-y-4 mb-4">
-          <div class="card bg-base-50 border border-base-200">
-            <div class="card-body">
-              <div class="flex justify-between items-center mb-4">
-                <h4 class="font-semibold text-base">规格组 {{ groupIndex + 1 }}</h4>
-                <button v-if="formData.specGroups.length > 1" type="button" @click="removeSpecGroup(groupIndex)"
-                  class="btn btn-ghost btn-xs text-error">
-                  删除规格组
+            <div class="form-control w-full">
+              <label class="label"><span class="label-text font-medium">菜品状态 <span
+                    class="text-error">*</span></span></label>
+              <select v-model="formData.status" class="select select-bordered w-full focus:select-primary" required>
+                <option :value="1">上架销售中</option>
+                <option :value="0">下架停售</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="form-control w-full mt-2">
+            <label class="label"><span class="label-text font-medium">分类标签</span></label>
+            <div
+              class="p-4 rounded-xl border border-base-200 bg-base-200/20 flex flex-wrap gap-2.5 items-center min-h-[4rem]">
+              <span v-if="isLoadingTags" class="loading loading-spinner text-primary loading-sm"></span>
+
+              <template v-else>
+                <button v-for="category in categories" :key="category.id" type="button"
+                  @click="toggleCategory(category)" :class="[
+                    'badge badge-lg gap-1 py-3 px-4 font-medium transition-all cursor-pointer',
+                    selectedCategories.includes(category.id) ? 'badge-primary shadow-sm' : 'badge-ghost bg-base-100 border-base-300 hover:border-primary/50'
+                  ]">
+                  {{ category.name }}
+                  <svg v-if="selectedCategories.includes(category.id)" xmlns="http://www.w3.org/2000/svg"
+                    class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd"
+                      d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                      clip-rule="evenodd" />
+                  </svg>
                 </button>
-              </div>
+                <span v-if="categories.length === 0" class="text-sm text-base-content/40">暂无标签</span>
+              </template>
 
-              <!-- 规格组名称 -->
-              <input v-model="group.groupName" type="text" placeholder="请输入规格组名称（如：规格、口味）"
-                class="input input-bordered w-full mb-4" />
+              <button type="button" @click="openAddCategoryModal"
+                class="btn btn-sm btn-ghost rounded-full text-primary hover:bg-primary/10 ml-auto">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24"
+                  stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                新增分类
+              </button>
+            </div>
+          </div>
+        </section>
 
-              <!-- 规格选项 -->
-              <div class="space-y-2">
-                <div v-for="(spec, specIndex) in group.specs" :key="specIndex" class="flex gap-2">
-                  <input v-model="spec.name" type="text" placeholder="规格名称" class="input input-bordered flex-1" />
-                  <!-- <div class="relative w-36">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500">+¥</span>
-                    <input v-model.number="spec.price" type="number" placeholder="加价金额" class="input input-bordered w-full pl-8"
-                      min="0" step="0.01" />
-                  </div> -->
-                  <button v-if="group.specs.length > 1" type="button" @click="removeSpec(groupIndex, specIndex)"
-                    class="btn btn-ghost btn-xs text-error h-10">
-                    删除
+        <section class="space-y-4">
+          <div class="flex justify-between items-center">
+            <h4 class="text-sm font-bold text-base-content/50 uppercase tracking-widest flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                  d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+              </svg>
+              规格配置
+            </h4>
+            <button type="button" @click="addSpecGroup" class="btn btn-sm btn-primary btn-outline rounded-full">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+              </svg>
+              添加规格组
+            </button>
+          </div>
+
+          <div v-if="formData.specGroups.length === 0"
+            class="text-center py-6 bg-base-200/20 rounded-xl border border-dashed border-base-300 text-base-content/50 text-sm">
+            暂无规格，点击上方按钮添加（如：大小、口味、温度）
+          </div>
+
+          <div class="space-y-4">
+            <div v-for="(group, groupIndex) in formData.specGroups" :key="groupIndex"
+              class="card bg-base-200/30 border border-base-200 shadow-sm transition-all hover:border-base-300">
+              <div class="card-body p-4 sm:p-5">
+
+                <div class="flex flex-wrap sm:flex-nowrap gap-3 items-center mb-4 pb-3 border-b border-base-200/50">
+                  <span class="badge badge-neutral text-xs font-bold w-12 shrink-0">组 {{ groupIndex + 1 }}</span>
+                  <input v-model="group.groupName" type="text" placeholder="规格名 (例: 辣度, 杯型)"
+                    class="input input-sm input-bordered flex-1 focus:input-primary min-w-[120px]" />
+                  <button v-if="formData.specGroups.length > 1" type="button" @click="removeSpecGroup(groupIndex)"
+                    class="btn btn-sm btn-circle btn-ghost text-error ml-auto tooltip" data-tip="删除该组">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
                   </button>
                 </div>
-                <button type="button" @click="addSpec(groupIndex)" class="btn btn-outline btn-xs w-full">
-                  + 添加规格选项
-                </button>
+
+                <div class="space-y-3">
+                  <div v-for="(spec, specIndex) in group.specs" :key="specIndex"
+                    class="flex items-center gap-2 sm:gap-3">
+                    <input v-model="spec.name" type="text" placeholder="选项名称 (例: 微辣)"
+                      class="input input-sm input-bordered flex-1 w-0 focus:input-primary" />
+
+                    <button v-if="group.specs.length > 1" type="button" @click="removeSpec(groupIndex, specIndex)"
+                      class="btn btn-sm btn-square btn-ghost text-base-content/40 hover:text-error hover:bg-error/10 shrink-0">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                        stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                          d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  <button type="button" @click="addSpec(groupIndex)"
+                    class="btn btn-sm btn-ghost btn-block text-base-content/60 hover:text-primary mt-2 border border-dashed border-base-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+                    </svg>
+                    添加选项
+                  </button>
+                </div>
+
               </div>
             </div>
           </div>
-        </div>
+        </section>
+
       </div>
 
-      <!-- 提交按钮 -->
-      <div class="flex gap-3 pt-4">
-        <button type="submit" :disabled="isSubmitting" class="btn btn-primary flex-1">
-          <span v-if="isSubmitting" class="loading loading-spinner"></span>
-          {{ isSubmitting ? '提交中...' : '提交' }}
-        </button>
-        <button type="button" @click="$emit('cancel')" class="btn btn-outline">
+      <div class="sticky bottom-0 bg-base-100 border-t border-base-200 py-4 z-20 flex gap-3 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <button type="button" @click="$emit('cancel')" class="btn btn-outline flex-1 sm:flex-none sm:w-32">
           取消
+        </button>
+        <button type="submit" :disabled="isSubmitting" class="btn btn-primary flex-1 shadow-md shadow-primary/20">
+          <span v-if="isSubmitting" class="loading loading-spinner"></span>
+          {{ isSubmitting ? '保存中...' : (isEdit ? '保存修改' : '确认添加') }}
         </button>
       </div>
     </form>
+
+    <Teleport to="body">
+      <EditFoodTagCard :show="showAddCategoryModal" modal-type="add" @close="closeAddCategoryModal"
+        @submit="handleAddCategory" />
+    </Teleport>
+
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, watch, getCurrentInstance, onMounted } from 'vue';
+import { httpGet, httpPost, uploadFiles } from '@/utils/fetch.js';
+import toast from '@/utils/toast';
+import EditFoodTagCard from './EditFoodTagCard.vue';
 const props = defineProps({
   modelValue: {
     type: Object,
@@ -207,6 +298,38 @@ const imageListText = ref('');
 const isSubmitting = ref(false);
 // 选中的分类ID
 const selectedCategories = ref([]);
+// 新增分类弹窗相关
+const showAddCategoryModal = ref(false);
+
+// 打开新增分类弹窗
+const openAddCategoryModal = () => {
+  showAddCategoryModal.value = true;
+};
+
+// 关闭新增分类弹窗
+const closeAddCategoryModal = () => {
+  showAddCategoryModal.value = false;
+};
+
+// 处理新增分类成功
+const handleAddCategory = async (payload) => {
+  try {
+    const url = payload.id ? '/foodtag/update' : '/foodtag/add';
+    const res = await httpPost(url, payload);
+    toast.success(payload.id ? '分类更新成功' : '分类添加成功');
+    closeAddCategoryModal();
+    // 重新获取分类列表
+    await fetchTags();
+    // 如果是新增的分类，自动选中
+    if (!payload.id && res.data && res.data.id) {
+      toggleCategory({ id: res.data.id, name: payload.name });
+    }
+  } catch (error) {
+    console.error('保存分类失败:', error);
+    toast.error('保存分类失败，请稍后重试');
+  }
+};
+
 // 监听 modelValue 变化（用于编辑场景）
 watch(() => props.modelValue, (newVal) => {
   if (newVal && Object.keys(newVal).length > 0) {
@@ -253,23 +376,22 @@ const removeSpec = (groupIndex, specIndex) => {
   formData.specGroups[groupIndex].specs.splice(specIndex, 1);
 };
 // 获取标签列表
-const fetchTags = () => {
+const fetchTags = async () => {
   isLoadingTags.value = true;
-  const vm = getCurrentInstance().proxy;
-  vm.httpGet('/foodtag/map', (response) => {
+  const json = await httpGet('/foodtag/list');
+  if (json && json.status === 200 && json.data) {
+    // 将对象转换为数组
+    categories.value = json.data;
     isLoadingTags.value = false;
-    if (response && response.status === 200 && response.data) {
-      // 将对象转换为数组
-      categories.value = Object.values(response.data);
-    }
-    else {
-      console.error('获取标签失败:', response?.message || '未知错误');
-    }
-  });
+  }
+  else {
+    console.error('获取标签失败:', json?.message || '未知错误');
+  }
+
 };
 
 // 提交表单
-const handleSubmit = () => {
+const handleSubmit = async () => {
   // 处理图片列表
   if (imageListText.value.trim()) {
     formData.imageList = imageListText.value.split(',').map(url => url.trim()).filter(url => url);
@@ -278,17 +400,15 @@ const handleSubmit = () => {
     formData.imageList = [];
   }
   isSubmitting.value = true;
-  // 使用全局 httpPost 方法
-  const vm = getCurrentInstance().proxy;
-  vm.httpPost('/dishes/add', formData, (response) => {
+  // 提交表单数据
+  const json = await httpPost('/dishes/add', formData);
+  if (json && json.status === 200) {
     isSubmitting.value = false;
-    if (response && response.status === 1) {
-      emit('submit', response.data);
-    }
-    else {
-      alert(response?.message || '提交失败');
-    }
-  });
+    emit('submit', json.data);
+  }
+  else {
+    toast.error(json?.message || '提交失败');
+  }
 };
 
 // 组件挂载时获取标签列表

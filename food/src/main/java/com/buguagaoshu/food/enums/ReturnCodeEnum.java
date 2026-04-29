@@ -1,5 +1,9 @@
 package com.buguagaoshu.food.enums;
 
+/**
+ * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
+ * @create 2026-04-29
+ */
 public enum ReturnCodeEnum {
     SUCCESS(200, "成功"),
     FAIL(500, "失败"),

@@ -2,12 +2,12 @@ package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.cache.CommonlyUsedDataCache;
 import com.buguagaoshu.food.data.FoodTag;
+import com.buguagaoshu.food.enums.ReturnCodeEnum;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.FoodTagRepository;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -45,6 +45,38 @@ public class FoodTagService {
         foodTagRepository.save(foodTag);
         // 更新缓存
         CommonlyUsedDataCache.foodTagMap.put(foodTag.getId(), foodTag);
+        CommonlyUsedDataCache.foodTagList.add(foodTag);
+        CommonlyUsedDataCache.foodTagList.sort(Comparator.comparingInt(FoodTag::getSort));
         return foodTag;
+    }
+
+    public FoodTag updateTag(FoodTag foodTag) {
+        Optional<FoodTag> dbFoodTag = foodTagRepository.findById(foodTag.getId());
+        if (!dbFoodTag.isPresent()) {
+            throw new BusinessException(ReturnCodeEnum.NOT_FOUND.getCode(), "更新的食品标签不存在！");
+        }
+        dbFoodTag.get().setName(foodTag.getName());
+        dbFoodTag.get().setSort(foodTag.getSort());
+        FoodTag savedFoodTag = foodTagRepository.save(dbFoodTag.get());
+        // 更新缓存
+        CommonlyUsedDataCache.foodTagMap.put(foodTag.getId(), savedFoodTag);
+        // 找到并更新列表中的对应项
+        for (int i = 0; i < CommonlyUsedDataCache.foodTagList.size(); i++) {
+            if (CommonlyUsedDataCache.foodTagList.get(i).getId().equals(foodTag.getId())) {
+                CommonlyUsedDataCache.foodTagList.set(i, savedFoodTag);
+                break;
+            }
+        }
+        CommonlyUsedDataCache.foodTagList.sort(Comparator.comparingInt(FoodTag::getSort));
+        return savedFoodTag;
+    }
+
+
+    public boolean deleteTag(Long id) {
+        foodTagRepository.deleteById(id);
+        // 更新缓存
+        CommonlyUsedDataCache.foodTagMap.remove(id);
+        CommonlyUsedDataCache.foodTagList.removeIf(tag -> tag.getId().equals(id));
+        return true;
     }
 }

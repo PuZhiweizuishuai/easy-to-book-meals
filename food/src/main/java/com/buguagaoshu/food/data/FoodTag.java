@@ -26,6 +26,12 @@ public class FoodTag {
      * */
     private Integer count;
 
+    /**
+     * 由小到大
+     * 默认 1
+     * */
+    private Integer sort = 1;
+
 
     /**
      * 创建时间

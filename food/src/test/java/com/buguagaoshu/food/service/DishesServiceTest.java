@@ -33,7 +33,7 @@ public class DishesServiceTest {
         createDishes.setImageList(imageList);
         
         createDishes.setPriceType(0); // 按份计价
-        createDishes.setStock(100);
+        createDishes.setStock(100L);
         createDishes.setStatus(1); // 上架
         
         // 添加规格组和规格值

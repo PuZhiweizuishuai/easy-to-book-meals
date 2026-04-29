@@ -15,7 +15,11 @@ import java.util.List;
  */
 @Data
 @Entity
-@Table(name = "base_food_table")
+@Table(name = "base_food_table", indexes = {
+        @Index(name = "idx_base_food_status", columnList = "status"),
+        @Index(name = "idx_base_food_monthlySales", columnList = "monthlySales"),
+        @Index(name = "idx_base_food_allSales", columnList = "allSales")
+})
 public class BaseFood {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -55,18 +59,18 @@ public class BaseFood {
     /**
      * 月销量
      */
-    private Integer monthlySales;
+    private Long monthlySales;
 
     /**
      * 总销量
      */
-    private Integer allSales;
+    private Long allSales;
 
 
     /**
      * 库存数量
      */
-    private Integer stock;
+    private Long stock;
 
 
     /**

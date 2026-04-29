@@ -1,6 +1,5 @@
 package com.buguagaoshu.food.dto;
 
-import lombok.Data;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -9,7 +8,7 @@ import java.util.Map;
 
 import com.buguagaoshu.food.enums.ReturnCodeEnum;
 
-@Data
+
 public class ResponseDetails extends HashMap<String, Object> {
       private ResponseDetails() {
         put("status", ReturnCodeEnum.SUCCESS.getCode());

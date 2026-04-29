@@ -4,6 +4,8 @@ import com.buguagaoshu.food.data.SpecValue;
 import com.buguagaoshu.food.repository.SpecValueRepository;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-04-27
@@ -22,5 +24,9 @@ public class SpecValueService {
 
     public void saveAllSpecValue(Iterable<SpecValue> specValues) {
         specValueRepository.saveAll(specValues);
+    }
+
+    public List<SpecValue> findSpecValueByGroupIds(List<Long> ids) {
+        return specValueRepository.findAllByGroupIdIn(ids);
     }
 }

@@ -43,7 +43,7 @@ public class CreateDishes {
     /**
      * 库存数量
      */
-    private Integer stock;
+    private Long stock;
 
 
     /**

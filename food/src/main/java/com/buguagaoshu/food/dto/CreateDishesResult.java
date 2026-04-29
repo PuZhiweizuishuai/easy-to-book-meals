@@ -2,6 +2,7 @@ package com.buguagaoshu.food.dto;
 
 import com.buguagaoshu.food.data.BaseFood;
 import com.buguagaoshu.food.data.ProductSku;
+import com.buguagaoshu.food.data.SpecGroup;
 import lombok.Data;
 
 import java.util.List;

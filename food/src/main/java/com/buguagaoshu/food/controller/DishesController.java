@@ -1,11 +1,10 @@
 package com.buguagaoshu.food.controller;
 
 
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import com.buguagaoshu.food.dto.CreateDishes;
+import org.springframework.web.bind.annotation.*;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.DishesService;
-import org.springframework.web.bind.annotation.PathVariable;
 
 
 /**
@@ -26,9 +25,14 @@ public class DishesController {
     /**
      * 获取该菜品的菜品信息与所有 SKU
      */
-    @RequestMapping("/{id}")
+    @GetMapping("/{id}")
     public ResponseDetails getDishes(@PathVariable Long id) {
-        return ResponseDetails.ok(dishesService.getDishes(id));
+        return ResponseDetails.ok().put("data", dishesService.getDishes(id));
     }
 
+
+    @PostMapping("/add")
+    public ResponseDetails saveDishes(@RequestBody CreateDishes createDishes) {
+        return ResponseDetails.ok().put("data", dishesService.createDishes(createDishes));
+    }
 }

@@ -26,8 +26,8 @@ public class FoodService {
 
     @Transactional(rollbackFor = Exception.class)
     public BaseFood saveFood(BaseFood food) {
-        food.setAllSales(0);
-        food.setMonthlySales(0);
+        food.setAllSales(0L);
+        food.setMonthlySales(0L);
         food.setStatus(WebConstant.ENABLE);
         BaseFood savedFood = this.baseFoodRepository.save(food);
         // 关联分类信息
@@ -35,5 +35,9 @@ public class FoodService {
             foodWithTagService.associationTag(savedFood.getId(), food.getCategoryIds());
         }
         return savedFood;
+    }
+
+    public BaseFood getFood(Long id) {
+        return baseFoodRepository.findById(id).get();
     }
 }

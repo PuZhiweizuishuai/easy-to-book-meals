@@ -10,7 +10,10 @@ import lombok.Data;
  */
 @Data
 @Entity
-@Table(name = "association_food_tag_table")
+@Table(name = "association_food_tag_table", indexes = {
+        @Index(name = "idx_association_food_foodId", columnList = "foodId"),
+        @Index(name = "idx_association_food_tagId", columnList = "tagId")
+})
 public class FoodWithTag {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

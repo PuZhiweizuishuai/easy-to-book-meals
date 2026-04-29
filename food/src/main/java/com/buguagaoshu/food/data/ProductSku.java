@@ -10,7 +10,10 @@ import java.math.BigDecimal;
  */
 @Data
 @Entity
-@Table(name = "product_sku_table")
+@Table(name = "product_sku_table", indexes = {
+        @Index(name = "idx_sku_dishId", columnList = "dishId"),
+        @Index(name = "idx_sku_status", columnList = "status")
+})
 public class ProductSku {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

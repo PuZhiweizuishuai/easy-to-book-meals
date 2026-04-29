@@ -13,7 +13,9 @@ import java.util.List;
  */
 @Data
 @Entity
-@Table(name = "spec_group_table")
+@Table(name = "spec_group_table", indexes = {
+        @Index(name = "idx_spec_group_dishId", columnList = "dishId")
+})
 public class SpecGroup {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

@@ -13,4 +13,6 @@ public interface SpecGroupRepository
         extends PagingAndSortingRepository<SpecGroup, Long>,
         CrudRepository<SpecGroup, Long> {
     List<SpecGroup> findByDishIdOrderBySortAsc(Long dishId);
+
+    List<SpecGroup> findByDishId(Long dishId);
 }

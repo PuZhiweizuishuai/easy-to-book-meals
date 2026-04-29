@@ -3,6 +3,7 @@ package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.BaseFood;
+import com.buguagaoshu.food.enums.PriceType;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.data.SpecGroup;
@@ -159,10 +160,10 @@ public class DishesService {
         }
         result.setFood(baseFood);
         // 从数据库中获取该菜品的所有 SKU
-        List<ProductSku> skuList = productSkuService.getProductSkuByDishId(id);
+        List<ProductSku> skuList = productSkuService.findByDishId(id);
         result.setSkuList(skuList);
         // 从数据库中获取该菜品的所有规格组
-        List<SpecGroup> specGroups = specGroupService.getSpecGroupByDishId(id);
+        List<SpecGroup> specGroups = specGroupService.getSpecGroupsByDishId(id);
         result.setSpecGroups(specGroups);
         return result;
     }

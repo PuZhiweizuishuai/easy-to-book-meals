@@ -11,7 +11,9 @@ import lombok.Data;
  */
 @Data
 @Entity
-@Table(name = "spec_value_table")
+@Table(name = "spec_value_table", indexes = {
+        @Index(name = "idx_spec_value_groupId", columnList = "groupId")
+})
 public class SpecValue {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)

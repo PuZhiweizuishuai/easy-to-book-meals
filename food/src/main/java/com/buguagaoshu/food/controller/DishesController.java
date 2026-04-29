@@ -2,6 +2,7 @@ package com.buguagaoshu.food.controller;
 
 
 import com.buguagaoshu.food.dto.CreateDishes;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.DishesService;
@@ -32,7 +33,7 @@ public class DishesController {
 
 
     @PostMapping("/add")
-    public ResponseDetails saveDishes(@RequestBody CreateDishes createDishes) {
+    public ResponseDetails saveDishes(@Valid @RequestBody CreateDishes createDishes) {
         return ResponseDetails.ok().put("data", dishesService.createDishes(createDishes));
     }
 }

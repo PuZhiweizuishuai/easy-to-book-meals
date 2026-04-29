@@ -33,8 +33,9 @@ public class ProductSku {
 
     /**
      * 该SKU的库存
+     * -1 表示不限库存
      */
-    private Integer stock;
+    private Integer stock = -1;
 
     /**
      * 折扣

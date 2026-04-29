@@ -14,4 +14,9 @@ public class WebConstant {
      * 禁用
      * */
     public final static int DISABLE = 0;
+
+    /**
+     * 无限库存
+     * */
+    public final static long UNLIMITED_INVENTORY = -1;
 }

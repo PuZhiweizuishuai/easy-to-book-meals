@@ -1,7 +1,9 @@
 package com.buguagaoshu.food.service;
 
+import com.buguagaoshu.food.data.BaseFood;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.data.SpecValue;
+import com.buguagaoshu.food.dto.CreateDishes;
 import com.buguagaoshu.food.repository.SpecGroupRepository;
 import com.buguagaoshu.food.repository.SpecValueRepository;
 import org.springframework.stereotype.Service;
@@ -33,8 +35,39 @@ public class SpecGroupService {
         return specGroupRepository.save(specGroup);
     }
 
-    public void saveAllSpecGroup(Iterable<SpecGroup> specGroups) {
-        specGroupRepository.saveAll(specGroups);
+    public Iterable<SpecGroup> saveALlGroups(List<SpecGroup> specGroups) {
+        return specGroupRepository.saveAll(specGroups);
+    }
+
+    /**
+     * 创建 SpecGroup 并保存
+     * */
+    public List<SpecGroup> createSpecGroups(CreateDishes createDishes, BaseFood baseFood) {
+        List<SpecGroup> specGroups = createDishes.getSpecGroups();
+        List<Long> specValueIds = new ArrayList<>();
+        if (specGroups != null && !specGroups.isEmpty()) {
+            for (SpecGroup specGroup : specGroups) {
+                specGroup.setDishId(baseFood.getId());
+            }
+            // 批量保存
+            saveALlGroups(specGroups);
+
+            for (SpecGroup specGroup : specGroups) {
+                // 3. 创建 SpecValue 并保存
+                List<SpecValue> specValues = specGroup.getValues();
+
+                if (specValues != null && !specValues.isEmpty()) {
+                    // 批量保存 SpecValue
+                    specValueService.saveAllSpecValue(specValues);
+
+                    for (SpecValue specValue : specValues) {
+                        specValue.setGroupId(specGroup.getId());
+                        specValueIds.add(specValue.getId());
+                    }
+                }
+            }
+        }
+        return specGroups;
     }
 
 
@@ -55,11 +88,6 @@ public class SpecGroupService {
 
         // 3. 批量查询出所有规格值 (返回的是 Iterable)
         Iterable<SpecValue> specValuesIterable = specValueService.findSpecValueByGroupIds(specGroupIds);
-
-        System.out.println(specGroupIds.size());
-        for (var s : specValuesIterable) {
-            System.out.println(s.getName());
-        }
 
         // 这样后续遍历时，直接通过 Map.get() 获取，无需反复过滤遍历
         Map<Long, List<SpecValue>> specValueMap = StreamSupport.stream(specValuesIterable.spliterator(), false)

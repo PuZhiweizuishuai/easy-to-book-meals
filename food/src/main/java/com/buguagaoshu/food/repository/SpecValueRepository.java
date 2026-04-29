@@ -12,7 +12,6 @@ import java.util.List;
 public interface SpecValueRepository
         extends PagingAndSortingRepository<SpecValue, Long>,
         CrudRepository<SpecValue, Long> {
-    List<SpecValue> findByGroupIdOrderBySortAsc(Long groupId);
 
     List<SpecValue> findAllByGroupIdIn(List<Long> groupIds);
 }

@@ -30,6 +30,7 @@ public class BaseFood {
     /**
      * 菜品描述
      */
+    @Column(columnDefinition = "longtext")
     private String description;
 
     /**
@@ -40,6 +41,7 @@ public class BaseFood {
     /**
      * 其它图片数组 ["url1","url2"]
      * */
+    @Column(columnDefinition = "text")
     private String imageList;
 
     /**
@@ -69,6 +71,7 @@ public class BaseFood {
 
     /**
      * 库存数量
+     * -1 不限制库存
      */
     private Long stock;
 

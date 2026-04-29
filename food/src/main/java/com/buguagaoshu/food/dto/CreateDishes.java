@@ -3,6 +3,7 @@ package com.buguagaoshu.food.dto;
 import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.enums.PriceType;
+import com.buguagaoshu.food.valid.ListValue;
 import lombok.Data;
 
 import java.util.List;
@@ -23,19 +24,22 @@ public class CreateDishes {
 
     /**
      * 首选显示照片
-     * */
+     *
+     */
     private String topImage;
 
     /**
      * 其它图片数组 ["url1","url2"]
-     * */
+     *
+     */
     private List<String> imageList;
 
     /**
      * 计价方式，默认按份
-     * */
+     *
+     */
+    @ListValue(value = {0, 1, 2})
     private Integer priceType = PriceType.FIXED.code;
-
 
 
     private List<FoodTag> categoryIds;
@@ -49,6 +53,7 @@ public class CreateDishes {
     /**
      * 菜品状态：0-下架，1-上架
      */
+    @ListValue(value = {0, 1})
     private Integer status;
 
 

@@ -3,13 +3,18 @@ package com.buguagaoshu.food.config;
 import com.buguagaoshu.food.cache.CommonlyUsedDataCache;
 import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.service.FoodTagService;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-04-26
  */
+@Configuration
+@Slf4j
 public class WebConfig {
     /**
      * 初始化方法
@@ -28,8 +33,10 @@ public class WebConfig {
                     FoodTag foodTag = new FoodTag();
                     foodTag.setName("推荐");
                     foodTagService.createTag(foodTag);
+                    log.info("默认食品标签缓存成功！");
                 }
             }
         };
     }
+
 }

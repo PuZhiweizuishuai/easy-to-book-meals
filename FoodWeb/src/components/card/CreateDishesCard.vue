@@ -44,8 +44,8 @@
         <input v-model="imageListText" type="text" placeholder="图片URL1,图片URL2,图片URL3" class="input input-bordered" />
       </div>
 
-      <!-- 计价方式和库存数量 -->
-      <!-- <div class="grid grid-cols-1 md:grid-cols-2 gap-4"> -->
+      <!-- 计价方式和默认价格 -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
         <!-- 计价方式 -->
         <div class="form-control">
           <label class="label">
@@ -59,14 +59,14 @@
           </select>
         </div>
 
-        <!-- 库存数量 -->
-        <!-- <div class="form-control">
+        <!-- 默认价格 -->
+        <div class="form-control">
           <label class="label">
-            <span class="label-text">库存数量（默认为-1：无限库存）</span>
+            <span class="label-text">默认价格</span>
           </label>
-          <input v-model.number="formData.stock" type="number" placeholder="请输入库存数量" class="input input-bordered" min="0" />
-        </div> -->
-      <!-- </div> -->
+          <input v-model.number="formData.unitPrice" type="number" placeholder="请输入默认价格" class="input input-bordered" min="0" step="0.01" />
+        </div>
+      </div>
 
       <!-- 分类选择 -->
       <div class="form-control">
@@ -164,7 +164,8 @@
   </div>
 </template>
 
-<script setup>import { ref, reactive, watch, getCurrentInstance, onMounted } from 'vue';
+<script setup>
+import { ref, reactive, watch, getCurrentInstance, onMounted } from 'vue';
 const props = defineProps({
   modelValue: {
     type: Object,
@@ -190,6 +191,7 @@ const formData = reactive({
   categoryIds: [],
   stock: -1,
   status: 1,
+  unitPrice: 0,
   specGroups: [
     {
       groupName: '',

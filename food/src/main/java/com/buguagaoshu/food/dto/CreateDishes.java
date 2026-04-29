@@ -6,6 +6,7 @@ import com.buguagaoshu.food.enums.PriceType;
 import com.buguagaoshu.food.valid.ListValue;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 /**
@@ -33,6 +34,9 @@ public class CreateDishes {
      *
      */
     private List<String> imageList;
+
+
+    private BigDecimal unitPrice;
 
     /**
      * 计价方式，默认按份

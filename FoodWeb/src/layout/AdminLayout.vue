@@ -10,7 +10,7 @@
           v-if="!isCollapsed" 
           class="font-bold text-xl text-primary whitespace-nowrap overflow-hidden transition-opacity"
         >
-          🍔 点餐后台
+          🍔 餐易订
         </div>
         <button 
           @click="toggleDrawer" 
@@ -118,12 +118,19 @@ const menuItems = [
   {
     path: '/admin/categories',
     label: '菜品分类',
-    icon: `<svg t="1777278012393" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="6148"><path d="M278.15 192.43h129.47a80 80 0 0 1 80 80v209.88H278.15a80 80 0 0 1-80-80V272.43a80 80 0 0 1 80-80zM752.31 482.31H542.84V272.43a80 80 0 0 1 80-80h129.47a80 80 0 0 1 80 80v129.88a80 80 0 0 1-80 80zM752.31 828.53H622.84a80 80 0 0 1-80-80V538.65h209.47a80 80 0 0 1 80 80v129.88a80 80 0 0 1-80 80zM278.15 538.64h209.47v209.88a80 80 0 0 1-80 80H278.15a80 80 0 0 1-80-80V618.64a80 80 0 0 1 80-80z" fill="#999999" p-id="6149"></path></svg>`
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+  <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
+</svg>
+`
   },
   {
     path: '/admin/memberships',
     label: '会员管理',
-    icon: `<svg t="1777278354441" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="15655"><path d="M148.992 344.107l54.87 466.56h616.277l54.869-466.56-171.093 114.048L512 189.483 320.085 458.155 148.992 344.107z m-29.483-122.24l179.158 119.466L477.269 91.307a42.667 42.667 0 0 1 69.462 0l178.602 250.026 179.2-119.466A42.667 42.667 0 0 1 970.54 262.4l-70.102 595.925A42.667 42.667 0 0 1 858.07 896H165.931a42.667 42.667 0 0 1-42.368-37.675L53.46 262.357a42.667 42.667 0 0 1 66.006-40.49zM512 640a85.333 85.333 0 1 1 0-170.667A85.333 85.333 0 0 1 512 640z" fill="#CDCDCD" p-id="15656"></path></svg>`
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+</svg>
+`
   }
 ]
 </script>

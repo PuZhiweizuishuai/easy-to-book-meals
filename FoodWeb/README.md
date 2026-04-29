@@ -36,3 +36,7 @@ npm run dev
 ```sh
 npm run build
 ```
+
+### 图标使用
+
+https://heroicons.com/

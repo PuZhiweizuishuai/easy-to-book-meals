@@ -64,6 +64,7 @@ public class ProductSkuService {
                 sku.setUnit(PriceType.getMsg(baseFood.getPriceType()));
                 sku.setUnitPrice(baseFood.getBasePrice());
                 sku.setStock(WebConstant.UNLIMITED_INVENTORY);
+                // 折扣
                 sku.setDiscount(1.0);
                 sku.setDiscountEndTime(0L);
                 try {

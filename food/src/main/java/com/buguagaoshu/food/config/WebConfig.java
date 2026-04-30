@@ -43,6 +43,7 @@ public class WebConfig {
                 if (CommonlyUsedDataCache.foodTagMap.isEmpty()) {
                     FoodTag foodTag = new FoodTag();
                     foodTag.setName("推荐");
+                    foodTag.setSort(0);
                     foodTagService.createTag(foodTag);
                     log.info("默认食品标签缓存成功！");
                 }

@@ -98,7 +98,8 @@
 
 <script setup>
 import { ref, onMounted } from 'vue';
-import { httpGet, httpPost } from '@/utils/fetch.js'; 
+import { httpGet, httpPost } from '@/utils/fetch.js';
+import { formatDate } from '@/utils/format.js';
 import toast from '@/utils/toast.js';
 import EditFoodTagCard from '@/components/card/EditFoodTagCard.vue';
 
@@ -173,17 +174,5 @@ const confirmDelete = async (id) => {
     console.error('删除失败:', error);
     toast.error('删除失败，请检查该分类下是否还有菜品');
   }
-};
-
-const formatDate = (timestamp) => {
-  if (!timestamp) return '-';
-  const date = new Date(timestamp);
-  return date.toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit'
-  });
 };
 </script>

@@ -4,6 +4,7 @@ import com.buguagaoshu.food.enums.PriceType;
 import jakarta.persistence.*;
 import lombok.Data;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 
@@ -49,6 +50,11 @@ public class BaseFood {
      * */
     private Integer priceType = PriceType.FIXED.code;
 
+    /**
+     * 基础价格
+     * */
+    private BigDecimal basePrice;
+
 
     /**
      * 接收前端分类数据
@@ -80,4 +86,10 @@ public class BaseFood {
      * 菜品状态：0-下架，1-上架
      */
     private Integer status;
+
+
+    private Long createTime;
+
+
+    private Long updateTime;
 }

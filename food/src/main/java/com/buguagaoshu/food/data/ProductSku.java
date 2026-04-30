@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.data;
 
+import com.buguagaoshu.food.config.WebConstant;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
@@ -35,7 +36,7 @@ public class ProductSku {
      * 该SKU的库存
      * -1 表示不限库存
      */
-    private Integer stock = -1;
+    private Long stock = WebConstant.UNLIMITED_INVENTORY;
 
     /**
      * 折扣

@@ -39,4 +39,30 @@ public class FoodWithTagService {
         });
         foodWithTagRepository.saveAll(foodWithTagList);
     }
+
+    public List<FoodTag> completionTag(List<FoodTag> tags) {
+        List<FoodTag> foodTagsInfo = new ArrayList<>();
+        for (FoodTag foodTag : tags) {
+            foodTagsInfo.add(CommonlyUsedDataCache.foodTagMap.get(foodTag.getId()));
+        }
+        return foodTagsInfo;
+    }
+
+    /**
+     * 获取菜品关联的分类信息
+     * */
+    public List<FoodTag> getFoodTag(Long foodId) {
+        List<FoodWithTag> foodTags = foodWithTagRepository.findAllByFoodId(foodId);
+        List<FoodTag> foodTagsInfo = new ArrayList<>();
+        if (foodTags != null && !foodTags.isEmpty()) {
+            for (FoodWithTag foodTag : foodTags) {
+                foodTagsInfo.add(CommonlyUsedDataCache.foodTagMap.get(foodTag.getTagId()));
+            }
+        }
+        return foodTagsInfo;
+    }
+
+    public List<FoodWithTag> findByFoodIdIn(List<Long> foodIds) {
+        return foodWithTagRepository.findByFoodIdIn(foodIds);
+    }
 }

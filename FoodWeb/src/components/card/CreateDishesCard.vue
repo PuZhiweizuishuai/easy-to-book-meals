@@ -187,7 +187,7 @@
 
                 <div class="flex flex-wrap sm:flex-nowrap gap-3 items-center mb-4 pb-3 border-b border-base-200/50">
                   <span class="badge badge-neutral text-xs font-bold w-12 shrink-0">组 {{ groupIndex + 1 }}</span>
-                  <input v-model="group.groupName" type="text" placeholder="规格名 (例: 辣度, 杯型)"
+                  <input v-model="group.name" type="text" placeholder="规格名 (例: 辣度, 杯型)"
                     class="input input-sm input-bordered flex-1 focus:input-primary min-w-[120px]" />
                   <button v-if="formData.specGroups.length > 1" type="button" @click="removeSpecGroup(groupIndex)"
                     class="btn btn-sm btn-circle btn-ghost text-error ml-auto tooltip" data-tip="删除该组">
@@ -200,12 +200,12 @@
                 </div>
 
                 <div class="space-y-3">
-                  <div v-for="(spec, specIndex) in group.specs" :key="specIndex"
+                  <div v-for="(spec, specIndex) in group.values" :key="specIndex"
                     class="flex items-center gap-2 sm:gap-3">
                     <input v-model="spec.name" type="text" placeholder="选项名称 (例: 微辣)"
                       class="input input-sm input-bordered flex-1 w-0 focus:input-primary" />
 
-                    <button v-if="group.specs.length > 1" type="button" @click="removeSpec(groupIndex, specIndex)"
+                    <button v-if="group.values.length > 1" type="button" @click="removeSpec(groupIndex, specIndex)"
                       class="btn btn-sm btn-square btn-ghost text-base-content/40 hover:text-error hover:bg-error/10 shrink-0">
                       <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                         stroke="currentColor">
@@ -285,8 +285,28 @@ const formData = reactive({
   unitPrice: 0,
   specGroups: [
     {
-      groupName: '',
-      specs: [
+      name: '',
+      values: [
+        { name: '', price: 0 }
+      ]
+    }
+  ]
+});
+
+const formDataInit = reactive({
+  name: '',
+  description: '',
+  topImage: '',
+  imageList: [],
+  priceType: 0,
+  categoryIds: [],
+  stock: -1,
+  status: 1,
+  unitPrice: 0,
+  specGroups: [
+    {
+      name: '',
+      values: [
         { name: '', price: 0 }
       ]
     }
@@ -357,8 +377,8 @@ const toggleCategory = (category) => {
 // 添加规格组
 const addSpecGroup = () => {
   formData.specGroups.push({
-    groupName: '',
-    specs: [
+    name: '',
+    values: [
       { name: '', price: 0 }
     ]
   });
@@ -369,11 +389,11 @@ const removeSpecGroup = (index) => {
 };
 // 添加规格选项
 const addSpec = (groupIndex) => {
-  formData.specGroups[groupIndex].specs.push({ name: '', price: 0 });
+  formData.specGroups[groupIndex].values.push({ name: '', price: 0 });
 };
 // 删除规格选项
 const removeSpec = (groupIndex, specIndex) => {
-  formData.specGroups[groupIndex].specs.splice(specIndex, 1);
+  formData.specGroups[groupIndex].values.splice(specIndex, 1);
 };
 // 获取标签列表
 const fetchTags = async () => {
@@ -404,6 +424,8 @@ const handleSubmit = async () => {
   const json = await httpPost('/dishes/add', formData);
   if (json && json.status === 200) {
     isSubmitting.value = false;
+    // 重置表单数据
+    Object.assign(formData, formDataInit);
     emit('submit', json.data);
   }
   else {

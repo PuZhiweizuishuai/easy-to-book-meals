@@ -60,10 +60,10 @@ public class ProductSkuService {
             for (List<Long> combination : combinations) {
                 ProductSku sku = new ProductSku();
                 sku.setDishId(baseFood.getId());
-                sku.setUnitPrice(BigDecimal.ZERO);
                 // unit 与 stock 相关，根据菜品的 priceType 来判断
                 sku.setUnit(PriceType.getMsg(baseFood.getPriceType()));
-                sku.setStock(0);
+                sku.setUnitPrice(baseFood.getBasePrice());
+                sku.setStock(WebConstant.UNLIMITED_INVENTORY);
                 sku.setDiscount(1.0);
                 sku.setDiscountEndTime(0L);
                 try {

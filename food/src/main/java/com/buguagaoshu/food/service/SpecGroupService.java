@@ -44,7 +44,7 @@ public class SpecGroupService {
      * */
     public List<SpecGroup> createSpecGroups(CreateDishes createDishes, BaseFood baseFood) {
         List<SpecGroup> specGroups = createDishes.getSpecGroups();
-        List<Long> specValueIds = new ArrayList<>();
+
         if (specGroups != null && !specGroups.isEmpty()) {
             for (SpecGroup specGroup : specGroups) {
                 specGroup.setDishId(baseFood.getId());
@@ -62,7 +62,6 @@ public class SpecGroupService {
 
                     for (SpecValue specValue : specValues) {
                         specValue.setGroupId(specGroup.getId());
-                        specValueIds.add(specValue.getId());
                     }
                 }
             }

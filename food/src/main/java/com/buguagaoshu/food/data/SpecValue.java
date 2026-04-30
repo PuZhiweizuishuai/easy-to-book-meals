@@ -32,5 +32,5 @@ public class SpecValue {
     /**
      * 排序权重
      */
-    private Integer sort;
+    private Integer sort = 0;
 }

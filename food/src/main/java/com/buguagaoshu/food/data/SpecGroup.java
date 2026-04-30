@@ -34,7 +34,7 @@ public class SpecGroup {
     /**
      * 排序权重
      */
-    private Integer sort;
+    private Integer sort = 0;
 
     /**
      * 【非数据库字段】用于前端展示，包含该组下的所有规格值

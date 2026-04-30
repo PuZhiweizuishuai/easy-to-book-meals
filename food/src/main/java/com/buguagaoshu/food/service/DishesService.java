@@ -1,22 +1,15 @@
 package com.buguagaoshu.food.service;
 
 
-import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.BaseFood;
-import com.buguagaoshu.food.enums.PriceType;
-import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.data.SpecGroup;
-import com.buguagaoshu.food.data.SpecValue;
 import com.buguagaoshu.food.dto.CreateDishes;
 import com.buguagaoshu.food.dto.CreateDishesResult;
-import com.buguagaoshu.food.utils.JsonUtils;
+import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import tools.jackson.databind.ObjectMapper;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -35,13 +28,17 @@ public class DishesService {
 
     private final ProductSkuService productSkuService;
 
+    private final FoodWithTagService foodWithTagService;
+
 
     public DishesService(FoodService foodService,
                          SpecGroupService specGroupService,
-                         ProductSkuService productSkuService) {
+                         ProductSkuService productSkuService,
+                         FoodWithTagService foodWithTagService) {
         this.foodService = foodService;
         this.specGroupService = specGroupService;
         this.productSkuService = productSkuService;
+        this.foodWithTagService = foodWithTagService;
     }
 
     /**
@@ -81,14 +78,21 @@ public class DishesService {
 
 
     /**
+     * 获取菜品列表
+     * */
+    public Page<BaseFood> findBaseFoodList(Integer page, Integer size, String key) {
+        return foodService.findAll(page, size, key);
+    }
+
+    /**
      * 获取该菜品的菜品信息与所有 SKU
      */
     public CreateDishesResult getDishes(Long id) {
         CreateDishesResult result = new CreateDishesResult();
         BaseFood baseFood = foodService.getFood(id);
-        if (baseFood == null) {
-            throw new BusinessException(404, "菜品不存在");
-        }
+
+        // 获取分类信息
+        baseFood.setCategoryIds(foodWithTagService.getFoodTag(baseFood.getId()));
         result.setFood(baseFood);
         // 从数据库中获取该菜品的所有 SKU
         List<ProductSku> skuList = productSkuService.findByDishId(id);

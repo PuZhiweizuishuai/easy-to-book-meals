@@ -39,7 +39,7 @@ const router = createRouter({
         },
         {
           path: 'dishes',
-          name: 'dishes',
+          name: 'DishManagement',
           component: DishManagement,
           meta: {
             requiresAuth: true, // 添加meta字段，标记需要认证才能访问
@@ -47,7 +47,7 @@ const router = createRouter({
         },
         {
           path: 'dishes/edit/:id',
-          name: 'editDish',
+          name: 'DishEdit',
           component: () => import('@/views/admin/dish/EditDishView.vue'),
           meta: {
             requiresAuth: true, // 添加meta字段，标记需要认证才能访问

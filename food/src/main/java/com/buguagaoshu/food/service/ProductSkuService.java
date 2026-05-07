@@ -10,9 +10,8 @@ import com.buguagaoshu.food.repository.ProductSkuRepository;
 import com.buguagaoshu.food.utils.JsonUtils;
 import org.springframework.stereotype.Service;
 
-import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -32,6 +31,71 @@ public class ProductSkuService {
 
     public List<ProductSku> findByDishId(Long dishId) {
         return productSkuRepository.findByDishId(dishId);
+    }
+
+    /**
+     * 批量更新 SKU 列表
+     * 只允许修改用户可编辑的属性，保护系统维护的属性不被篡改
+     * 系统维护的属性：dishId（关联菜品）、specs（由规格值笛卡尔积生成，不应直接修改）
+     *
+     * 注意：更新采用在原有数据上修改的模式，不删除重建，避免订单数据读取异常
+     * */
+    public List<ProductSku> updateSku(List<ProductSku> updateSkuList) {
+        List<ProductSku> updatedList = new ArrayList<>();
+
+        // 空值判断，避免空指针
+        if (updateSkuList == null || updateSkuList.isEmpty()) {
+            return updatedList;
+        }
+
+        // ===================== 优化开始 =====================
+        // 1. 提取所有要更新的 SKU ID 集合
+        List<Long> skuIds = updateSkuList.stream()
+                .map(ProductSku::getId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toList());
+
+        // 2. 批量一次性查询所有存在的 SKU（只查 1 次数据库！）
+        Iterable<ProductSku> existingSkuIterable = productSkuRepository.findAllById(skuIds);
+
+        // 3. 把 Iterable 转成 Map<id, ProductSku>
+        Map<Long, ProductSku> skuMap = new HashMap<>();
+        for (ProductSku sku : existingSkuIterable) {
+            skuMap.put(sku.getId(), sku);
+        }
+
+
+        // 4. 循环校验 + 更新属性
+        for (ProductSku updateData : updateSkuList) {
+            Long skuId = updateData.getId();
+            if (skuId == null) {
+                continue;
+            }
+
+            // 从 map 中获取，不走数据库
+            ProductSku existingSku = skuMap.get(skuId);
+            if (existingSku == null) {
+                continue;
+            }
+
+            // 5. 更新属性
+            existingSku.setDescription(updateData.getDescription());
+            existingSku.setUnitPrice(updateData.getUnitPrice());
+            existingSku.setUnit(updateData.getUnit());
+            existingSku.setStock(updateData.getStock());
+            existingSku.setDiscount(updateData.getDiscount());
+            existingSku.setDiscountEndTime(updateData.getDiscountEndTime());
+            existingSku.setStatus(updateData.getStatus());
+
+            updatedList.add(existingSku);
+        }
+
+        // 6. 批量保存
+        if (!updatedList.isEmpty()) {
+            productSkuRepository.saveAll(updatedList);
+        }
+
+        return updatedList;
     }
 
     /**
@@ -65,6 +129,7 @@ public class ProductSkuService {
                 sku.setUnitPrice(baseFood.getBasePrice());
                 sku.setStock(WebConstant.UNLIMITED_INVENTORY);
                 // 折扣
+                sku.setDescription("");
                 sku.setDiscount(1.0);
                 sku.setDiscountEndTime(0L);
                 try {

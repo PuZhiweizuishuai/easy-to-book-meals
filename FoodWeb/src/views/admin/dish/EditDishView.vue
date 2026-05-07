@@ -13,6 +13,12 @@
         </h1>
         <p class="text-sm text-base-content/60 mt-1">修改基本信息、规格及 SKU 售卖属性</p>
       </div>
+      <router-link to="/admin/dishes" class="btn btn-outline btn-primary gap-2">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+        </svg>
+        返回列表
+      </router-link>
     </div>
 
     <!-- 加载状态 -->
@@ -180,6 +186,7 @@
                   <th class="min-w-[120px]">库存<br /><span class="text-xs font-normal opacity-70">(-1为无限)</span></th>
                   <th class="min-w-[100px]">折扣<br /><span class="text-xs font-normal opacity-70">(0~1)</span></th>
                   <th class="min-w-[200px]">折扣到期时间</th>
+                  <th class="min-w-[250px]">描述/推荐</th>
                   <th>状态</th>
                 </tr>
               </thead>
@@ -227,6 +234,13 @@
                     </div>
                   </td>
 
+                  <!-- 描述/推荐 -->
+                  <td>
+                    <textarea v-model="sku.description"
+                      class="textarea textarea-sm textarea-bordered w-full h-16 resize-none"
+                      placeholder="该SKU的描述或推荐建议..."></textarea>
+                  </td>
+
                   <!-- SKU 状态 -->
                   <td>
                     <div class="flex flex-col items-center gap-1">
@@ -240,7 +254,7 @@
                 </tr>
                 <!-- 🟢 新增：当筛选结果为空时的友好提示 -->
                 <tr v-if="filteredSkuList.length === 0">
-                  <td colspan="6" class="text-center py-8 text-base-content/50">
+                  <td colspan="7" class="text-center py-8 text-base-content/50">
                     没有找到符合该筛选条件的规格组合，请尝试取消部分筛选条件
                   </td>
                 </tr>
@@ -264,14 +278,14 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import EditFoodTagCard from '@/components/card/EditFoodTagCard.vue';
-import { httpGet } from '@/utils/fetch.js'; // 你的 fetch 工具类
+import { httpGet, httpPost } from '@/utils/fetch.js'; // 你的 fetch 工具类
 import toast from '@/utils/toast.js';       // 你的 toast 工具类
 import { formatDate } from '@/utils/format.js';
-// 如果使用路由传参，请按需引入 useRoute
-// const route = useRoute();
-// const dishId = route.params.id;
-const dishId = 1; // 演示写死 ID 为 1
-
+import { useRoute, useRouter } from 'vue-router'
+const route = useRoute()
+const router = useRouter()
+const dishId = route.params.id
+console.log('当前编辑ID：', dishId)
 const isLoading = ref(true);
 
 // 核心表单数据对象
@@ -299,10 +313,17 @@ const fetchDishDetail = async () => {
       initData(res.data);
     } else {
       toast.error('获取菜品数据失败');
+      // 页面跳转
+      router.push({
+        name: 'DishManagement'
+      })
     }
   } catch (error) {
     console.error('Fetch error:', error);
     toast.error('网络请求错误，请检查网络');
+    router.push({
+      name: 'DishManagement'
+    })
   } finally {
     isLoading.value = false;
   }
@@ -414,7 +435,25 @@ const handleSave = () => {
   console.log(JSON.stringify(postData, null, 2));
   console.log('==============================');
 
-  toast.success('数据已在控制台打印，请按 F12 查看！', 4000);
+  // 提交数据到后端
+  httpPost('/dishes/update', postData)
+    .then(res => {
+      if (res && res.status === 200) {
+        toast.success('菜品更新成功');
+        // 页面跳转
+        // router.push({
+        //   name: 'DishManagement'
+        // })
+      } else {
+        toast.error('更新菜品失败');
+      }
+    })
+    .catch(error => {
+      console.error('更新菜品失败:', error);
+      toast.error('网络请求错误，请检查网络');
+    });
+
+
 };
 
 // ====== 新增：筛选器相关逻辑 ======

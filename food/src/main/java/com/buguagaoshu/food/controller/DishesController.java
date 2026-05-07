@@ -2,6 +2,7 @@ package com.buguagaoshu.food.controller;
 
 
 import com.buguagaoshu.food.dto.CreateDishes;
+import com.buguagaoshu.food.dto.CreateDishesResult;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -59,5 +60,13 @@ public class DishesController {
     @PostMapping("/add")
     public ResponseDetails saveDishes(@Valid @RequestBody CreateDishes createDishes) {
         return ResponseDetails.ok().put("data", dishesService.createDishes(createDishes));
+    }
+
+    /**
+     * 更新菜品
+     * */
+    @PostMapping("/update")
+    public ResponseDetails updateDishes(@Valid @RequestBody CreateDishesResult createDishesResult) {
+        return ResponseDetails.ok().put("data", dishesService.updateDishes(createDishesResult));
     }
 }

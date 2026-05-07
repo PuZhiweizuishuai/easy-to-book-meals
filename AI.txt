@@ -1,0 +1,156 @@
+请帮我用vue3与daisyui4设计完成一个菜品编辑的vue页面，这个页面使用我已经写好的fetch.js工具类来进行前后端传输数据，toast.js工具类用来显示消息提示，获取需要编辑数据的api地址为：/api/dishes/{id}，获取到的数据样式举例如下：
+{
+  "data": {
+    "food": {
+      "allSales": 0,
+      "basePrice": 20,
+      "categoryIds": [
+        {
+          "count": 0,
+          "createTime": 1777562065767,
+          "id": 2,
+          "name": "热菜",
+          "sort": 1
+        },
+        {
+          "count": 0,
+          "createTime": 1777561867256,
+          "id": 1,
+          "name": "推荐",
+          "sort": 0
+        }
+      ],
+      "createTime": 1777562173097,
+      "description": "宫保鸡丁",
+      "id": 1,
+      "imageList": "[\"https://picsum.photos/800/600\",\"https://picsum.photos/800/600\"]",
+      "monthlySales": 0,
+      "name": "宫保鸡丁",
+      "priceType": 0,
+      "status": 1,
+      "stock": -1,
+      "topImage": "https://picsum.photos/800/600",
+      "updateTime": 1777562173097
+    },
+    "skuList": [
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 1,
+        "specs": "[1,4]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      },
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 2,
+        "specs": "[1,5]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      },
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 3,
+        "specs": "[2,4]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      },
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 4,
+        "specs": "[2,5]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      },
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 5,
+        "specs": "[3,4]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      },
+      {
+        "discount": 1,
+        "discountEndTime": 0,
+        "dishId": 1,
+        "id": 6,
+        "specs": "[3,5]",
+        "status": 1,
+        "stock": -1,
+        "unit": "份",
+        "unitPrice": 20
+      }
+    ],
+    "specGroups": [
+      {
+        "dishId": 1,
+        "id": 1,
+        "name": "辣度",
+        "sort": 0,
+        "values": [
+          {
+            "groupId": 1,
+            "id": 1,
+            "name": "微辣",
+            "sort": 0
+          },
+          {
+            "groupId": 1,
+            "id": 2,
+            "name": "中辣",
+            "sort": 0
+          },
+          {
+            "groupId": 1,
+            "id": 3,
+            "name": "麻辣",
+            "sort": 0
+          }
+        ]
+      },
+      {
+        "dishId": 1,
+        "id": 2,
+        "name": "分量",
+        "sort": 0,
+        "values": [
+          {
+            "groupId": 2,
+            "id": 4,
+            "name": "小份",
+            "sort": 0
+          },
+          {
+            "groupId": 2,
+            "id": 5,
+            "name": "大份",
+            "sort": 0
+          }
+        ]
+      }
+    ]
+  },
+  "message": "成功",
+  "status": 200,
+  "timestamp": "2026-04-30T23:16:26.6252891"
+}
+你可以先参考CreateDishesCard创建菜品的组件来完成修改菜品信息，分类信息，specGroups分组信息的修改，sku部分修改需要重点支持修改单个sku的discount折扣信息，discountEndTime折扣终止日期，0为永久优惠，该sku单价unitPrice信息，stock库存信息以及该sku是否上架的status数据，status为0时是不上架，1是上架，要求页面充满设计感，优先使用daisyui4，并且页面要支持响应式，保障页面在移动端也能有较好的体验。目前你只需要完成页面展示与修改功能，保存修改数据的功能由于后端暂未完成，你只需要使用console.log()函数来打印修改后的数据，方便前端调试

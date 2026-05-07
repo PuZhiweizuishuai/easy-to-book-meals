@@ -5,7 +5,6 @@ import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.data.SpecValue;
 import com.buguagaoshu.food.dto.CreateDishes;
 import com.buguagaoshu.food.repository.SpecGroupRepository;
-import com.buguagaoshu.food.repository.SpecValueRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;

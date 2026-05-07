@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -72,6 +73,55 @@ public class DishesService {
         CreateDishesResult result = new CreateDishesResult();
         result.setFood(baseFood);
         result.setSkuList(skuList);
+        result.setSpecGroups(specGroups);
+        return result;
+    }
+
+
+    /**
+     * 更新菜品，逻辑如下：
+     * 1、在 foodService 中创建 updateFood 方法
+     *    updateFood 方法应该首先查询需要修改的食物是否存在，存在才进行下一步
+     *               创建新的 food 对象，复制用户要修改的属性，避免对如 allSales、updateTime这种由系统生成的数据被用户更改
+     *               处理分类变更 分类变更应该由 foodWithTagService 维护
+     *               保存数据变更
+     *               返回变更后的数据
+     * 2、暂时忽略对 SpecGroup 与 SpecValue 的变更
+     *               由于 sku 的生成与 SpecGroup 与 SpecValue 相关
+     *               直接变更这两属性可能造成 sku 列表数据异常，计划单独实现修改 SpecGroup 与 SpecValue 变更的方法
+     *               以便降低系统复杂度
+     * 3、在 productSkuService 方法中创建 updateSku方法，以便对用户上传的 sku 数据进行变更
+     *                         updateSku 变更方法应该与 updateFood 方法相同，都应该先校验该sku是否存在
+     *                         避免变更由系统维护的属性
+     *                         由于sku应该是一个列表
+     *                         保存变更应该批量保存、减少对数据库的读写
+     *                         最后返回修改后的sku
+     *
+     *  注意：更新数据方法不应该删除原有数据，而是在原有数据上进行修改，删除原有数据再创建新的数据的模式，会造成后期订单数据读取异常
+     * */
+    @Transactional(rollbackFor = Exception.class)
+    public CreateDishesResult updateDishes(CreateDishesResult createDishesResult) {
+        BaseFood updateFoodData = createDishesResult.getFood();
+        List<ProductSku> updateSkuList = createDishesResult.getSkuList();
+
+        // 1. 更新菜品基础信息（包含分类变更处理）
+        BaseFood updatedFood = foodService.updateFood(updateFoodData);
+
+        // 2. 暂时忽略对 SpecGroup 与 SpecValue 的变更
+        // 由于 SKU 的生成与 SpecGroup、SpecValue 相关，直接变更可能造成 SKU 列表数据异常
+        // 计划单独实现修改 SpecGroup 与 SpecValue 的方法，以降低系统复杂度
+        List<SpecGroup> specGroups = specGroupService.getSpecGroupsByDishId(updatedFood.getId());
+
+        // 3. 批量更新 SKU 列表（只修改用户可编辑的属性，保护系统维护的属性）
+        List<ProductSku> updatedSkuList = new ArrayList<>();
+        if (updateSkuList != null && !updateSkuList.isEmpty()) {
+            updatedSkuList = productSkuService.updateSku(updateSkuList);
+        }
+
+        // 4. 构建返回结果
+        CreateDishesResult result = new CreateDishesResult();
+        result.setFood(updatedFood);
+        result.setSkuList(updatedSkuList);
         result.setSpecGroups(specGroups);
         return result;
     }

@@ -74,6 +74,46 @@ public class FoodService {
         return savedFood;
     }
 
+    /**
+     * 更新菜品基础信息
+     * 只允许修改用户可编辑的属性，保护系统维护的属性不被篡改
+     * 系统维护的属性：allSales、monthlySales、createTime（这些由系统自动管理，不允许用户修改）
+     * */
+    @Transactional(rollbackFor = Exception.class)
+    public BaseFood updateFood(BaseFood updateData) {
+        // 1. 查询数据库中的原始记录，确认菜品存在
+        BaseFood existingFood = getFood(updateData.getId());
+
+        // 2. 复制用户可修改的属性到原始对象上（在原有数据上修改，不删除重建）
+        existingFood.setName(updateData.getName());
+        existingFood.setDescription(updateData.getDescription());
+        existingFood.setTopImage(updateData.getTopImage());
+        existingFood.setImageList(updateData.getImageList());
+        existingFood.setPriceType(updateData.getPriceType());
+        existingFood.setBasePrice(updateData.getBasePrice());
+        existingFood.setStock(updateData.getStock());
+        existingFood.setStatus(updateData.getStatus());
+
+        // 3. 更新系统维护的时间戳
+        existingFood.setUpdateTime(System.currentTimeMillis());
+
+        // 4. 保存修改
+        BaseFood savedFood = baseFoodRepository.save(existingFood);
+
+        // 5. 处理分类变更：先删除旧关联，再建立新关联
+        List<FoodTag> newCategoryIds = updateData.getCategoryIds();
+        foodWithTagService.updateCategoryTags(savedFood.getId(), newCategoryIds);
+
+        // 6. 补全分类信息用于返回
+        if (newCategoryIds != null && !newCategoryIds.isEmpty()) {
+            savedFood.setCategoryIds(foodWithTagService.completionTag(newCategoryIds));
+        } else {
+            savedFood.setCategoryIds(new ArrayList<>());
+        }
+
+        return savedFood;
+    }
+
     public BaseFood getFood(Long id) {
         try {
             return baseFoodRepository.findById(id).get();
@@ -95,7 +135,6 @@ public class FoodService {
                     PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime"))));
         }
 
-        // TODO 使用 key 查找菜品名称
         // 如果当前页没有数据，直接返回，避免后续无意义的查询
         if (baseFoods.isEmpty()) {
             return baseFoods;

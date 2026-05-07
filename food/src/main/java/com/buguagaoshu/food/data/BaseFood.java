@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.data;
 
 import com.buguagaoshu.food.enums.PriceType;
+import com.buguagaoshu.food.valid.ListValue;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -49,6 +50,7 @@ public class BaseFood {
     /**
      * 计价方式，默认按份
      * */
+    @ListValue(value = {0, 1, 2})
     private Integer priceType = PriceType.FIXED.code;
 
     /**
@@ -86,6 +88,7 @@ public class BaseFood {
     /**
      * 菜品状态：0-下架，1-上架
      */
+    @ListValue(value = {0, 1})
     private Integer status;
 
 

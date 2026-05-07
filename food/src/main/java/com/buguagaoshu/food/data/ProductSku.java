@@ -26,6 +26,11 @@ public class ProductSku {
     private Long dishId;
 
     /**
+     * 该sku的描述
+     * */
+    private String description = "";
+
+    /**
      * 该SKU的价格
      */
     private BigDecimal unitPrice;   // 单价（固定价格=总价，称重=每斤单价）

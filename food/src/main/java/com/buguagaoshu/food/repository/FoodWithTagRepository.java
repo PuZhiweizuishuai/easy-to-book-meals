@@ -18,4 +18,6 @@ public interface FoodWithTagRepository
     List<FoodWithTag> findAllByFoodId(Long foodId);
 
     List<FoodWithTag> findByFoodIdIn(List<Long> foodIds);
+
+    void deleteByFoodId(Long foodId);
 }

@@ -1,0 +1,241 @@
+参考createDishes方法的实现，帮我完成菜品更新的后端方法。要求代码层次清晰，如与food相关的方法，应该写入foodService中，提高代码可维护性与可读性，前端传递的修改数据样式如下，与CreateDishesResult类数据结构基本相同：
+{
+  "food": {
+    "allSales": 0,
+    "basePrice": 30,
+    "categoryIds": [
+      {
+        "count": 0,
+        "createTime": 1777561867256,
+        "id": 1,
+        "name": "推荐",
+        "sort": 0
+      },
+      {
+        "count": 0,
+        "createTime": 1777562065767,
+        "id": 2,
+        "name": "热菜",
+        "sort": 1
+      }
+    ],
+    "createTime": 1778159116135,
+    "description": "麻婆豆腐",
+    "id": 2,
+    "imageList": "[\"https://picsum.photos/800/600\",\"https://picsum.photos/800/600\"]",
+    "monthlySales": 0,
+    "name": "麻婆豆腐",
+    "priceType": 0,
+    "status": 1,
+    "stock": -1,
+    "topImage": "https://picsum.photos/800/600",
+    "updateTime": 1778159116135
+  },
+  "specGroups": [
+    {
+      "dishId": 2,
+      "id": 52,
+      "name": "辣度",
+      "sort": 0,
+      "values": [
+        {
+          "groupId": 52,
+          "id": 52,
+          "name": "微辣",
+          "sort": 0
+        },
+        {
+          "groupId": 52,
+          "id": 53,
+          "name": "中辣",
+          "sort": 0
+        },
+        {
+          "groupId": 52,
+          "id": 54,
+          "name": "特辣",
+          "sort": 0
+        }
+      ]
+    }
+  ],
+  "skuList": [
+    {
+      "description": "超级推荐",
+      "discount": 1,
+      "discountEndTime": 0,
+      "dishId": 2,
+      "id": 52,
+      "specs": "[52]",
+      "status": 1,
+      "stock": -1,
+      "unit": "份",
+      "unitPrice": 30
+    },
+    {
+      "description": "",
+      "discount": 1,
+      "discountEndTime": 0,
+      "dishId": 2,
+      "id": 53,
+      "specs": "[53]",
+      "status": 1,
+      "stock": -1,
+      "unit": "份",
+      "unitPrice": 30
+    },
+    {
+      "description": "",
+      "discount": 1,
+      "discountEndTime": 0,
+      "dishId": 2,
+      "id": 54,
+      "specs": "[54]",
+      "status": 1,
+      "stock": -1,
+      "unit": "份",
+      "unitPrice": 30
+    }
+  ]
+}
+
+
+
+
+我来帮你优化这段提示词，使其更加清晰和完整：好的，我已经分析了您提供的原始提示词和相关的最佳实践，现在为您提供优化后的提示词：
+
+优化后的提示词：
+
+请参考 createDishes 方法的实现模式，帮我完成菜品更新的后端方法实现，并严格按照以下要求进行：
+
+代码架构要求
+分层架构：严格按照 MVC 模式分层，如与 food 相关的业务逻辑统一写入 FoodService 中，提高代码可维护性与可读性
+职责分离：Controller 只负责接收请求和返回响应，Service 层处理业务逻辑，Repository 层负责数据访问
+
+数据校验要求  
+使用 Spring Validation（JSR-303/JSR-380）对所有字段进行校验
+  food.id：必须为正整数（用于标识要更新的菜品）
+  food.name：必填，长度限制 1-50 字符
+  food.basePrice：必须为大于等于 0 的数值
+  food.categoryIds：非空数组，每个分类对象的 id 必须为正整数
+  food.imageList：JSON 格式的图片 URL 数组，至少包含一张图片
+  food.status：限定为 0（下架）或 1（上架）
+  specGroups 和 skuList：根据业务需求进行相应校验
+分组校验：如有必要，使用分组校验区分创建和更新场景
+
+业务逻辑要求
+数据一致性：更新菜品时，同步更新相关的规格组（specGroups）和 SKU（skuList）信息
+事务管理：使用 @Transactional 确保更新操作的原子性
+幂等性处理：考虑到网络重试等因素，确保更新操作具备幂等性
+数据完整性：验证菜品是否存在、分类是否有效等
+
+前端传递的修改数据样式（供参考）
+{
+  "food": {
+    "id": 2,
+    "name": "麻婆豆腐",
+    "description": "麻婆豆腐",
+    "basePrice": 30,
+    "priceType": 0,
+    "status": 1,
+    "stock": -1,
+    "allSales": 0,
+    "monthlySales": 0,
+    "topImage": "https://picsum.photos/800/600",
+    "imageList": "["https://picsum.photos/800/600","https://picsum.photos/800/600"]",
+    "categoryIds": [
+      {
+        "id": 1,
+        "name": "推荐",
+        "count": 0,
+        "sort": 0,
+        "createTime": 1777561867256
+      },
+      {
+        "id": 2,
+        "name": "热菜",
+        "count": 0,
+        "sort": 1,
+        "createTime": 1777562065767
+      }
+    ],
+    "createTime": 1778159116135,
+    "updateTime": 1778159116135
+  },
+  "specGroups": [
+    {
+      "id": 52,
+      "dishId": 2,
+      "name": "辣度",
+      "sort": 0,
+      "values": [
+        {
+          "id": 52,
+          "groupId": 52,
+          "name": "微辣",
+          "sort": 0
+        },
+        {
+          "id": 53,
+          "groupId": 52,
+          "name": "中辣",
+          "sort": 0
+        },
+        {
+          "id": 54,
+          "groupId": 52,
+          "name": "特辣",
+          "sort": 0
+        }
+      ]
+    }
+  ],
+  "skuList": [
+    {
+      "id": 52,
+      "dishId": 2,
+      "specs": "[52]",
+      "unitPrice": 30,
+      "unit": "份",
+      "stock": -1,
+      "status": 1,
+      "discount": 1,
+      "discountEndTime": 0,
+      "description": "超级推荐"
+    },
+    {
+      "id": 53,
+      "dishId": 2,
+      "specs": "[53]",
+      "unitPrice": 30,
+      "unit": "份",
+      "stock": -1,
+      "status": 1,
+      "discount": 1,
+      "discountEndTime": 0,
+      "description": ""
+    },
+    {
+      "id": 54,
+      "dishId": 2,
+      "specs": "[54]",
+      "unitPrice": 30,
+      "unit": "份",
+      "stock": -1,
+      "status": 1,
+      "discount": 1,
+      "discountEndTime": 0,
+      "description": ""
+    }
+  ]
+}
+
+请提供完整的 Controller、Service 及相关的校验代码实现。
+
+这个优化后的提示词相比原版本有了以下改进：
+
+结构化组织：使用标题分段，使各项要求更清晰
+具体化要求：明确了分层架构、DTO设计、校验规则、事务管理等具体技术要求
+强调最佳实践：加入了幂等性、数据一致性、异常处理等企业级应用的关键要素
+保持原有信息：保留了原始的 JSON 数据结构作为参考
+可操作性强：AI可以根据这些明确的指导来生成符合规范的代码

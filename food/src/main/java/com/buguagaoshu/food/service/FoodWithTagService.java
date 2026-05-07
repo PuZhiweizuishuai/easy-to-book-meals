@@ -65,4 +65,15 @@ public class FoodWithTagService {
     public List<FoodWithTag> findByFoodIdIn(List<Long> foodIds) {
         return foodWithTagRepository.findByFoodIdIn(foodIds);
     }
+
+    /**
+     * 更新菜品关联的分类信息
+     * 先删除旧的关联关系，再建立新的关联关系
+     * */
+    public void updateCategoryTags(Long foodId, List<FoodTag> newTags) {
+        foodWithTagRepository.deleteByFoodId(foodId);
+        if (newTags != null && !newTags.isEmpty()) {
+            associationTag(foodId, newTags);
+        }
+    }
 }

@@ -122,7 +122,7 @@
                 <td>{{ formatDate(dish.createTime) }}</td>
                 <td class="text-right">
                   <div class="join">
-                    <button class="btn btn-ghost btn-sm join-item">编辑</button>
+                    <button class="btn btn-ghost btn-sm join-item" @click="editDish(dish)">编辑</button>
                     <button
                       :class="['btn btn-ghost btn-sm join-item', dish.status === 1 ? 'text-error' : 'text-success']">
                       {{ dish.status === 1 ? '下架' : '上架' }}
@@ -155,7 +155,8 @@ import CreateDishesCard from '@/components/card/CreateDishesCard.vue';
 import toast from '@/utils/toast';
 import { httpGet } from '@/utils/fetch.js';
 import { formatDate } from '@/utils/format.js';
-
+import { useRouter } from 'vue-router'
+const router = useRouter() // 拿到路由实例
 const showCreateForm = ref(false);
 const dishList = ref([]);
 const currentPage = ref(0);
@@ -182,9 +183,10 @@ const fetchDishList = async (page = 1, size = 10, key = '') => {
     const response = await httpGet(url);
     if (response.status === 200) {
       dishList.value = response.data.content;
-      currentPage.value = response.data.number + 1;
-      totalPages.value = response.data.totalPages;
-      pageSize.value = response.data.size;
+
+      currentPage.value = response.data.page.number + 1;
+      totalPages.value = response.data.page.totalPages;
+      pageSize.value = response.data.page.size;
     } else {
       toast.error(response.message || '获取菜品列表失败');
     }
@@ -215,7 +217,20 @@ const handleCreateSuccess = (data) => {
   showCreateForm.value = false;
   toast.success('菜品添加成功！');
   fetchDishList(1, pageSize.value, searchKey.value);
+  router.push({
+    name: 'DishEdit', // 用路由 name 最稳定
+    params: { id: data.food.id } // 自动拼接成 /admin/dishes/edit/123
+  })
+
 };
+
+const editDish = (dish) => {
+  console.log(dish)
+  router.push({
+    name: 'DishEdit',
+    params: { id: dish.id }
+  })
+}
 
 onMounted(() => {
   fetchDishList(1, pageSize.value, searchKey.value);

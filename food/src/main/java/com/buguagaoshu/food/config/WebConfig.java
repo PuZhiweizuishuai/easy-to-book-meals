@@ -5,9 +5,12 @@ import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.service.FoodTagService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.boot.web.error.ErrorPage;
+import org.springframework.boot.web.server.ConfigurableWebServerFactory;
+import org.springframework.boot.web.server.WebServerFactoryCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import tools.jackson.databind.ObjectMapper;
+import org.springframework.http.HttpStatus;
 
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -48,6 +51,15 @@ public class WebConfig {
                     log.info("默认食品标签缓存成功！");
                 }
             }
+        };
+    }
+
+
+    @Bean
+    public WebServerFactoryCustomizer<ConfigurableWebServerFactory> webServerFactoryCustomizer(){
+        return factory -> {
+            ErrorPage error404Page = new ErrorPage(HttpStatus.NOT_FOUND, "/index.html");
+            factory.addErrorPages(error404Page);
         };
     }
 

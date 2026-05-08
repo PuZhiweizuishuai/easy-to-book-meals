@@ -1,9 +1,14 @@
 package com.buguagaoshu.food.data;
 
 import com.buguagaoshu.food.config.WebConstant;
+import com.buguagaoshu.food.utils.JsonUtils;
+import com.buguagaoshu.food.utils.MD5Util;
 import jakarta.persistence.*;
 import lombok.Data;
 import java.math.BigDecimal;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -28,6 +33,7 @@ public class ProductSku {
     /**
      * 该sku的描述
      * */
+    @Column(columnDefinition = "text")
     private String description = "";
 
     /**
@@ -55,13 +61,57 @@ public class ProductSku {
     private Long discountEndTime;
 
     /**
+     * 总销量
+     */
+    private Long sales;
+
+    /**
      * 规格值ID的JSON数组，例如 "[1, 5]"
      * 1 和 5 分别代表 spec_value 表中的ID
+     * 由小到大排序
      */
+    @Column(columnDefinition = "text")
     private String specs;
+
+    /**
+     * 规格值ID的JSON数组 MD5 值
+     * */
+    private String specsHash;
+
+
+    /**
+     * 规格值名称缓存
+     * ["", ""]
+     * */
+    @Column(columnDefinition = "text")
+    private String specNames;
 
     /**
      * 是否启用：1-启用，0-禁用
      */
     private Integer status;
+
+    public void setSpecs(List<Long> specs) {
+        // 由小到大排序
+        Collections.sort(specs);
+        //
+        try {
+            this.specs = JsonUtils.toJson(specs);
+        } catch (Exception e) {
+            this.specs = "[]";
+        }
+    }
+
+    public void setSpecNames(Map<Long, String> specNames) {
+        try {
+            this.specNames = JsonUtils.toJson(specNames);
+        } catch (Exception e) {
+            this.specNames = "[]";
+        }
+    }
+
+
+    public void setSpecsHash(String specs) {
+        this.specsHash = MD5Util.getMD5(specs);
+    }
 }

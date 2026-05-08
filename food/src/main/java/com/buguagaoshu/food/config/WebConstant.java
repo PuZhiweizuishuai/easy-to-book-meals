@@ -16,6 +16,13 @@ public class WebConstant {
     public final static int DISABLE = 0;
 
     /**
+     * 锁定状态，不允许修改
+     * 如当规格组发生变化导致没有当前规格，旧规格的sku将被锁定
+     * 无法被编辑，只能查看
+     * */
+    public final static int LOCK = 2;
+
+    /**
      * 无限库存
      * */
     public final static long UNLIMITED_INVENTORY = -1;

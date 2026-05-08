@@ -29,4 +29,8 @@ public class SpecValueService {
     public List<SpecValue> findSpecValueByGroupIds(List<Long> ids) {
         return specValueRepository.findAllByGroupIdIn(ids);
     }
+
+    public void deleteAllSpecValue(List<Long> ids) {
+        specValueRepository.deleteAllById(ids);
+    }
 }

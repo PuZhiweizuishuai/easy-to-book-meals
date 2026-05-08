@@ -4,12 +4,14 @@ import com.buguagaoshu.food.data.BaseFood;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.data.SpecValue;
 import com.buguagaoshu.food.dto.CreateDishes;
+import com.buguagaoshu.food.dto.UpdateSpecGroupDto;
 import com.buguagaoshu.food.repository.SpecGroupRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 
@@ -66,6 +68,155 @@ public class SpecGroupService {
             }
         }
         return specGroups;
+    }
+
+    /**
+     * 更新 SpecGroup
+     * 逻辑如下：
+     * 1、获取用户传递过来需要更新的 SpecGroup 组
+     * 2、使用 getSpecGroupsByDishId 方法获取当前数据库中的 SpecGroup 组
+     * 3、将用户传递过来的新的  SpecGroup 组与旧 SpecGroup 对比
+     * 4、批量更新并保存数据
+     * 5、返回新的 SpecGroup 组数据
+     * */
+    public List<SpecGroup> updateSpecGroups(UpdateSpecGroupDto updateSpecGroupDto) {
+        // 1. 获取用户传递过来需要更新的 SpecGroup 组
+        List<SpecGroup> newSpecGroups = updateSpecGroupDto.getSpecGroups();
+        Long dishId = updateSpecGroupDto.getDishesId();
+
+        if (newSpecGroups == null || newSpecGroups.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 2. 使用 getSpecGroupsByDishId 方法获取当前数据库中的 SpecGroup 组
+        List<SpecGroup> oldSpecGroups = getSpecGroupsByDishId(dishId);
+
+        // 将旧规格组转换为 Map，方便查找
+        Map<Long, SpecGroup> oldSpecGroupMap = oldSpecGroups.stream()
+                .collect(Collectors.toMap(SpecGroup::getId, group -> group));
+
+        // 3. 对比新旧数据，进行增删改操作
+        List<SpecGroup> updatedGroups = new ArrayList<>();
+        List<SpecGroup> groupsToSave = new ArrayList<>();
+        List<Long> oldGroupIds = oldSpecGroups.stream()
+                .map(SpecGroup::getId)
+                .toList();
+        List<Long> newGroupIds = newSpecGroups.stream()
+                .map(SpecGroup::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 找出需要删除的规格组ID
+        List<Long> groupIdsToDelete = oldGroupIds.stream()
+                .filter(id -> !newGroupIds.contains(id))
+                .collect(Collectors.toList());
+
+        for (SpecGroup newGroup : newSpecGroups) {
+            newGroup.setDishId(dishId);
+            
+            if (newGroup.getId() != null && oldSpecGroupMap.containsKey(newGroup.getId())) {
+                // 更新现有规格组
+                SpecGroup oldGroup = oldSpecGroupMap.get(newGroup.getId());
+                // 更新名称和排序
+                oldGroup.setName(newGroup.getName());
+                oldGroup.setSort(newGroup.getSort());
+                
+                // 处理规格值
+                updateSpecValues(oldGroup, newGroup.getValues());
+                
+                groupsToSave.add(oldGroup);
+                updatedGroups.add(oldGroup);
+            } else {
+                // 创建新规格组
+                newGroup.setId(null); // 确保是新增
+                SpecGroup savedGroup = saveSpecGroup(newGroup);
+                
+                // 处理规格值
+                List<SpecValue> newValues = newGroup.getValues();
+                if (newValues != null && !newValues.isEmpty()) {
+                    for (SpecValue value : newValues) {
+                        value.setGroupId(savedGroup.getId());
+                    }
+                    specValueService.saveAllSpecValue(newValues);
+                    savedGroup.setValues(newValues);
+                }
+                
+                updatedGroups.add(savedGroup);
+            }
+        }
+
+        // 删除需要删除的规格组
+        if (!groupIdsToDelete.isEmpty()) {
+            specGroupRepository.deleteAllById(groupIdsToDelete);
+        }
+
+        // 4. 批量更新并保存数据
+        if (!groupsToSave.isEmpty()) {
+            saveALlGroups(groupsToSave);
+        }
+
+        // 5. 返回新的 SpecGroup 组数据
+        return updatedGroups;
+    }
+
+    /**
+     * 更新规格值
+     * */
+    private void updateSpecValues(SpecGroup group, List<SpecValue> newValues) {
+        List<SpecValue> oldValues = group.getValues();
+        if (oldValues == null) {
+            oldValues = new ArrayList<>();
+        }
+        if (newValues == null) {
+            newValues = new ArrayList<>();
+        }
+
+        // 将旧规格值转换为 Map
+        Map<Long, SpecValue> oldValueMap = oldValues.stream()
+                .collect(Collectors.toMap(SpecValue::getId, value -> value));
+
+        List<SpecValue> valuesToSave = new ArrayList<>();
+        List<Long> oldValueIds = oldValues.stream()
+                .map(SpecValue::getId)
+                .toList();
+        List<Long> newValueIds = newValues.stream()
+                .map(SpecValue::getId)
+                .filter(Objects::nonNull)
+                .toList();
+
+        // 找出需要删除的规格值ID
+        List<Long> valueIdsToDelete = oldValueIds.stream()
+                .filter(id -> !newValueIds.contains(id))
+                .collect(Collectors.toList());
+
+        for (SpecValue newValue : newValues) {
+            newValue.setGroupId(group.getId());
+            
+            if (newValue.getId() != null && oldValueMap.containsKey(newValue.getId())) {
+                // 更新现有规格值
+                SpecValue oldValue = oldValueMap.get(newValue.getId());
+                oldValue.setName(newValue.getName());
+                oldValue.setSort(newValue.getSort());
+                valuesToSave.add(oldValue);
+            } else {
+                // 创建新规格值
+                newValue.setId(null);
+                valuesToSave.add(newValue);
+            }
+        }
+
+        // 保存规格值
+        if (!valuesToSave.isEmpty()) {
+            specValueService.saveAllSpecValue(valuesToSave);
+        }
+
+        // 删除需要删除的规格值
+        if (!valueIdsToDelete.isEmpty()) {
+            specValueService.deleteAllSpecValue(valueIdsToDelete);
+        }
+
+        // 更新组中的规格值列表
+        group.setValues(newValues);
     }
 
 

@@ -129,11 +129,31 @@
           @submit="handleAddCategory" />
       </Teleport>
 
+      <!-- 模块 4：规格配置 -->
+      <Teleport to="body">
+        <SpecConfigCard :show="showSpecModal" :dishesId="dishId" :specData="{ specGroups: formData.specGroups }"
+          @close="showSpecModal = false" @submit="handleSpecSubmit" />
+
+
+      </Teleport>
+
+
       <!-- 模块 3：SKU 详细配置 (核心要求) -->
       <div class="card bg-base-100 shadow-sm border border-base-200">
         <div class="card-body p-0 sm:p-8">
-          <h2 class="card-title text-lg border-b border-base-200 pb-2 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">📦 SKU
-            价格与库存管理</h2>
+          <div class="flex items-center justify-between border-b border-base-200 pb-2 mb-4 px-4 sm:px-0 pt-4 sm:pt-0">
+            <h2 class="card-title text-lg">📦 SKU 价格与库存管理</h2>
+            <button type="button" @click="showSpecModal = true" class="btn btn-xs btn-outline btn-primary rounded-full">
+              <svg class="h-3 w-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5"
+                stroke="currentColor" >
+                <path stroke-linecap="round" stroke-linejoin="round"
+                  d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L6.832 19.82a4.5 4.5 0 0 1-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 0 1 1.13-1.897L16.863 4.487Zm0 0L19.5 7.125" />
+              </svg>
+
+              规格管理
+            </button>
+          </div>
+
 
           <!-- 🟢 新增：交互式筛选器区域 -->
           <div v-if="formData.specGroups && formData.specGroups.length > 0"
@@ -191,7 +211,10 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="sku in filteredSkuList" :key="sku.id" :class="{ 'opacity-60': sku.status === 0 }">
+                <tr v-for="sku in filteredSkuList" :key="sku.id" :class="{
+                  'opacity-60': sku.status === 0,
+                  'opacity-50 bg-base-300/30': sku.status === 2
+                }">
                   <!-- 规格解析展示 -->
                   <td class="font-medium">
                     <div class="flex flex-wrap gap-1">
@@ -200,36 +223,46 @@
                         class="badge badge-sm border-transparent shadow-sm text-white" :class="spec.colorClass">
                         {{ spec.name }}
                       </span>
+                      <span v-if="sku.status === 2" class="badge badge-sm badge-error gap-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path fill-rule="evenodd"
+                            d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z"
+                            clip-rule="evenodd" />
+                        </svg>
+                        规格已失效
+                      </span>
                     </div>
                   </td>
 
                   <!-- 单价 -->
                   <td>
                     <input v-model.number="sku.unitPrice" type="number" step="0.01"
-                      class="input input-sm input-bordered w-full max-w-[100px]" />
+                      class="input input-sm input-bordered w-full max-w-[100px]" :disabled="sku.status === 2" />
                   </td>
 
                   <!-- 库存 -->
                   <td>
                     <input v-model.number="sku.stock" type="number"
-                      class="input input-sm input-bordered w-full max-w-[100px]" />
+                      class="input input-sm input-bordered w-full max-w-[100px]" :disabled="sku.status === 2" />
                   </td>
 
                   <!-- 折扣 -->
                   <td>
                     <input v-model.number="sku.discount" type="number" step="0.01" max="1" min="0"
-                      class="input input-sm input-bordered w-full max-w-[80px]" />
+                      class="input input-sm input-bordered w-full max-w-[80px]" :disabled="sku.status === 2" />
                   </td>
 
                   <!-- 折扣到期时间 -->
                   <td>
                     <div class="flex flex-col gap-1">
-                      <label class="cursor-pointer label p-0 justify-start gap-2">
-                        <input type="checkbox" v-model="sku._isPermanent"
-                          class="checkbox checkbox-xs checkbox-primary" />
+                      <label class="cursor-pointer label p-0 justify-start gap-2"
+                        :class="{ 'opacity-50': sku.status === 2 }">
+                        <input type="checkbox" v-model="sku._isPermanent" class="checkbox checkbox-xs checkbox-primary"
+                          :disabled="sku.status === 2" />
                         <span class="label-text text-xs">永久优惠 (无期限)</span>
                       </label>
-                      <input v-model="sku._endTimeStr" type="datetime-local" :disabled="sku._isPermanent"
+                      <input v-model="sku._endTimeStr" type="datetime-local"
+                        :disabled="sku._isPermanent || sku.status === 2"
                         class="input input-sm input-bordered w-full text-xs" />
                     </div>
                   </td>
@@ -238,16 +271,16 @@
                   <td>
                     <textarea v-model="sku.description"
                       class="textarea textarea-sm textarea-bordered w-full h-16 resize-none"
-                      placeholder="该SKU的描述或推荐建议..."></textarea>
+                      placeholder="该SKU的描述或推荐建议..." :disabled="sku.status === 2"></textarea>
                   </td>
 
                   <!-- SKU 状态 -->
                   <td>
                     <div class="flex flex-col items-center gap-1">
                       <input v-model="sku.status" type="checkbox" :true-value="1" :false-value="0"
-                        class="toggle toggle-sm toggle-success" />
+                        class="toggle toggle-sm toggle-success" :disabled="sku.status === 2" />
                       <span class="text-[10px]" :class="sku.status === 1 ? 'text-success' : 'text-base-content/50'">
-                        {{ sku.status === 1 ? '上架' : '下架' }}
+                        {{ sku.status === 1 ? '上架' : (sku.status === 2 ? '已失效' : '下架') }}
                       </span>
                     </div>
                   </td>
@@ -278,6 +311,7 @@
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue';
 import EditFoodTagCard from '@/components/card/EditFoodTagCard.vue';
+import SpecConfigCard from '@/components/card/SpecConfigCard.vue';
 import { httpGet, httpPost } from '@/utils/fetch.js'; // 你的 fetch 工具类
 import toast from '@/utils/toast.js';       // 你的 toast 工具类
 import { formatDate } from '@/utils/format.js';
@@ -285,6 +319,7 @@ import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const dishId = route.params.id
+const showSpecModal = ref(false)
 console.log('当前编辑ID：', dishId)
 const isLoading = ref(true);
 
@@ -410,6 +445,26 @@ const handleSave = () => {
       // 组装最终需要发送的单个 sku 对象
       const processedSku = { ...sku };
 
+      if (typeof processedSku.specNames === 'string') {
+        try {
+          processedSku.specNames = JSON.parse(processedSku.specNames);
+        } catch (e) {
+          console.error('specNames 解析失败', e);
+          // 如果解析失败，可以选择设为空对象 {} 防止后端报错，或者保留原值看后端如何处理
+          processedSku.specNames = {};
+        }
+      }
+
+      // 处理 specs: 通常也需要从字符串转为对象数组
+      if (typeof processedSku.specs === 'string') {
+        try {
+          processedSku.specs = JSON.parse(processedSku.specs);
+        } catch (e) {
+          console.error('specs 解析失败', e);
+          processedSku.specs = [];
+        }
+      }
+
       // 处理时间：如果是永久，设为0；否则将字符串解析回时间戳
       if (sku._isPermanent || !sku._endTimeStr) {
         processedSku.discountEndTime = 0;
@@ -430,7 +485,6 @@ const handleSave = () => {
   const imagesArray = uiState.imageListStr.split(',').map(s => s.trim()).filter(Boolean);
   postData.food.imageList = JSON.stringify(imagesArray);
 
-  // 【核心要求】：由于后端暂未完成，只打印并弹出提示
   console.log('======= 准备保存的数据 =======');
   console.log(JSON.stringify(postData, null, 2));
   console.log('==============================');
@@ -557,6 +611,18 @@ const handleAddCategory = async (payload) => {
   } catch (error) {
     toast.error('操作分类失败');
   }
+};
+
+// 规格提交成功回调
+const handleSpecSubmit = (submitData) => {
+  console.log('规格配置提交成功:', submitData);
+  // 可执行刷新数据、关闭弹窗等操作
+};
+
+// 取消规格配置回调
+const handleSpecCancel = () => {
+  console.log('取消规格配置');
+  // 可执行关闭弹窗等操作
 };
 
 // 页面加载触发

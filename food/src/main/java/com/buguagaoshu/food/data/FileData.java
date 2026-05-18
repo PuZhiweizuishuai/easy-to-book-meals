@@ -93,7 +93,6 @@ public class FileData {
 
     /**
      * 文件存储状态
-     *
      * 0  未保存的临时文件，后期删除
      * 1  保存成功并发布的文件
      * */
@@ -111,4 +110,9 @@ public class FileData {
     private String ua;
 
     private String city;
+
+    /**
+     * 文件存储位置 默认 0 本地存储
+     * */
+    private Integer saveLocation = 0;
 }

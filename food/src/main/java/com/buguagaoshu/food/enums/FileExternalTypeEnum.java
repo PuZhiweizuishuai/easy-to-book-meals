@@ -10,6 +10,7 @@ public enum FileExternalTypeEnum {
     /**
      * 文件类型
      */
+    UNKNOWN(-1, "未知"),
     STOREFRONT(0, "店面关联文件"),
     FOOD(1, "食品关联文件"),
     ;

@@ -17,27 +17,15 @@
 
     <!-- FilePond 组件 -->
     <div class="form-control w-full">
-      <file-pond
-        ref="pond"
-        name="files[]"
-        label-idle='拖拽图片至此处 或 <span class="filepond--label-action">点击选择</span>'
-        :allow-multiple="allowMultiple"
-        :max-files="allowMultiple ? 10 : 1"
-        accepted-file-types="image/jpeg, image/png, image/gif, image/webp"
-        :server="serverConfig"
-        :instant-upload="false"
-        @init="handleFilePondInit"
-        @addfile="handleAddFile"
-        @processfile="handleProcessFile"
-        @error="handleError"
-      />
-      
+      <file-pond ref="pond" name="files[]" label-idle='拖拽图片至此处 或 <span class="filepond--label-action">点击选择</span>'
+        label-file-processing-complete="文件上传成功！" label-tap-to-retry="尝试重试" label-file-processing="文件正在上传，请稍后"
+        label-file-processing-aborted="文件上传被取消" :allow-multiple="allowMultiple" :max-files="allowMultiple ? 10 : 1"
+        accepted-file-types="image/jpeg, image/png, image/gif, image/webp" :server="serverConfig"
+        :instant-upload="false" @init="handleFilePondInit" @addfile="handleAddFile" @removefile="handleRemoveFile"
+        @processfile="handleProcessFile" @error="handleError" />
+
       <!-- 手动上传按钮 -->
-      <button 
-        v-if="hasPendingFiles" 
-        class="btn btn-primary btn-block mt-4"
-        @click="triggerUpload"
-      >
+      <button v-if="hasPendingFiles" class="btn btn-primary btn-block mt-4" @click="triggerUpload">
         开始上传
       </button>
     </div>
@@ -79,7 +67,7 @@ const props = defineProps({
   },
 });
 
-const emit = defineEmits(["upload-success", "upload-error"]);
+const emit = defineEmits(["upload-success", "upload-error", "remove-file"]);
 
 const pond = ref(null);
 const cropperModal = ref(null);
@@ -88,6 +76,9 @@ const currentImageUrl = ref("");
 const currentFileId = ref(null);
 let cropperInstance = null;
 let isReplacing = false; // 防止替换文件时再次触发裁剪弹窗
+
+// 用于建立 FilePond 文件本地 id 与服务器返回数据的映射关系
+const fileServerDataMap = new Map();
 
 // 计算是否有待上传文件（用于显示手动上传按钮）
 const hasPendingFiles = computed(() => {
@@ -120,19 +111,21 @@ const serverConfig = {
       if (xhr.status >= 200 && xhr.status < 300) {
         try {
           const response = JSON.parse(xhr.responseText);
+          // 以稳定的本地文件 file.id 极为键，缓存后端返回的数据对象
           emit("upload-success", response);
           // 必须调用 load 通知 FilePond 该文件上传成功
-          load(xhr.responseText); 
+          load(xhr.responseText);
         } catch (e) {
+          
           emit("upload-success", xhr.responseText);
           load(xhr.responseText);
         }
       } else {
         let errorData = xhr.responseText;
-        try { errorData = JSON.parse(xhr.responseText); } catch (e) {}
+        try { errorData = JSON.parse(xhr.responseText); } catch (e) { }
         emit("upload-error", errorData);
         // 必须调用 error 通知 FilePond 该文件上传失败
-        error('Upload failed'); 
+        error('Upload failed');
       }
     };
 
@@ -151,6 +144,34 @@ const serverConfig = {
   fetch: null,
 };
 
+// 当文件从 FilePond 中移除时触发
+const handleRemoveFile = (error, file) => {
+  console.log('移除文件:', file);
+  if (!error && file) {
+    // 修改：1. 优先从我们本地维护的 Map 中通过稳定的 file.id 获取服务器响应数据
+    let fileData = fileServerDataMap.get(file.id) || [];
+    console.log(fileServerDataMap);
+    
+    // 2. 兜底逻辑：如果 Map 中没拿到（例如未上传就删除了），再尝试直接解析 file.serverId
+    if (fileData.length === 0 && file.serverId) {
+      try {
+        const response = JSON.parse(serverId);
+        if (response?.data && Array.isArray(response.data)) {
+          fileData = response.data;
+        }
+      } catch (e) {
+        console.error('解析 serverId 失败:', e);
+      }
+    }
+    
+    // 新增：3. 从 Map 中移除，防止内存泄漏
+    fileServerDataMap.delete(file.id);
+    
+    // 触发传递给父组件
+    emit("remove-file", { fileData });
+  }
+};
+
 const handleFilePondInit = () => {
   console.log("FilePond has initialized");
 };
@@ -158,7 +179,7 @@ const handleFilePondInit = () => {
 // 当文件被添加到 FilePond 时触发
 const handleAddFile = (error, file) => {
   if (error) return;
-  
+
   // 如果是内部替换操作触发的 addfile，不弹窗
   if (isReplacing) {
     isReplacing = false;
@@ -185,7 +206,7 @@ const initCropper = () => {
   if (cropperInstance) {
     cropperInstance.destroy();
   }
-  
+
   // 解析比例字符串 '16:9' -> 16/9
   const ratioParts = props.aspectRatio.split(':');
   const aspectRatio = Number(ratioParts[0]) / Number(ratioParts[1]);
@@ -262,8 +283,21 @@ const triggerUpload = () => {
 };
 
 const handleProcessFile = (error, file) => {
-  if (!error) {
+  if (!error && file) {
     console.log("File uploaded successfully", file);
+    
+    // 新增：当上传成功，file.serverId 包含的是我们在 server.process 的 load() 中传入的响应文本
+    if (file.serverId) {
+      try {
+        const response = JSON.parse(file.serverId);
+        if (response?.data && Array.isArray(response.data)) {
+          // 以稳定的本地文件 file.id 极为键，缓存后端返回的数据对象
+          fileServerDataMap.set(file.id, response.data);
+        }
+      } catch (e) {
+        console.error("缓存服务器响应数据失败:", e);
+      }
+    }
   }
 };
 
@@ -297,7 +331,7 @@ onBeforeUnmount(() => {
 }
 
 :deep(.filepond--file-action-button) {
-  background-color: oklch(var(--p)); 
+  background-color: oklch(var(--p));
   color: oklch(var(--pc));
   border-radius: var(--rounded-btn);
 }

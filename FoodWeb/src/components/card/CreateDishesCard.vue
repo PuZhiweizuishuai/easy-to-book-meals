@@ -13,7 +13,7 @@
       </button>
     </div>
 
-    <form @submit.prevent="handleSubmit" class="flex-1 flex flex-col">
+    <div class="flex-1 flex flex-col">
       <div class="space-y-8 pb-24">
 
         <section class="space-y-4">
@@ -51,31 +51,33 @@
           </h4>
 
           <div class="form-control w-full">
-            <label class="label"><span class="label-text font-medium">首选显示图片URL</span></label>
-            <label
-              class="input input-bordered flex items-center gap-2 focus-within:input-primary transition-colors text-base-content/70">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-              </svg>
-              <input v-model="formData.topImage" type="url" class="grow text-base-content" placeholder="https://" />
+            <label class="label"><span class="label-text font-medium">首选显示图片</span></label>
+            <ImageUpload
+              aspect-ratio="1:1"
+              :allow-multiple="false"
+              @upload-success="handleTopImageSuccess"
+              @upload-error="handleUploadError"
+              @remove-file="handleTopImageRemove"
+            />
+            <label class="label" v-if="formData.topImage">
+              <span class="label-text-alt text-success">已上传: {{ formData.topImage }}</span>
             </label>
           </div>
 
           <div class="form-control w-full">
             <label class="label">
-              <span class="label-text font-medium">其它图片URL</span>
-              <span class="label-text-alt text-base-content/50">多个用英文逗号分隔</span>
+              <span class="label-text font-medium">详情页图片</span>
+              <span class="label-text-alt text-base-content/50">支持多张上传</span>
             </label>
-            <label
-              class="input input-bordered flex items-center gap-2 focus-within:input-primary transition-colors text-base-content/70">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 opacity-50" fill="none" viewBox="0 0 24 24"
-                stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                  d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-              <input v-model="imageListText" type="text" class="grow text-base-content" placeholder="URL1, URL2..." />
+            <ImageUpload
+              aspect-ratio="1:1"
+              :allow-multiple="true"
+              @upload-success="handleDetailImageSuccess"
+              @upload-error="handleUploadError"
+              @remove-file="handleDetailImageRemove"
+            />
+            <label class="label" v-if="formData.imageList.length > 0">
+              <span class="label-text-alt text-success">已上传 {{ formData.imageList.length }} 张图片</span>
             </label>
           </div>
         </section>
@@ -237,12 +239,12 @@
         <button type="button" @click="$emit('cancel')" class="btn btn-outline flex-1 sm:flex-none sm:w-32">
           取消
         </button>
-        <button type="submit" :disabled="isSubmitting" class="btn btn-primary flex-1 shadow-md shadow-primary/20">
+        <button @click="handleSubmit" type="submit" :disabled="isSubmitting" class="btn btn-primary flex-1 shadow-md shadow-primary/20">
           <span v-if="isSubmitting" class="loading loading-spinner"></span>
-          {{ isSubmitting ? '保存中...' : (isEdit ? '保存修改' : '确认添加') }}
+          {{ isSubmitting ? '保存中...' : '确认添加' }}
         </button>
       </div>
-    </form>
+    </div>
 
     <Teleport to="body">
       <EditFoodTagCard :show="showAddCategoryModal" modal-type="add" @close="closeAddCategoryModal"
@@ -257,6 +259,7 @@ import { ref, reactive, watch, getCurrentInstance, onMounted } from 'vue';
 import { httpGet, httpPost, uploadFiles } from '@/utils/fetch.js';
 import toast from '@/utils/toast';
 import EditFoodTagCard from './EditFoodTagCard.vue';
+import ImageUpload from '@/components/upload/ImageUpload.vue';
 const props = defineProps({
   modelValue: {
     type: Object,
@@ -278,6 +281,7 @@ const formData = reactive({
   description: '',
   topImage: '',
   imageList: [],
+  fileDataList: [],
   priceType: 0,
   categoryIds: [],
   stock: -1,
@@ -298,6 +302,7 @@ const formDataInit = reactive({
   description: '',
   topImage: '',
   imageList: [],
+  fileDataList: [],
   priceType: 0,
   categoryIds: [],
   stock: -1,
@@ -312,14 +317,65 @@ const formDataInit = reactive({
     }
   ]
 });
-// 图片列表文本（用于输入）
-const imageListText = ref('');
-// 是否正在提交
 const isSubmitting = ref(false);
-// 选中的分类ID
 const selectedCategories = ref([]);
-// 新增分类弹窗相关
 const showAddCategoryModal = ref(false);
+
+const handleTopImageSuccess = (response) => {
+  if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
+    formData.topImage = response.data[0].fileUrl;
+    // 将完整对象保存到 fileDataList
+    formData.fileDataList.push(...response.data);
+  }
+};
+
+const handleTopImageRemove = (data) => {
+  // 清空封面图
+  formData.topImage = '';
+  // 从 fileDataList 中移除对应文件
+  if (data.fileData && Array.isArray(data.fileData)) {
+    data.fileData.forEach(removedFile => {
+      const index = formData.fileDataList.findIndex(item => item.fileUrl === removedFile.fileUrl);
+      if (index > -1) {
+        formData.fileDataList.splice(index, 1);
+      }
+    });
+  }
+};
+
+const handleDetailImageSuccess = (response) => {
+  if (response?.data && Array.isArray(response.data)) {
+    const urls = response.data.map(file => file.fileUrl).filter(Boolean);
+    formData.imageList = [...formData.imageList, ...urls];
+    // 将完整对象保存到 fileDataList
+    formData.fileDataList.push(...response.data);
+  }
+};
+
+const handleDetailImageRemove = (data) => {
+  if (data.fileData && Array.isArray(data.fileData)) {
+    data.fileData.forEach(removedFile => {
+      // 1. 从总文件数据池中移除
+      const index = formData.fileDataList.findIndex(item => item.fileUrl === removedFile.fileUrl);
+      if (index > -1) {
+        formData.fileDataList.splice(index, 1);
+      }
+      
+      // 2. 直接从 imageList 数组中精确定位并移除
+      const imgIndex = formData.imageList.findIndex(url => url === removedFile.fileUrl);
+      if (imgIndex > -1) {
+        formData.imageList.splice(imgIndex, 1);
+      }
+    });
+  }
+};
+
+
+
+const handleUploadError = (error) => {
+  console.error('图片上传失败:', error);
+  toast.error('图片上传失败，请稍后重试');
+};
 
 // 打开新增分类弹窗
 const openAddCategoryModal = () => {
@@ -354,9 +410,6 @@ const handleAddCategory = async (payload) => {
 watch(() => props.modelValue, (newVal) => {
   if (newVal && Object.keys(newVal).length > 0) {
     Object.assign(formData, newVal);
-    if (newVal.imageList && Array.isArray(newVal.imageList)) {
-      imageListText.value = newVal.imageList.join(',');
-    }
     if (newVal.categoryIds && Array.isArray(newVal.categoryIds)) {
       selectedCategories.value = newVal.categoryIds.map(c => c.id);
     }
@@ -412,14 +465,8 @@ const fetchTags = async () => {
 
 // 提交表单
 const handleSubmit = async () => {
-  // 处理图片列表
-  if (imageListText.value.trim()) {
-    formData.imageList = imageListText.value.split(',').map(url => url.trim()).filter(url => url);
-  }
-  else {
-    formData.imageList = [];
-  }
-  isSubmitting.value = true;
+  //isSubmitting.value = true;
+  console.log(formData);
   // 提交表单数据
   const json = await httpPost('/dishes/add', formData);
   if (json && json.status === 200) {

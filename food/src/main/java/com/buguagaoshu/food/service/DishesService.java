@@ -1,11 +1,14 @@
 package com.buguagaoshu.food.service;
 
 
+import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.BaseFood;
+import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.dto.CreateDishes;
 import com.buguagaoshu.food.dto.CreateDishesResult;
+import com.buguagaoshu.food.enums.FileExternalTypeEnum;
 import org.springframework.data.domain.Page;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,16 +33,20 @@ public class DishesService {
     private final ProductSkuService productSkuService;
 
     private final FoodWithTagService foodWithTagService;
+    
+    private final FileDataService fileDataService;
 
 
     public DishesService(FoodService foodService,
                          SpecGroupService specGroupService,
                          ProductSkuService productSkuService,
-                         FoodWithTagService foodWithTagService) {
+                         FoodWithTagService foodWithTagService, 
+                         FileDataService fileDataService) {
         this.foodService = foodService;
         this.specGroupService = specGroupService;
         this.productSkuService = productSkuService;
         this.foodWithTagService = foodWithTagService;
+        this.fileDataService = fileDataService;
     }
 
     /**
@@ -69,11 +76,20 @@ public class DishesService {
             productSkuService.saveAllProductSku(skuList);
         }
 
-        // 6. 构建返回结果
+        // 6、处理图片信息
+        List<FileData> fileDataList = fileDataService.associateFiles(
+                createDishes.getFileDataList(),
+                baseFood.getId(),
+                WebConstant.USE_FILE,
+                FileExternalTypeEnum.FOOD
+        );
+
+        // 7. 构建返回结果
         CreateDishesResult result = new CreateDishesResult();
         result.setFood(baseFood);
         result.setSkuList(skuList);
         result.setSpecGroups(specGroups);
+        result.setFileDataList(fileDataList);
         return result;
     }
 

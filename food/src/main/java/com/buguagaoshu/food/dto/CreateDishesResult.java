@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.dto;
 
 import com.buguagaoshu.food.data.BaseFood;
+import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.data.SpecGroup;
 import lombok.Data;
@@ -18,4 +19,6 @@ public class CreateDishesResult {
     private List<ProductSku> skuList;
 
     private List<SpecGroup> specGroups;
+
+    private List<FileData> fileDataList;
 }

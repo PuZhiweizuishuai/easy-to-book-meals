@@ -16,6 +16,7 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 文件数据服务层
@@ -102,20 +103,6 @@ public class FileDataService {
         }
     }
 
-    /**
-     * 上传临时文件（状态为0，需要后续关联确认）
-     *
-     * @param files  上传的文件数组
-     * @param type   文件类型
-     * @param userId 用户ID
-     * @return 保存成功的文件数据列表
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public List<FileData> uploadTempFiles(MultipartFile[] files, FileExternalTypeEnum type, Long userId) {
-        // 临时文件默认状态为0，externalId为null
-        return uploadAndSave(files, type, userId);
-    }
-
 
 
     // ==================== 文件更新 ====================
@@ -124,30 +111,29 @@ public class FileDataService {
      * 关联文件到外部实体
      * 将临时文件关联到具体的店面或食品
      *
-     * @param fileIds    文件ID列表
+     * @param files    文件列表
      * @param externalId 外部实体ID
      * @param status     状态（1-已发布）
      * @return 更新成功的文件数量
      */
     @Transactional(rollbackFor = Exception.class)
-    public int associateFiles(List<Long> fileIds, Long externalId, Integer status) {
-        if (fileIds == null || fileIds.isEmpty()) {
-            return 0;
+    public List<FileData> associateFiles(List<FileData> files, Long externalId, Integer status, FileExternalTypeEnum type) {
+        // TODO 数据校验，仅允许修改自己店面的图片
+        List<FileData> fileDataList = new ArrayList<>();
+        if (files == null || files.isEmpty()) {
+            return fileDataList;
         }
+        List<Long> fileIds = files.stream().map(FileData::getId).toList();
+        // 获取数据库文件
+        List<FileData> dbfiles = fileDataRepository.findAllByIdIn(fileIds);
+        for (FileData fileData : dbfiles) {
+            fileData.setExternalId(externalId);
+            fileData.setStatus(status);
+            fileData.setType(type.getCode());
+        }
+        fileDataRepository.saveAll(dbfiles);
 
-        int count = 0;
-        for (Long fileId : fileIds) {
-            Optional<FileData> optional = fileDataRepository.findById(fileId);
-            if (optional.isPresent()) {
-                FileData fileData = optional.get();
-                fileData.setExternalId(externalId);
-                fileData.setStatus(status);
-                fileDataRepository.save(fileData);
-                count++;
-            }
-        }
-        log.info("文件关联成功，数量: {}", count);
-        return count;
+        return dbfiles;
     }
 
     /**

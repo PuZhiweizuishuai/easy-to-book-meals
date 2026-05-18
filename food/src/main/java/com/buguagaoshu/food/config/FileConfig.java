@@ -22,7 +22,7 @@ public class FileConfig {
     }
 
     public static String ossFileURL(int saveLocation, String path, String fileName) {
-        return  "/api/upload/" + saveLocation + "/oss/" + path + "/" + fileName;
+        return  "/api/files" + saveLocation + "/oss/" + path + "/" + fileName;
     }
 
     public static String newFilename(String suffix) {

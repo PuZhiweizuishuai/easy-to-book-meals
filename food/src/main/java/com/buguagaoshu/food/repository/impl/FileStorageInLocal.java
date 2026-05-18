@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.repository.impl;
 
 import com.buguagaoshu.food.config.FileConfig;
+import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.dto.VditorFiles;
 import com.buguagaoshu.food.enums.FileExternalTypeEnum;
@@ -197,7 +198,7 @@ public class FileStorageInLocal implements FileStorageRepository {
                                    String path, String originalFilename, 
                                    String newFilename, String suffix) {
         FileData fileData = new FileData();
-        fileData.setFileUrl("/" + path + "/" + newFilename);
+        fileData.setFileUrl("/api/" + path + "/" + newFilename);
         fileData.setFileOriginalName(originalFilename);
         fileData.setFileNewName(newFilename);
         fileData.setSize(file.getSize());
@@ -205,7 +206,7 @@ public class FileStorageInLocal implements FileStorageRepository {
         fileData.setUploadUserId(userId);
         fileData.setType(type.getCode());
         fileData.setSuffixName(suffix);
-        fileData.setStatus(0); // 默认为临时文件状态
+        fileData.setStatus(WebConstant.TEMP_FILE); // 默认为临时文件状态
         return fileData;
     }
 }

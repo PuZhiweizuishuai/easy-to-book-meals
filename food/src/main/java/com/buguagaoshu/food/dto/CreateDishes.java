@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.dto;
 
+import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.data.SpecGroup;
 import com.buguagaoshu.food.enums.PriceType;
@@ -63,4 +64,7 @@ public class CreateDishes {
 
 
     private List<SpecGroup> specGroups;
+
+
+    private List<FileData> fileDataList;
 }

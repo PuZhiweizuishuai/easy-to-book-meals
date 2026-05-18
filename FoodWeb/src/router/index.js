@@ -17,6 +17,14 @@ const router = createRouter({
       component: HomeView,
     },
     {
+      path: '/test',
+      name: 'test',
+      component: () => import('@/views/test/TestPage.vue'),
+      meta: {
+        requiresAuth: true,
+      },
+    },
+    {
       path: '/admin',
       component: AdminLayout,
       redirect: '/admin/dashboard',

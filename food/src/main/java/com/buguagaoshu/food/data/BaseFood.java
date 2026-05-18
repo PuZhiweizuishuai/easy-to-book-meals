@@ -21,7 +21,9 @@ import java.util.List;
 @Table(name = "base_food_table", indexes = {
         @Index(name = "idx_base_food_status", columnList = "status"),
         @Index(name = "idx_base_food_monthlySales", columnList = "monthlySales"),
-        @Index(name = "idx_base_food_allSales", columnList = "allSales")
+        @Index(name = "idx_base_food_allSales", columnList = "allSales"),
+        @Index(name = "idx_base_food_create_user", columnList = "createUser"),
+        @Index(name = "idx_base_food_storefront", columnList = "storefrontId")
 })
 public class BaseFood {
     @Id
@@ -29,6 +31,18 @@ public class BaseFood {
     private Long id;
 
     private String name;
+
+
+    /**
+     * TODO 创建人
+     * */
+    private Long createUser;
+
+
+    /**
+     * TODO 所属店面
+     * */
+    private Long storefrontId;
 
     /**
      * 菜品描述

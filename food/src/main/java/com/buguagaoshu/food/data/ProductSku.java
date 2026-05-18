@@ -18,7 +18,8 @@ import java.util.Map;
 @Entity
 @Table(name = "product_sku_table", indexes = {
         @Index(name = "idx_sku_dishId", columnList = "dishId"),
-        @Index(name = "idx_sku_status", columnList = "status")
+        @Index(name = "idx_sku_status", columnList = "status"),
+        @Index(name = "idx_sku_storefront", columnList = "status")
 })
 public class ProductSku {
     @Id
@@ -29,6 +30,11 @@ public class ProductSku {
      * 关联的菜品ID
      */
     private Long dishId;
+
+    /**
+     * TODO 所属店面
+     * */
+    private Long storefrontId;
 
     /**
      * 该sku的描述

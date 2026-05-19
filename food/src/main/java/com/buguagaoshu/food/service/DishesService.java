@@ -134,11 +134,20 @@ public class DishesService {
             updatedSkuList = productSkuService.updateSku(updateSkuList);
         }
 
+        // 更新文件关联
+        List<FileData> fileDataList = fileDataService.updateAssociateFiles(
+                createDishesResult.getFileDataList(),
+                updatedFood.getId(),
+                WebConstant.USE_FILE,
+                FileExternalTypeEnum.FOOD
+        );
+
         // 4. 构建返回结果
         CreateDishesResult result = new CreateDishesResult();
         result.setFood(updatedFood);
         result.setSkuList(updatedSkuList);
         result.setSpecGroups(specGroups);
+        result.setFileDataList(fileDataList);
         return result;
     }
 
@@ -166,6 +175,9 @@ public class DishesService {
         // 从数据库中获取该菜品的所有规格组
         List<SpecGroup> specGroups = specGroupService.getSpecGroupsByDishId(id);
         result.setSpecGroups(specGroups);
+        // 获取文件信息
+        List<FileData> fileDataList = fileDataService.findFileByExternalId(baseFood.getId(), WebConstant.USE_FILE, FileExternalTypeEnum.FOOD);
+        result.setFileDataList(fileDataList);
         return result;
     }
 

@@ -136,151 +136,80 @@ public class FileDataService {
         return dbfiles;
     }
 
-    /**
-     * 更新文件状态
-     *
-     * @param id     文件ID
-     * @param status 新状态
-     * @return 是否成功
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public boolean updateStatus(Long id, Integer status) {
-        Optional<FileData> optional = fileDataRepository.findById(id);
-        if (optional.isPresent()) {
-            FileData fileData = optional.get();
-            fileData.setStatus(status);
-            fileDataRepository.save(fileData);
-            return true;
-        }
-        return false;
+    public List<FileData> findFileByExternalId(Long externalId, Integer status, FileExternalTypeEnum type) {
+        return fileDataRepository.findByExternalIdAndStatusAndType(externalId, status, type.getCode());
     }
 
+
     /**
-     * 批量更新文件状态
-     *
-     * @param fileIds 文件ID列表
-     * @param status  新状态
-     * @return 更新成功的数量
-     */
+     * 更新文件关联信息，更新逻辑如下
+     * 1、从数据库查询已有文件关联信息，通过 findFileByExternalId 查询
+     * 2、将从数据库查询到的文件信息与用户修改后的新文件信息 files 对比，可以直接对比文件ID
+     * 3、批量更新数据，新增文件进行新的关联，已移除的文件进行删除，处理删除数据库记录外，还需要删除本地文件
+     * 4、返回更新后的数据
+     * */
     @Transactional(rollbackFor = Exception.class)
-    public int batchUpdateStatus(List<Long> fileIds, Integer status) {
-        if (fileIds == null || fileIds.isEmpty()) {
-            return 0;
+    public List<FileData> updateAssociateFiles(List<FileData> files, Long externalId, Integer status, FileExternalTypeEnum type) {
+        // 1、从数据库查询已有文件关联信息
+        List<FileData> existingFiles = findFileByExternalId(externalId, status, type);
+
+        // 2、获取新文件的ID集合
+        List<Long> newFileIds = new ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            newFileIds = files.stream().map(FileData::getId).collect(Collectors.toList());
         }
 
-        int count = 0;
-        for (Long fileId : fileIds) {
-            if (updateStatus(fileId, status)) {
-                count++;
+        // 3、找出需要删除的文件（数据库中有但新文件列表中没有）
+        List<FileData> filesToDelete = new ArrayList<>();
+        for (FileData existingFile : existingFiles) {
+            if (!newFileIds.contains(existingFile.getId())) {
+                filesToDelete.add(existingFile);
             }
         }
-        return count;
-    }
 
-    // ==================== 文件删除 ====================
-
-    /**
-     * 删除单个文件（同时删除物理文件和数据库记录）
-     *
-     * @param id 文件ID
-     * @return 是否删除成功
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public boolean deleteById(Long id) {
-        Optional<FileData> optional = fileDataRepository.findById(id);
-        if (optional.isEmpty()) {
-            log.warn("文件不存在，ID: {}", id);
-            return false;
+        // 4、删除需要移除的文件（数据库记录和本地文件）
+        if (!filesToDelete.isEmpty()) {
+            // 删除数据库记录
+            fileDataRepository.deleteAll(filesToDelete);
+            // 删除本地物理文件
+            for (FileData fileToDelete : filesToDelete) {
+                fileStorageRepository.deleteFile(fileToDelete);
+            }
+            log.info("删除文件关联，数量: {}", filesToDelete.size());
         }
 
-        FileData fileData = optional.get();
-        
-        // 第一步：删除物理文件
-        boolean fileDeleted = fileStorageRepository.deleteFile(fileData);
-        if (!fileDeleted) {
-            log.warn("物理文件删除失败或文件不存在: {}", fileData.getFileUrl());
-            // 继续删除数据库记录
-        }
-
-        // 第二步：删除数据库记录
-        fileDataRepository.deleteById(id);
-        log.info("文件删除成功，ID: {}", id);
-        return true;
-    }
-
-    /**
-     * 批量删除文件
-     *
-     * @param ids 文件ID列表
-     * @return 删除成功的数量
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public int batchDelete(List<Long> ids) {
-        if (ids == null || ids.isEmpty()) {
-            return 0;
-        }
-
-        int count = 0;
-        for (Long id : ids) {
-            if (deleteById(id)) {
-                count++;
+        // 5、找出需要新增关联的文件（新文件列表中有但数据库中没有）
+        List<FileData> filesToAdd = new ArrayList<>();
+        if (files != null && !files.isEmpty()) {
+            List<Long> existingFileIds = existingFiles.stream().map(FileData::getId).collect(Collectors.toList());
+            for (FileData file : files) {
+                if (!existingFileIds.contains(file.getId())) {
+                    filesToAdd.add(file);
+                }
             }
         }
-        log.info("批量删除文件完成，成功: {}/总数: {}", count, ids.size());
-        return count;
+
+        // 6、对需要新增关联的文件进行更新
+        List<FileData> resultFiles = new ArrayList<>();
+        if (!filesToAdd.isEmpty()) {
+            resultFiles = associateFiles(filesToAdd, externalId, status, type);
+            log.info("新增文件关联，数量: {}", resultFiles.size());
+        }
+
+        // 7、保留已存在且未被删除的文件关联
+        for (FileData existingFile : existingFiles) {
+            if (newFileIds.contains(existingFile.getId())) {
+                resultFiles.add(existingFile);
+            }
+        }
+
+        return resultFiles;
     }
 
-    /**
-     * 根据外部关联ID删除文件
-     *
-     * @param externalId 外部实体ID
-     * @param type       文件类型
-     * @return 删除成功的数量
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public int deleteByExternalId(Long externalId, Integer type) {
-//        List<FileData> files = findByExternalIdAndType(externalId, type);
-//        if (files.isEmpty()) {
-//            return 0;
-//        }
-//
-//        int count = 0;
-//        for (FileData fileData : files) {
-//            if (deleteById(fileData.getId())) {
-//                count++;
-//            }
-//        }
-//        return count;
-        // TODO 需重新实现
-        return 0;
-    }
 
-    /**
-     * 清理临时文件（未关联的文件）
-     * 建议定时任务调用此方法清理过期临时文件
-     *
-     * @param beforeTime 上传时间在此之前（毫秒时间戳）
-     * @return 清理的文件数量
-     */
-    @Transactional(rollbackFor = Exception.class)
-    public int cleanTempFiles(Long beforeTime) {
-//        List<FileData> tempFiles = findByStatus(0);
-//        if (tempFiles.isEmpty()) {
-//            return 0;
-//        }
-//
-//        int count = 0;
-//        for (FileData fileData : tempFiles) {
-//            if (fileData.getUploadTime() != null && fileData.getUploadTime() < beforeTime) {
-//                if (deleteById(fileData.getId())) {
-//                    count++;
-//                }
-//            }
-//        }
-//        log.info("清理临时文件完成，数量: {}", count);
-        // TODO 需重新实现
-        return 0;
-    }
+
+
+
 
     // ==================== 文件加载 ====================
 

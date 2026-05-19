@@ -37,10 +37,10 @@ public class FileController {
     }
 
     @GetMapping("/{year}/{month}/{day}/{filename:.+}")
-    public ResponseEntity get(@PathVariable(value = "year") String year,
-                              @PathVariable(value = "month") String month,
-                              @PathVariable(value = "day") String day,
-                              @PathVariable(value = "filename") String filename,
+    public ResponseEntity<Resource> get(@PathVariable String year,
+                              @PathVariable String month,
+                              @PathVariable String day,
+                              @PathVariable String filename,
                               HttpServletRequest request) {
         try {
             String date = FileConfig.ROOT + "/" + year + "/" + month + "/" + day;
@@ -55,9 +55,7 @@ public class FileController {
                     .headers(httpHeaders)
                     .body(resource);
         } catch (Exception e) {
-            return ResponseEntity
-                    .status(HttpStatus.NOT_FOUND)
-                    .body(e.getMessage());
+            return ResponseEntity.notFound().build();
         }
     }
 }

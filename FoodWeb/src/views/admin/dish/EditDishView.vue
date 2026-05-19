@@ -53,16 +53,43 @@
             </div>
 
             <div class="form-control">
-              <label class="label"><span class="label-text font-medium">封面首图 URL</span></label>
-              <input v-model="formData.food.topImage" type="url" class="input input-bordered focus:input-primary" />
+              <label class="label"><span class="label-text font-medium">封面首图</span></label>
+              <div v-if="formData.food.topImage" class="relative group w-40 h-40 rounded-lg overflow-hidden border border-base-300">
+                <img :src="formData.food.topImage" alt="封面图" class="w-full h-full object-cover" />
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                  <button type="button" @click="openImageModal('topImage')" class="btn btn-xs btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                    修改
+                  </button>
+                  <button type="button" @click="deleteTopImage" class="btn btn-xs btn-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    删除
+                  </button>
+                </div>
+              </div>
+              <button v-else type="button" @click="openImageModal('topImage')" class="btn btn-outline btn-dashed w-40 h-40 flex flex-col gap-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                <span class="text-xs text-base-content/40">上传封面图</span>
+              </button>
             </div>
 
             <div class="form-control">
               <label class="label">
-                <span class="label-text font-medium">轮播图列表 URLs</span>
-                <span class="label-text-alt text-base-content/50">多个请用逗号分隔</span>
+                <span class="label-text font-medium">菜品详情图片</span>
               </label>
-              <input v-model="uiState.imageListStr" type="text" class="input input-bordered focus:input-primary" />
+              <div class="flex flex-wrap gap-3">
+                <div v-for="(img, idx) in detailImages" :key="idx" class="relative group w-32 h-32 rounded-lg overflow-hidden border border-base-300">
+                  <img :src="img" alt="详情图" class="w-full h-full object-cover" />
+                  <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                    <button type="button" @click="openImageModal('detail', idx)" class="btn btn-xs btn-primary">修改</button>
+                    <button type="button" @click="deleteDetailImage(idx)" class="btn btn-xs btn-error">删除</button>
+                  </div>
+                </div>
+                <button type="button" @click="openImageModal('detail', -1)" class="btn btn-outline btn-dashed w-32 h-32 flex flex-col gap-1">
+                  <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-base-content/40" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" /></svg>
+                  <span class="text-xs text-base-content/40">添加图片</span>
+                </button>
+              </div>
             </div>
 
             <div class="form-control">
@@ -127,6 +154,22 @@
       <Teleport to="body">
         <EditFoodTagCard :show="showAddCategoryModal" modal-type="add" @close="showAddCategoryModal = false"
           @submit="handleAddCategory" />
+      </Teleport>
+
+      <!-- 图片修改弹窗 -->
+      <Teleport to="body">
+        <dialog :class="['modal modal-middle', { 'modal-open': showImageModal }]">
+          <div class="modal-box w-11/12 max-w-2xl">
+            <h3 class="font-bold text-lg mb-4">
+              {{ imageModalTarget?.type === 'topImage' ? '修改封面首图' : (imageModalTarget?.index === -1 ? '添加详情图片' : '修改详情图片') }}
+            </h3>
+            <ImageUpload ref="imageModalRef" :allow-multiple="false" @upload-success="handleImageUploadSuccess" @remove-file="handleImageRemove" />
+            <div class="modal-action">
+              <button class="btn btn-ghost" @click="closeImageModal">取消</button>
+            </div>
+          </div>
+          <div class="modal-backdrop" @click="closeImageModal"></div>
+        </dialog>
       </Teleport>
 
       <!-- 模块 4：规格配置 -->
@@ -309,11 +352,12 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from 'vue';
+import { ref, reactive, onMounted, computed, nextTick } from 'vue';
 import EditFoodTagCard from '@/components/card/EditFoodTagCard.vue';
 import SpecConfigCard from '@/components/card/SpecConfigCard.vue';
-import { httpGet, httpPost } from '@/utils/fetch.js'; // 你的 fetch 工具类
-import toast from '@/utils/toast.js';       // 你的 toast 工具类
+import ImageUpload from '@/components/upload/ImageUpload.vue';
+import { httpGet, httpPost } from '@/utils/fetch.js';
+import toast from '@/utils/toast.js';
 import { formatDate } from '@/utils/format.js';
 import { useRoute, useRouter } from 'vue-router'
 const route = useRoute()
@@ -327,13 +371,89 @@ const isLoading = ref(true);
 const formData = reactive({
   food: {},
   skuList: [],
-  specGroups: []
+  specGroups: [],
+  fileDataList: []
 });
 
-// UI专属的状态绑定（非直接提交字段，需做转换）
-const uiState = reactive({
-  imageListStr: ''
+const showImageModal = ref(false);
+const imageModalTarget = ref(null);
+const imageModalRef = ref(null);
+
+const detailImages = computed(() => {
+  try {
+    return JSON.parse(formData.food.imageList || '[]');
+  } catch {
+    return [];
+  }
 });
+
+const openImageModal = (type, index) => {
+  imageModalTarget.value = { type, index };
+  showImageModal.value = true;
+};
+
+const closeImageModal = () => {
+  showImageModal.value = false;
+  imageModalTarget.value = null;
+};
+
+const handleImageUploadSuccess = (response) => {
+  if (!response?.data?.[0]) return;
+  const uploadedFile = response.data[0];
+  const fileUrl = uploadedFile.fileUrl;
+
+  if (imageModalTarget.value?.type === 'topImage') {
+    const oldUrl = formData.food.topImage;
+    formData.food.topImage = fileUrl;
+    const existIdx = formData.fileDataList.findIndex(f => f.fileUrl === oldUrl);
+    if (existIdx > -1) {
+      formData.fileDataList.splice(existIdx, 1, uploadedFile);
+    } else {
+      formData.fileDataList.push(uploadedFile);
+    }
+  } else {
+    const idx = imageModalTarget.value?.index;
+    const images = [...detailImages.value];
+    if (idx === -1) {
+      images.push(fileUrl);
+      formData.fileDataList.push(uploadedFile);
+    } else {
+      const oldUrl = images[idx];
+      const existIdx = formData.fileDataList.findIndex(f => f.fileUrl === oldUrl);
+      if (existIdx > -1) {
+        formData.fileDataList.splice(existIdx, 1, uploadedFile);
+      } else {
+        formData.fileDataList.push(uploadedFile);
+      }
+      images[idx] = fileUrl;
+    }
+    formData.food.imageList = JSON.stringify(images);
+  }
+
+  nextTick(() => {
+    closeImageModal();
+  });
+};
+
+const handleImageRemove = ({ fileData }) => {
+  // no-op for modal context
+};
+
+const deleteTopImage = () => {
+  const url = formData.food.topImage;
+  const idx = formData.fileDataList.findIndex(f => f.fileUrl === url);
+  if (idx > -1) formData.fileDataList.splice(idx, 1);
+  formData.food.topImage = '';
+};
+
+const deleteDetailImage = (index) => {
+  const images = [...detailImages.value];
+  const url = images[index];
+  const fIdx = formData.fileDataList.findIndex(f => f.fileUrl === url);
+  if (fIdx > -1) formData.fileDataList.splice(fIdx, 1);
+  images.splice(index, 1);
+  formData.food.imageList = JSON.stringify(images);
+};
 
 
 
@@ -366,28 +486,17 @@ const fetchDishDetail = async () => {
 
 // 数据装载与 UI 状态预处理
 const initData = (data) => {
-  // 1. 装载基础与分类
   formData.food = data.food;
   formData.specGroups = data.specGroups;
+  formData.fileDataList = data.fileDataList || [];
 
-  // 2. 转换图片数组 -> 字符串，方便在 input 展示修改
-  try {
-    const imagesArr = JSON.parse(formData.food.imageList || '[]');
-    uiState.imageListStr = imagesArr.join(', ');
-  } catch (e) {
-    uiState.imageListStr = formData.food.imageList;
-  }
-
-  // 3. 处理 skuList，注入 Vue 绑定的辅助属性
   formData.skuList = data.skuList.map(sku => {
-    // 提取出 spec 数组用于名称映射渲染
     const specsArr = JSON.parse(sku.specs || '[]');
-
     return {
       ...sku,
-      _specsArr: specsArr, // 渲染名称用
-      _isPermanent: sku.discountEndTime === 0, // 是否为永久（0）
-      _endTimeStr: sku.discountEndTime === 0 ? '' : formatDate(sku.discountEndTime) // 时间字符串绑定给 input
+      _specsArr: specsArr,
+      _isPermanent: sku.discountEndTime === 0,
+      _endTimeStr: sku.discountEndTime === 0 ? '' : formatDate(sku.discountEndTime)
     };
   });
 };
@@ -441,6 +550,7 @@ const handleSave = () => {
   const postData = {
     food: { ...formData.food },
     specGroups: formData.specGroups,
+    fileDataList: formData.fileDataList,
     skuList: formData.skuList.map(sku => {
       // 组装最终需要发送的单个 sku 对象
       const processedSku = { ...sku };
@@ -480,10 +590,6 @@ const handleSave = () => {
       return processedSku;
     })
   };
-
-  // 图片字符串转换回 JSON String
-  const imagesArray = uiState.imageListStr.split(',').map(s => s.trim()).filter(Boolean);
-  postData.food.imageList = JSON.stringify(imagesArray);
 
   console.log('======= 准备保存的数据 =======');
   console.log(JSON.stringify(postData, null, 2));

@@ -66,7 +66,23 @@ const router = createRouter({
           name: 'tables',
           component: TableManagement,
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'tables/:id',
+          name: 'TableInfo',
+          component: () => import('@/views/admin/table/TableInfo.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'store',
+          name: 'StoreSetting',
+          component: () => import('@/views/admin/StoreSetting.vue'),
+          meta: {
+            requiresAuth: true,
           },
         },
         {

@@ -115,6 +115,22 @@ public class TableReservationController {
 
 
     /**
+     * 按门店+日期范围分页查询
+     * */
+    @GetMapping("/list/date")
+    public ResponseDetails listReservationsByDate(
+            @RequestParam Long storeId,
+            @RequestParam Long startTime,
+            @RequestParam Long endTime,
+            @RequestParam(value = "page", required = false, defaultValue = "1")
+            @Min(value = 1, message = "页码不能小于1") Integer page,
+            @RequestParam(value = "size", required = false, defaultValue = "10")
+            @Min(value = 1, message = "每页条数不能小于1")
+            @Max(value = 100, message = "每页条数不能超过100") Integer size) {
+        return ResponseDetails.ok().put("data", tableReservationService.listReservationsByStoreAndDateRange(storeId, startTime, endTime, page, size));
+    }
+
+    /**
      * 按门店+状态查询
      * */
     @GetMapping("/list/status")

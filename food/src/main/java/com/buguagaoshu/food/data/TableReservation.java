@@ -14,7 +14,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
         // 经常需要查询某张桌子在某天是否有预定
         @Index(name = "idx_table_time", columnList = "table_id, reserved_start_time")
 })
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class TableReservation {
 

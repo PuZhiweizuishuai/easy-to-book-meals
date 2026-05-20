@@ -29,6 +29,18 @@ public class WebConstant {
      * */
     public final static int LOCK = 2;
 
+
+    /**
+     * 已删除
+     * */
+    public final static int DELETE = 1;
+
+
+    /**
+     * 未删除
+     * */
+    public final static int UNDELETED = 0;
+
     /**
      * 无限库存
      * */

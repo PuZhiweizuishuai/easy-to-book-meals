@@ -1,7 +1,9 @@
 package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -9,7 +11,9 @@ import lombok.Data;
  * 规格值
  * 代表一个规格组下的具体选项，例如“辣度”组下的“微辣”、“中辣”、“不辣”。它与规格组关联。
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "spec_value_table", indexes = {
         @Index(name = "idx_spec_value_groupId", columnList = "groupId")

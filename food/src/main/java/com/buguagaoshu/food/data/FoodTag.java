@@ -2,13 +2,18 @@ package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
   *@author  Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
   *@create  2026-04-26
  * 食物分类
   */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "food_tag_table")
 public class FoodTag {

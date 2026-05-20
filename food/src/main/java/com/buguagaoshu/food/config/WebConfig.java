@@ -2,7 +2,9 @@ package com.buguagaoshu.food.config;
 
 import com.buguagaoshu.food.cache.CommonlyUsedDataCache;
 import com.buguagaoshu.food.data.FoodTag;
+import com.buguagaoshu.food.data.StoreTag;
 import com.buguagaoshu.food.service.FoodTagService;
+import com.buguagaoshu.food.service.StoreTagService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.web.error.ErrorPage;
@@ -27,7 +29,7 @@ public class WebConfig {
      * 初始化方法
      * */
     @Bean
-    public CommandLineRunner dataLoader(FoodTagService foodTagService) {
+    public CommandLineRunner dataLoader(FoodTagService foodTagService, StoreTagService storeTagService) {
         return new CommandLineRunner() {
 
             @Override
@@ -50,6 +52,18 @@ public class WebConfig {
                     foodTagService.createTag(foodTag);
                     log.info("默认食品标签缓存成功！");
                 }
+
+                // 初始化店面标签缓存
+                CommonlyUsedDataCache.storeTagMap = storeTagService.getStoreTagMap();
+                try {
+                    CommonlyUsedDataCache.storeTagList =
+                            CommonlyUsedDataCache.storeTagMap.values().stream()
+                                    .sorted(Comparator.comparingInt(StoreTag::getSort))
+                                    .collect(Collectors.toList());
+                } catch (Exception e) {
+                    CommonlyUsedDataCache.storeTagList = new ArrayList<>(CommonlyUsedDataCache.storeTagMap.values());
+                }
+                log.info("店面标签缓存初始化完成，共 {} 个标签", CommonlyUsedDataCache.storeTagMap.size());
             }
         };
     }

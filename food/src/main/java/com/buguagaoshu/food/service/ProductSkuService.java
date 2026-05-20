@@ -8,7 +8,6 @@ import com.buguagaoshu.food.data.SpecValue;
 import com.buguagaoshu.food.dto.UpdateSpecGroupDto;
 import com.buguagaoshu.food.enums.PriceType;
 import com.buguagaoshu.food.repository.ProductSkuRepository;
-import com.buguagaoshu.food.utils.JsonUtils;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 

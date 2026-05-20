@@ -2,11 +2,16 @@ package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 /**
  * 文件数据
  * */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "files_data_table", indexes = {
         @Index(name = "idx_files_data_externalId", columnList = "externalId"),

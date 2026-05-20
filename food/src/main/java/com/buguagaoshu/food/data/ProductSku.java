@@ -5,6 +5,10 @@ import com.buguagaoshu.food.utils.JsonUtils;
 import com.buguagaoshu.food.utils.MD5Util;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 import java.math.BigDecimal;
 import java.util.Collections;
 import java.util.List;
@@ -14,7 +18,9 @@ import java.util.Map;
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-04-26
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "product_sku_table", indexes = {
         @Index(name = "idx_sku_dishId", columnList = "dishId"),

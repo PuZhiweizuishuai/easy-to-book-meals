@@ -44,4 +44,10 @@ public interface TableReservationRepository extends
     List<TableReservation> findByUserIdOrderByReservedStartTimeDesc(Long userId);
 
     Page<TableReservation> findByUserIdOrderByReservedStartTimeDesc(Long userId, Pageable pageable);
+
+    @Query("SELECT tr FROM TableReservation tr WHERE tr.storeId = :storeId " +
+            "AND tr.reservedStartTime >= :startTime " +
+            "AND tr.reservedStartTime < :endTime " +
+            "ORDER BY tr.reservedStartTime ASC")
+    Page<TableReservation> findByStoreIdAndDateRange(Long storeId, Long startTime, Long endTime, Pageable pageable);
 }

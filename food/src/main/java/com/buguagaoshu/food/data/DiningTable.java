@@ -16,7 +16,9 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
                 @Index(name = "idx_dining_table_storefront_id", columnList = "storefrontId")
         }
 )
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @EntityListeners(AuditingEntityListener.class)
 public class DiningTable {
 

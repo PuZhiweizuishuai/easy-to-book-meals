@@ -1,7 +1,9 @@
 package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 import java.util.List;
 
@@ -11,7 +13,9 @@ import java.util.List;
  * 规格组
  * 代表一个规格的类别，例如“辣度”、“温度”、“分量”。它与菜品 (dish) 关联。
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "spec_group_table", indexes = {
         @Index(name = "idx_spec_group_dishId", columnList = "dishId")

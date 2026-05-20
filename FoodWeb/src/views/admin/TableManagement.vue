@@ -61,10 +61,15 @@
     <ReservationTimeline
       :reservations="reservations"
       :loading="reservationLoading"
+      :current-page="reservationPage"
+      :total-pages="reservationTotalPages"
+      :total-elements="reservationTotalElements"
       @confirm="handleConfirmReservation"
       @seat="handleSeatReservation"
       @complete="handleCompleteReservation"
       @cancel="handleCancelReservation"
+      @dateChange="handleReservationDateChange"
+      @pageChange="handleReservationPageChange"
     />
 
     <TableFormModal
@@ -111,12 +116,32 @@ import ReservationTimeline from '@/components/card/ReservationTimeline.vue'
 
 const STORE_ID = 0
 
+function getTodayStr() {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
+function dateToDayRange(dateStr) {
+  const parts = dateStr.split('-')
+  const y = parseInt(parts[0])
+  const m = parseInt(parts[1]) - 1
+  const d = parseInt(parts[2])
+  const start = new Date(y, m, d, 0, 0, 0, 0).getTime()
+  const end = new Date(y, m, d + 1, 0, 0, 0, 0).getTime()
+  return { start, end }
+}
+
 const router = useRouter()
 
 const loading = ref(false)
 const tables = ref([])
 const reservations = ref([])
 const reservationLoading = ref(false)
+const reservationPage = ref(1)
+const reservationTotalPages = ref(1)
+const reservationTotalElements = ref(0)
+const reservationDate = ref(getTodayStr())
+const RESERVATION_PAGE_SIZE = 10
 
 const activeFilter = ref(null)
 
@@ -171,17 +196,33 @@ const fetchTables = async () => {
 const fetchReservations = async () => {
   reservationLoading.value = true
   try {
-    const res = await httpGet(`/table-reservation/list?storeId=${STORE_ID}&size=50`)
+    const { start, end } = dateToDayRange(reservationDate.value)
+    const res = await httpGet(`/table-reservation/list/date?storeId=${STORE_ID}&startTime=${start}&endTime=${end}&page=${reservationPage.value}&size=${RESERVATION_PAGE_SIZE}`)
     if (res && res.data && res.data.content) {
       reservations.value = res.data.content
+      reservationTotalPages.value = res.data.totalPages || 1
+      reservationTotalElements.value = res.data.totalElements || 0
     } else if (res && res.data && Array.isArray(res.data)) {
       reservations.value = res.data
+      reservationTotalPages.value = 1
+      reservationTotalElements.value = res.data.length
     }
   } catch (e) {
     console.error('获取预定列表失败:', e)
   } finally {
     reservationLoading.value = false
   }
+}
+
+const handleReservationDateChange = (date) => {
+  reservationDate.value = date
+  reservationPage.value = 1
+  fetchReservations()
+}
+
+const handleReservationPageChange = (page) => {
+  reservationPage.value = page
+  fetchReservations()
 }
 
 const setFilter = (value) => {

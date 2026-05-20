@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.cache;
 
 import com.buguagaoshu.food.data.FoodTag;
+import com.buguagaoshu.food.data.StoreTag;
 
 import java.util.List;
 import java.util.Map;
@@ -15,4 +16,8 @@ public class CommonlyUsedDataCache {
     public static Map<Long, FoodTag> foodTagMap;
 
     public static List<FoodTag> foodTagList;
+
+    public static Map<Long, StoreTag> storeTagMap;
+
+    public static List<StoreTag> storeTagList;
 }

@@ -272,6 +272,11 @@ public class TableReservationService {
                 userId, PageRequest.of(page - 1, size, Sort.by(Sort.Direction.DESC, "reservedStartTime")));
     }
 
+    public Page<TableReservation> listReservationsByStoreAndDateRange(Long storeId, Long startTime, Long endTime, int page, int size) {
+        return tableReservationRepository.findByStoreIdAndDateRange(
+                storeId, startTime, endTime, PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "reservedStartTime")));
+    }
+
     private TableReservation findReservationOrThrow(Long reservationId, Long storeId) {
         return tableReservationRepository.findByIdAndStoreId(reservationId, storeId)
                 .orElseThrow(() -> new BusinessException(ReturnCodeEnum.NOT_FOUND.getCode(),

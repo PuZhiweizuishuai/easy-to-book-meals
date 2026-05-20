@@ -1,0 +1,117 @@
+package com.buguagaoshu.food.data;
+
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+
+/**
+ * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
+ * @create 2026-05-20
+ */
+@Getter
+@Setter
+@NoArgsConstructor
+@Entity
+@Table(name = "user_table", indexes = {
+        @Index(name = "idx_user_table_wxopenid", columnList = "wxOpenid"),
+        @Index(name = "idx_user_table_phone", columnList = "phone"),
+        @Index(name = "idx_user_table_email", columnList = "email"),
+})
+@EntityListeners(AuditingEntityListener.class)
+public class UserData {
+
+    /**
+     * 主键ID 自增
+     */
+    @Id
+    @GeneratedValue(strategy = GenerationType.AUTO)
+    private Long id;
+
+
+    private String password;
+
+    /**
+     * 微信小程序用户唯一标识（必须）
+     * 小程序登录获取，用于唯一标识用户
+     */
+    @Column(unique = true, length = 64)
+    private String wxOpenid;
+
+    /**
+     * 支付宝
+     * TODO 基本没啥用，先占着，万一后面支持呢
+     * */
+    @Column(unique = true, length = 64)
+    private String zfbOpenid;
+
+    /**
+     * 抖音
+     * TODO 基本没啥用，先占着，万一后面支持呢
+     * */
+    @Column(unique = true, length = 64)
+    private String dyOpenid;
+
+    /**
+     * 用户昵称（微信昵称）
+     */
+    @Column(length = 50)
+    private String nickname;
+
+    /**
+     * 用户头像URL
+     */
+    @Column(columnDefinition = "TEXT")
+    private String avatarUrl;
+
+    /**
+     * 手机号（用于外卖配送、短信通知）
+     */
+    @Column(unique = true, length = 11)
+    private String phone;
+
+
+    @Column(unique = true)
+    private String email;
+
+    /**
+     * 性别 0-未知 1-男 2-女
+     */
+    private Integer gender = 0;
+
+    /**
+     * 收货地址（可存JSON字符串，支持多个地址）
+     */
+    @Column(columnDefinition = "TEXT")
+    private String address;
+
+
+    /**
+     * 会员积分
+     * */
+    private Long membershipPoints = 0L;
+
+    /**
+     * 账号状态 0-正常 1-禁用
+     */
+    private Integer status = 0;
+
+    /**
+     * 创建时间（自动插入）
+     */
+    @CreatedDate
+    @Column(nullable = false, updatable = false)
+    private Long createTime;
+
+    /**
+     * 更新时间（自动更新）
+     */
+    @LastModifiedDate
+    @Column(nullable = false)
+    private Long updateTime;
+}

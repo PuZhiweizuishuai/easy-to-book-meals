@@ -4,6 +4,9 @@ import com.buguagaoshu.food.enums.PriceType;
 import com.buguagaoshu.food.valid.ListValue;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
 
 
 import java.math.BigDecimal;
@@ -16,7 +19,9 @@ import java.util.List;
  * 基础食品信息
  * 价格与折扣信息应该在 SKU 中设置
  */
-@Data
+@Getter
+@Setter
+@NoArgsConstructor
 @Entity
 @Table(name = "base_food_table", indexes = {
         @Index(name = "idx_base_food_status", columnList = "status"),

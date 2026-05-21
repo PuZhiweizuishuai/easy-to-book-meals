@@ -71,30 +71,5 @@ public class StoreController {
         return ResponseDetails.ok().put("data", storeService.findStoresForUser(page, size, key));
     }
 
-    /**
-     * 管理员分页查询店面列表，显示所有店面（包含待审核）
-     */
-    @GetMapping("/admin/list")
-    @Validated
-    public ResponseDetails adminList(@RequestParam(value = "page", required = false, defaultValue = "1")
-                                     @Min(value = 1, message = "页码不能小于1")
-                                     Integer page,
 
-                                     @RequestParam(value = "size", required = false, defaultValue = "10")
-                                     @Min(value = 1, message = "每页条数不能小于1")
-                                     @Max(value = 100, message = "每页条数不能超过100")
-                                     Integer size,
-
-                                     @RequestParam(value = "key", required = false)
-                                     String key) {
-        return ResponseDetails.ok().put("data", storeService.findStoresForAdmin(page, size, key));
-    }
-
-    /**
-     * 删除店面（逻辑删除）
-     */
-    @PostMapping("/delete/{id}")
-    public ResponseDetails deleteStore(@PathVariable Long id) {
-        return ResponseDetails.ok().put("data", storeService.deleteStore(id));
-    }
 }

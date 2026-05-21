@@ -24,6 +24,7 @@ const router = createRouter({
         requiresAuth: true,
       },
     },
+    // 店面管理路由
     {
       path: '/admin',
       component: AdminLayout,
@@ -103,6 +104,42 @@ const router = createRouter({
         },
       ],
     },
+    // 系统管理路由
+    {
+      path: '/system',
+      name: 'system',
+      component: () => import('@/layout/SystemLayout.vue'),
+      redirect: '/system/index',
+      meta: {
+        requiresAuth: true,
+      },
+      children: [
+        {
+          path: 'index',
+          name: 'systemIndex',
+          component: () => import('@/views/system/Index.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'user',
+          name: 'SystemUser',
+          component: () => import('@/views/system/User.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+        {
+          path: 'store',
+          name: 'SystemStore',
+          component: () => import('@/views/system/Store.vue'),
+          meta: {
+            requiresAuth: true,
+          },
+        },
+      ]
+    }
   ],
 })
 

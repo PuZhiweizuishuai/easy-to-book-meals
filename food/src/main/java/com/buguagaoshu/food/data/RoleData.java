@@ -5,6 +5,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 /**
  * 角色实体
  * 对应 Sa-Token 中的角色概念，用于 RBAC 权限模型
@@ -54,4 +56,7 @@ public class RoleData {
      * 状态 0-启用 1-禁用
      */
     private Integer status = 0;
+
+    @Transient
+    private List<String> permissions;
 }

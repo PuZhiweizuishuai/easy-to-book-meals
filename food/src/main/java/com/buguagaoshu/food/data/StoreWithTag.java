@@ -4,6 +4,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -18,6 +20,7 @@ import lombok.Setter;
         @Index(name = "idx_association_store_storeId", columnList = "storeId"),
         @Index(name = "idx_association_store_tagId", columnList = "tagId")
 })
+@EntityListeners(AuditingEntityListener.class)
 public class StoreWithTag {
     @Id
     @GeneratedValue(strategy = GenerationType.AUTO)
@@ -27,5 +30,6 @@ public class StoreWithTag {
 
     private Long tagId;
 
+    @CreatedDate
     private Long createTime;
 }

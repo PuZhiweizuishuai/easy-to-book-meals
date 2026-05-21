@@ -9,6 +9,8 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.util.List;
+
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -92,11 +94,6 @@ public class UserData {
 
 
     /**
-     * 会员积分
-     * */
-    private Long membershipPoints = 0L;
-
-    /**
      * 账号状态 0-正常 1-禁用
      */
     private Integer status = 0;
@@ -114,4 +111,7 @@ public class UserData {
     @LastModifiedDate
     @Column(nullable = false)
     private Long updateTime;
+
+    @Transient
+    private List<RoleData> roleDataList;
 }

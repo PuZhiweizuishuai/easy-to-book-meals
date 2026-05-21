@@ -7,6 +7,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.util.List;
 
@@ -23,6 +24,7 @@ import java.util.List;
 @Table(name = "store_table", indexes = {
         @Index(name = "idx_store_user", columnList = "createUser")
 })
+@EntityListeners(AuditingEntityListener.class)
 public class Store {
 
     /**
@@ -99,6 +101,7 @@ public class Store {
      * 总销量
      */
     private Long allSales;
+
 
     /**
      * 创建时间（自动填充）

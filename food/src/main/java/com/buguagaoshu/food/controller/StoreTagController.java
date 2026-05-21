@@ -1,6 +1,6 @@
 package com.buguagaoshu.food.controller;
 
-import com.buguagaoshu.food.data.StoreTag;
+
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.StoreTagService;
 import org.springframework.web.bind.annotation.*;
@@ -33,29 +33,5 @@ public class StoreTagController {
     @GetMapping("/{id}")
     public ResponseDetails getStoreTag(@PathVariable Long id) {
         return ResponseDetails.ok().put("data", storeTagService.getStoreTag(id));
-    }
-
-    /**
-     * 创建店面标签
-     */
-    @PostMapping("/add")
-    public ResponseDetails createStoreTag(@RequestBody StoreTag storeTag) {
-        return ResponseDetails.ok().put("data", storeTagService.createTag(storeTag));
-    }
-
-    /**
-     * 更新店面标签
-     */
-    @PostMapping("/update")
-    public ResponseDetails updateStoreTag(@RequestBody StoreTag storeTag) {
-        return ResponseDetails.ok().put("data", storeTagService.updateTag(storeTag));
-    }
-
-    /**
-     * 删除店面标签
-     */
-    @PostMapping("/delete/{id}")
-    public ResponseDetails deleteStoreTag(@PathVariable Long id) {
-        return ResponseDetails.ok().put("data", storeTagService.deleteTag(id));
     }
 }

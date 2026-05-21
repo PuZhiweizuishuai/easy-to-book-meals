@@ -5,6 +5,9 @@ import com.buguagaoshu.food.data.UserRoleData;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.UserDataService;
 import com.buguagaoshu.food.service.UserRoleDataService;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -30,13 +33,22 @@ public class UserSysController {
     }
 
     /**
-     * 查询所有用户列表
+     * 管理员分页查询用户列表，支持按昵称模糊搜索
      */
     @GetMapping("/list")
-    public ResponseDetails listAllUsers() {
-        List<UserData> users = userDataService.findAll();
-        users.forEach(u -> u.setPassword(null));
-        return ResponseDetails.ok().put("data", users);
+    @Validated
+    public ResponseDetails list(@RequestParam(value = "page", required = false, defaultValue = "1")
+                                @Min(value = 1, message = "页码不能小于1")
+                                Integer page,
+
+                                @RequestParam(value = "size", required = false, defaultValue = "10")
+                                @Min(value = 1, message = "每页条数不能小于1")
+                                @Max(value = 100, message = "每页条数不能超过100")
+                                Integer size,
+
+                                @RequestParam(value = "key", required = false)
+                                String key) {
+        return ResponseDetails.ok().put("data", userDataService.findUsersForAdmin(page, size, key));
     }
 
     /**

@@ -5,6 +5,9 @@ import com.buguagaoshu.food.data.*;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.utils.MD5Util;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
@@ -105,6 +108,25 @@ public class UserDataService {
         List<UserData> result = new ArrayList<>();
         userDataRepository.findAll().forEach(result::add);
         return result;
+    }
+
+    /**
+     * 管理员分页查询用户列表，支持按昵称模糊搜索
+     */
+    public Page<UserData> findUsersForAdmin(Integer page, Integer size, String key) {
+        Page<UserData> users;
+        if (StringUtils.hasLength(key)) {
+            users = userDataRepository.findByNicknameLike(
+                    "%" + key + "%",
+                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")))
+            );
+        } else {
+            users = userDataRepository.findAll(
+                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")))
+            );
+        }
+        users.forEach(u -> u.setPassword(null));
+        return users;
     }
 
     /**

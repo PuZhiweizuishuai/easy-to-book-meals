@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.controller;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.UserDataService;
@@ -38,6 +39,7 @@ public class UserController {
      * 修改用户信息
      * 禁止修改系统级参数：status、角色信息、createTime
      */
+    @SaCheckLogin
     @PostMapping("/update")
     public ResponseDetails updateUserInfo(@RequestBody UserData userData) {
         UserData updatedUser = userDataService.updateUserInfo(userData);
@@ -48,33 +50,10 @@ public class UserController {
     /**
      * 根据ID查询用户信息（含角色与权限）
      */
+    @SaCheckLogin
     @GetMapping("/{id}")
     public ResponseDetails getUserById(@PathVariable Long id) {
         UserData user = userDataService.findUserWithRolesAndPermissions(id);
-        user.setPassword(null);
-        return ResponseDetails.ok().put("data", user);
-    }
-
-    /**
-     * 根据手机号查询用户信息（含角色与权限）
-     */
-    //@GetMapping("/phone/{phone}")
-    public ResponseDetails getUserByPhone(@PathVariable String phone) {
-        UserData user = userDataService.findByPhone(phone)
-                .orElseThrow(() -> new com.buguagaoshu.food.exception.BusinessException(404, "用户不存在"));
-        userDataService.fillUserRolesAndPermissions(user);
-        user.setPassword(null);
-        return ResponseDetails.ok().put("data", user);
-    }
-
-    /**
-     * 根据邮箱查询用户信息（含角色与权限）
-     */
-    //@GetMapping("/email/{email}")
-    public ResponseDetails getUserByEmail(@PathVariable String email) {
-        UserData user = userDataService.findByEmail(email)
-                .orElseThrow(() -> new com.buguagaoshu.food.exception.BusinessException(404, "用户不存在"));
-        userDataService.fillUserRolesAndPermissions(user);
         user.setPassword(null);
         return ResponseDetails.ok().put("data", user);
     }

@@ -13,5 +13,7 @@ public interface RolePermissionDataRepository extends CrudRepository<RolePermiss
 
     List<RolePermissionData> findByPermissionId(Long permissionId);
 
+    List<RolePermissionData> findByRoleIdIn(List<Long> roleIds);
+
     void deleteByRoleIdAndPermissionId(Long roleId, Long permissionId);
 }

@@ -2,6 +2,7 @@ package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.data.*;
+import com.buguagaoshu.food.enums.RoleDomainEnum;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.utils.MD5Util;
@@ -15,8 +16,12 @@ import org.springframework.util.StringUtils;
 import java.util.*;
 
 /**
- * 用户服务
+ * 用户服务（RBAC-D 域感知）
+ * <p>
  * 提供用户注册、信息修改、查询、角色分配等功能
+ * 角色分配遵循域隔离规则：
+ * - 全局角色(STORE域以外的GLOBAL域角色)由超级管理员分配
+ * - 门店角色仅由本店店主(STORE_OWNER)分配，且仅限本店范围
  *
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-05-21
@@ -39,10 +44,6 @@ public class UserDataService {
         this.storeService = storeService;
     }
 
-    /**
-     * 用户注册
-     * 注册成功后自动分配默认角色"顾客"(CUSTOMER)，storeId 为 null 表示系统级角色
-     */
     @Transactional(rollbackFor = Exception.class)
     public UserData register(UserData userData) {
         validateRegistration(userData);
@@ -58,16 +59,10 @@ public class UserDataService {
         userData.setGender(userData.getGender() != null ? userData.getGender() : 0);
 
         UserData savedUser = userDataRepository.save(userData);
-
         assignDefaultRole(savedUser.getId());
-
         return savedUser;
     }
 
-    /**
-     * 修改用户信息
-     * 禁止修改系统级参数：status、角色信息、createTime
-     */
     @Transactional(rollbackFor = Exception.class)
     public UserData updateUserInfo(UserData updateData) {
         UserData existing = findById(updateData.getId())
@@ -110,9 +105,6 @@ public class UserDataService {
         return result;
     }
 
-    /**
-     * 管理员分页查询用户列表，支持按昵称模糊搜索
-     */
     public Page<UserData> findUsersForAdmin(Integer page, Integer size, String key) {
         Page<UserData> users;
         if (StringUtils.hasLength(key)) {
@@ -129,20 +121,13 @@ public class UserDataService {
         return users;
     }
 
-    /**
-     * 查询用户信息并关联角色与权限
-     */
     public UserData findUserWithRolesAndPermissions(Long userId) {
         UserData user = findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
-
         fillUserRolesAndPermissions(user);
         return user;
     }
 
-    /**
-     * 为用户填充角色与权限信息
-     */
     public void fillUserRolesAndPermissions(UserData user) {
         List<UserRoleData> userRoles = userRoleDataService.findByUserId(user.getId());
 
@@ -158,9 +143,6 @@ public class UserDataService {
         user.setRoleDataList(roleDataList);
     }
 
-    /**
-     * 修改用户状态（启用/禁用）
-     */
     @Transactional(rollbackFor = Exception.class)
     public UserData updateStatus(Long userId, Integer status) {
         UserData user = findById(userId)
@@ -176,18 +158,21 @@ public class UserDataService {
     }
 
     /**
-     * 为用户分配系统级角色（storeId 为 null）
+     * 分配全局角色（仅超级管理员可操作）
+     * 全局角色: domain=GLOBAL, storeId=null
      */
     @Transactional(rollbackFor = Exception.class)
-    public UserRoleData assignRole(Long userId, Long roleId, Long operatorId) {
+    public UserRoleData assignGlobalRole(Long userId, Long roleId, Long operatorId) {
         findById(userId).orElseThrow(() -> new BusinessException(404, "用户不存在"));
-        roleDataService.findById(roleId).orElseThrow(() -> new BusinessException(404, "角色不存在"));
+        RoleData role = roleDataService.findById(roleId)
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
 
-        List<UserRoleData> existing = userRoleDataService.findByUserId(userId);
-        boolean alreadyAssigned = existing.stream()
-                .anyMatch(ur -> ur.getRoleId().equals(roleId) && ur.getStoreId() == null);
-        if (alreadyAssigned) {
-            throw new BusinessException(400, "该系统角色已分配给此用户");
+        if (!role.isGlobal()) {
+            throw new BusinessException(400, "只能分配全局域角色，该角色属于" + role.getDomain() + "域");
+        }
+
+        if (userRoleDataService.existsByUserIdAndRoleIdAndStoreId(userId, roleId, null)) {
+            throw new BusinessException(400, "该全局角色已分配给此用户");
         }
 
         UserRoleData userRoleData = new UserRoleData();
@@ -199,27 +184,24 @@ public class UserDataService {
     }
 
     /**
-     * 为用户分配店面级角色
-     * 必须由该店面的店长(STORE_ADMIN)操作，否则拒绝
-     *
-     * @param storeId    店面ID
-     * @param userId     被分配角色的用户ID
-     * @param roleId     角色ID
-     * @param operatorId 操作人ID（必须是该店面店长）
+     * 分配门店角色（仅本店店主或超级管理员可操作）
+     * 门店角色: domain=STORE, storeId=具体门店ID
      */
     @Transactional(rollbackFor = Exception.class)
     public UserRoleData assignStoreRole(Long storeId, Long userId, Long roleId, Long operatorId) {
         findById(userId).orElseThrow(() -> new BusinessException(404, "用户不存在"));
-        roleDataService.findById(roleId).orElseThrow(() -> new BusinessException(404, "角色不存在"));
+        RoleData role = roleDataService.findById(roleId)
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
         storeService.getStore(storeId);
 
-        validateStoreAdmin(storeId, operatorId);
+        if (!role.isStore()) {
+            throw new BusinessException(400, "只能分配门店域角色，该角色属于" + role.getDomain() + "域");
+        }
 
-        List<UserRoleData> existing = userRoleDataService.findByStoreIdAndUserId(storeId, userId);
-        boolean alreadyAssigned = existing.stream()
-                .anyMatch(ur -> ur.getRoleId().equals(roleId));
-        if (alreadyAssigned) {
-            throw new BusinessException(400, "该用户在此店面已拥有此角色");
+        validateStoreOwnerOrSuperAdmin(storeId, operatorId);
+
+        if (userRoleDataService.existsByUserIdAndRoleIdAndStoreId(userId, roleId, storeId)) {
+            throw new BusinessException(400, "该用户在此门店已拥有此角色");
         }
 
         UserRoleData userRoleData = new UserRoleData();
@@ -232,7 +214,7 @@ public class UserDataService {
 
     /**
      * 移除用户角色
-     * storeId 为 null 时移除系统级角色，不为 null 时移除店面级角色
+     * storeId 为 null 时移除全局角色，不为 null 时移除门店角色
      */
     @Transactional(rollbackFor = Exception.class)
     public void removeRole(Long userId, Long roleId, Long storeId) {
@@ -240,34 +222,83 @@ public class UserDataService {
     }
 
     /**
-     * 校验操作人是否为指定店面的店长
-     * 操作人在该店面必须拥有 STORE_ADMIN 角色才被视为店长
+     * 校验操作人是否为指定门店的店主或超级管理员
+     * 店主: 在该门店拥有 STORE_OWNER 角色
+     * 超级管理员: 系统级拥有 SUPER_ADMIN 角色
      */
-    private void validateStoreAdmin(Long storeId, Long operatorId) {
+    public void validateStoreOwnerOrSuperAdmin(Long storeId, Long operatorId) {
         if (operatorId == null) {
             throw new BusinessException(403, "缺少操作人信息");
         }
 
-        RoleData storeAdminRole = roleDataService.findByRoleCode("STORE_ADMIN")
-                .orElseThrow(() -> new BusinessException(500, "STORE_ADMIN角色未初始化"));
-
-        List<UserRoleData> operatorRoles = userRoleDataService.findByStoreIdAndUserId(storeId, operatorId);
-        boolean isStoreAdmin = operatorRoles.stream()
-                .anyMatch(ur -> ur.getRoleId().equals(storeAdminRole.getId()));
-
-        if (!isStoreAdmin) {
-            RoleData superAdminRole = roleDataService.findByRoleCode("SUPER_ADMIN")
-                    .orElse(null);
-            if (superAdminRole != null) {
-                List<UserRoleData> sysRoles = userRoleDataService.findSystemRolesByUserId(operatorId);
-                boolean isSuperAdmin = sysRoles.stream()
-                        .anyMatch(ur -> ur.getRoleId().equals(superAdminRole.getId()));
-                if (isSuperAdmin) {
-                    return;
-                }
-            }
-            throw new BusinessException(403, "只有该店面店长或超级管理员才能分配店面角色");
+        if (isSuperAdmin(operatorId)) {
+            return;
         }
+
+        if (isStoreOwner(storeId, operatorId)) {
+            return;
+        }
+
+        throw new BusinessException(403, "只有本店店主或超级管理员才能执行此操作");
+    }
+
+    public boolean isSuperAdmin(Long userId) {
+        RoleData superAdminRole = roleDataService.findByRoleCode("SUPER_ADMIN").orElse(null);
+        if (superAdminRole == null) {
+            return false;
+        }
+        List<UserRoleData> sysRoles = userRoleDataService.findSystemRolesByUserId(userId);
+        return sysRoles.stream().anyMatch(ur -> ur.getRoleId().equals(superAdminRole.getId()));
+    }
+
+    public boolean isStoreOwner(Long storeId, Long userId) {
+        RoleData storeOwnerRole = roleDataService.findByRoleCode("STORE_OWNER").orElse(null);
+        if (storeOwnerRole == null) {
+            return false;
+        }
+        List<UserRoleData> storeRoles = userRoleDataService.findByStoreIdAndUserId(storeId, userId);
+        return storeRoles.stream().anyMatch(ur -> ur.getRoleId().equals(storeOwnerRole.getId()));
+    }
+
+    /**
+     * 获取用户在指定门店拥有的权限编码列表
+     */
+    public List<String> getUserStorePermissionCodes(Long userId, Long storeId) {
+        List<UserRoleData> storeRoles = userRoleDataService.findByStoreIdAndUserId(storeId, userId);
+        Set<String> permCodes = new LinkedHashSet<>();
+        for (UserRoleData ur : storeRoles) {
+            List<String> codes = RolePermissionCache.getPermissionCodesByRoleId(ur.getRoleId());
+            permCodes.addAll(codes);
+        }
+        return new ArrayList<>(permCodes);
+    }
+
+    /**
+     * 获取用户的全局权限编码列表
+     */
+    public List<String> getUserGlobalPermissionCodes(Long userId) {
+        List<UserRoleData> sysRoles = userRoleDataService.findSystemRolesByUserId(userId);
+        Set<String> permCodes = new LinkedHashSet<>();
+        for (UserRoleData ur : sysRoles) {
+            List<String> codes = RolePermissionCache.getPermissionCodesByRoleId(ur.getRoleId());
+            permCodes.addAll(codes);
+        }
+        return new ArrayList<>(permCodes);
+    }
+
+    /**
+     * 获取用户所有角色编码列表（全局+门店）
+     */
+    public List<String> getUserAllRoleCodes(Long userId) {
+        List<UserRoleData> allRoles = userRoleDataService.findByUserId(userId);
+        List<String> roleCodes = new ArrayList<>();
+        for (UserRoleData ur : allRoles) {
+            RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
+            if (role != null && role.getStatus() == 0) {
+                roleCodes.add(role.getRoleCode());
+            }
+        }
+        return roleCodes;
     }
 
     private void assignDefaultRole(Long userId) {

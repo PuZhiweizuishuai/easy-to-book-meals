@@ -11,4 +11,10 @@ import java.util.Optional;
 public interface RoleDataRepository extends CrudRepository<RoleData, Long> {
 
     Optional<RoleData> findByRoleCode(String roleCode);
+
+    List<RoleData> findByDomain(String domain);
+
+    List<RoleData> findByDomainAndStoreIdIsNull(String domain);
+
+    List<RoleData> findByDomainAndStoreId(String domain, Long storeId);
 }

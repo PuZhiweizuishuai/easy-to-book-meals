@@ -19,5 +19,9 @@ public interface UserRoleDataRepository extends CrudRepository<UserRoleData, Lon
 
     List<UserRoleData> findByUserIdAndStoreIdIsNull(Long userId);
 
+    List<UserRoleData> findByUserIdAndStoreIdIsNotNull(Long userId);
+
+    boolean existsByUserIdAndRoleIdAndStoreId(Long userId, Long roleId, Long storeId);
+
     void deleteByUserIdAndRoleIdAndStoreId(Long userId, Long roleId, Long storeId);
 }

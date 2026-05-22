@@ -9,9 +9,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * 用户-角色关联服务
- * 统一管理系统级角色和店面级角色
- * storeId 为 null 时为系统级角色，不为 null 时为店面级角色
+ * 用户-角色关联服务（RBAC-D 域感知）
+ * <p>
+ * 统一管理系统级角色和门店级角色
+ * storeId 为 null 时为系统级角色，不为 null 时为门店级角色
  *
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-05-21
@@ -39,25 +40,24 @@ public class UserRoleDataService {
         return userRoleDataRepository.findByRoleId(roleId);
     }
 
-    /**
-     * 查询用户的系统级角色（storeId 为 null）
-     */
     public List<UserRoleData> findSystemRolesByUserId(Long userId) {
         return userRoleDataRepository.findByUserIdAndStoreIdIsNull(userId);
     }
 
-    /**
-     * 查询用户在某店面的角色
-     */
+    public List<UserRoleData> findStoreRolesByUserId(Long userId) {
+        return userRoleDataRepository.findByUserIdAndStoreIdIsNotNull(userId);
+    }
+
     public List<UserRoleData> findByStoreIdAndUserId(Long storeId, Long userId) {
         return userRoleDataRepository.findByStoreIdAndUserId(storeId, userId);
     }
 
-    /**
-     * 查询某店面的所有用户角色关联
-     */
     public List<UserRoleData> findByStoreId(Long storeId) {
         return userRoleDataRepository.findByStoreId(storeId);
+    }
+
+    public boolean existsByUserIdAndRoleIdAndStoreId(Long userId, Long roleId, Long storeId) {
+        return userRoleDataRepository.existsByUserIdAndRoleIdAndStoreId(userId, roleId, storeId);
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -65,10 +65,6 @@ public class UserRoleDataService {
         return userRoleDataRepository.save(userRoleData);
     }
 
-    /**
-     * 删除用户角色关联
-     * storeId 为 null 时删除系统级角色，不为 null 时删除店面级角色
-     */
     @Transactional(rollbackFor = Exception.class)
     public void deleteByUserIdAndRoleIdAndStoreId(Long userId, Long roleId, Long storeId) {
         userRoleDataRepository.deleteByUserIdAndRoleIdAndStoreId(userId, roleId, storeId);

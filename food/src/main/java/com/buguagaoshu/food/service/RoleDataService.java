@@ -2,6 +2,8 @@ package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.data.RoleData;
+import com.buguagaoshu.food.enums.RoleDomainEnum;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.RoleDataRepository;
 import com.buguagaoshu.food.repository.RolePermissionDataRepository;
 import org.springframework.stereotype.Service;
@@ -12,8 +14,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * 角色服务
+ * 角色服务（RBAC-D 域感知）
+ * <p>
  * 提供角色的增删改查功能，并维护角色权限缓存
+ * 通过 domain 字段区分全局角色和门店角色，确保域隔离
  *
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-05-21
@@ -36,6 +40,22 @@ public class RoleDataService {
         return result;
     }
 
+    public List<RoleData> findByDomain(String domain) {
+        return roleDataRepository.findByDomain(domain);
+    }
+
+    public List<RoleData> findGlobalRoles() {
+        return findByDomain(RoleDomainEnum.GLOBAL.getCode());
+    }
+
+    public List<RoleData> findStoreTemplateRoles() {
+        return roleDataRepository.findByDomainAndStoreIdIsNull(RoleDomainEnum.STORE.getCode());
+    }
+
+    public List<RoleData> findStoreCustomRoles(Long storeId) {
+        return roleDataRepository.findByDomainAndStoreId(RoleDomainEnum.STORE.getCode(), storeId);
+    }
+
     public Optional<RoleData> findById(Long id) {
         return roleDataRepository.findById(id);
     }
@@ -46,16 +66,18 @@ public class RoleDataService {
 
     @Transactional(rollbackFor = Exception.class)
     public RoleData save(RoleData roleData) {
+        validateDomain(roleData);
         RoleData saved = roleDataRepository.save(roleData);
-        RolePermissionCache.ROLE_MAP.put(saved.getId(), saved);
-        RolePermissionCache.ROLE_CODE_MAP.put(saved.getRoleCode(), saved);
+        refreshCache(saved);
         return saved;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public RoleData update(RoleData updateData) {
         RoleData existing = findById(updateData.getId())
-                .orElseThrow(() -> new com.buguagaoshu.food.exception.BusinessException(404, "角色不存在"));
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
+
+        validateDomain(updateData);
 
         String oldRoleCode = existing.getRoleCode();
 
@@ -66,19 +88,17 @@ public class RoleDataService {
 
         RoleData saved = roleDataRepository.save(existing);
 
-        if (!oldRoleCode.equals(updateData.getRoleCode())) {
+        if (!oldRoleCode.equals(saved.getRoleCode())) {
             RolePermissionCache.ROLE_CODE_MAP.remove(oldRoleCode);
         }
-        RolePermissionCache.ROLE_MAP.put(saved.getId(), saved);
-        RolePermissionCache.ROLE_CODE_MAP.put(saved.getRoleCode(), saved);
-
+        refreshCache(saved);
         return saved;
     }
 
     @Transactional(rollbackFor = Exception.class)
     public void deleteById(Long id) {
         RoleData role = findById(id)
-                .orElseThrow(() -> new com.buguagaoshu.food.exception.BusinessException(404, "角色不存在"));
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
 
         rolePermissionDataRepository.findByRoleId(id).forEach(rp -> {
             rolePermissionDataRepository.delete(rp);
@@ -96,6 +116,21 @@ public class RoleDataService {
         List<RoleData> result = new ArrayList<>();
         roleDataRepository.saveAll(roleDataList).forEach(result::add);
         return result;
+    }
+
+    private void validateDomain(RoleData roleData) {
+        if (roleData.getDomain() == null) {
+            throw new BusinessException(400, "角色域(domain)不能为空");
+        }
+        if (!RoleDomainEnum.GLOBAL.getCode().equals(roleData.getDomain())
+                && !RoleDomainEnum.STORE.getCode().equals(roleData.getDomain())) {
+            throw new BusinessException(400, "无效的角色域: " + roleData.getDomain());
+        }
+    }
+
+    private void refreshCache(RoleData saved) {
+        RolePermissionCache.ROLE_MAP.put(saved.getId(), saved);
+        RolePermissionCache.ROLE_CODE_MAP.put(saved.getRoleCode(), saved);
     }
 
     private void refreshRolePermissionsCache(Long roleId) {

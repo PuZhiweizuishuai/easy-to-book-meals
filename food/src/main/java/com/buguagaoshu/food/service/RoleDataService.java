@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * 角色服务（RBAC-D 域感知）
@@ -35,33 +36,35 @@ public class RoleDataService {
     }
 
     public List<RoleData> findAll() {
-        List<RoleData> result = new ArrayList<>();
-        roleDataRepository.findAll().forEach(result::add);
-        return result;
+        return new ArrayList<>(RolePermissionCache.ROLE_MAP.values());
     }
 
     public List<RoleData> findByDomain(String domain) {
-        return roleDataRepository.findByDomain(domain);
+        return RolePermissionCache.getRolesByDomain(domain);
     }
 
     public List<RoleData> findGlobalRoles() {
-        return findByDomain(RoleDomainEnum.GLOBAL.getCode());
+        return RolePermissionCache.getGlobalRoles();
     }
 
     public List<RoleData> findStoreTemplateRoles() {
-        return roleDataRepository.findByDomainAndStoreIdIsNull(RoleDomainEnum.STORE.getCode());
+        return RolePermissionCache.ROLE_MAP.values().stream()
+                .filter(r -> RoleDomainEnum.STORE.getCode().equals(r.getDomain()) && r.getStoreId() == null)
+                .collect(Collectors.toList());
     }
 
     public List<RoleData> findStoreCustomRoles(Long storeId) {
-        return roleDataRepository.findByDomainAndStoreId(RoleDomainEnum.STORE.getCode(), storeId);
+        return RolePermissionCache.ROLE_MAP.values().stream()
+                .filter(r -> RoleDomainEnum.STORE.getCode().equals(r.getDomain()) && storeId.equals(r.getStoreId()))
+                .collect(Collectors.toList());
     }
 
     public Optional<RoleData> findById(Long id) {
-        return roleDataRepository.findById(id);
+        return Optional.ofNullable(RolePermissionCache.ROLE_MAP.get(id));
     }
 
     public Optional<RoleData> findByRoleCode(String roleCode) {
-        return roleDataRepository.findByRoleCode(roleCode);
+        return Optional.ofNullable(RolePermissionCache.ROLE_CODE_MAP.get(roleCode));
     }
 
     @Transactional(rollbackFor = Exception.class)

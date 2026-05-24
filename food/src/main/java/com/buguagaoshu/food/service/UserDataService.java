@@ -136,7 +136,7 @@ public class UserDataService {
             RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
             if (role != null && role.getStatus() == 0) {
                 List<String> permCodes = RolePermissionCache.ROLE_PERMISSIONS_MAP.get(ur.getRoleId());
-                role.setPermissions(permCodes != null ? permCodes : Collections.emptyList());
+                //role.setPermissions(permCodes != null ? permCodes : Collections.emptyList());
                 roleDataList.add(role);
             }
         }

@@ -7,6 +7,7 @@
       </h3>
 
       <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
+        <!-- 头像上传 -->
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">头像</span></label>
           <ImageUpload :allow-multiple="false" @upload-success="handleAvatarUpload" @remove-file="handleAvatarRemove" />
@@ -19,12 +20,14 @@
           </div>
         </div>
 
+        <!-- 昵称 -->
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">昵称 <span class="text-error">*</span></span></label>
           <input v-model="formData.nickname" type="text" placeholder="请输入昵称"
             class="input input-bordered w-full focus:input-primary" required />
         </div>
 
+        <!-- 手机号 / 邮箱 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-control w-full">
             <label class="label"><span class="label-text font-medium">手机号</span></label>
@@ -38,6 +41,7 @@
           </div>
         </div>
 
+        <!-- 性别 / 状态 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-control w-full">
             <label class="label"><span class="label-text font-medium">性别</span></label>
@@ -56,6 +60,7 @@
           </div>
         </div>
 
+        <!-- 收货地址 -->
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">收货地址</span></label>
           <textarea v-model="formData.address" class="textarea textarea-bordered h-16 focus:textarea-primary"
@@ -76,7 +81,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch } from 'vue'
 import ImageUpload from '@/components/upload/ImageUpload.vue'
 
 const props = defineProps({
@@ -102,6 +107,7 @@ function getDefaultFormData() {
   }
 }
 
+/** 弹窗打开时，用传入的用户数据初始化表单 */
 watch(() => props.show, (newVal) => {
   if (newVal && props.user) {
     formData.value = {
@@ -117,12 +123,14 @@ watch(() => props.show, (newVal) => {
   }
 })
 
+/** 头像上传成功回调 */
 const handleAvatarUpload = (response) => {
   if (response?.data && Array.isArray(response.data) && response.data.length > 0) {
     formData.value.avatarUrl = response.data[0].url || response.data[0]
   }
 }
 
+/** 头像移除回调 */
 const handleAvatarRemove = () => {
   formData.value.avatarUrl = ''
 }
@@ -131,6 +139,7 @@ const handleClose = () => {
   emit('close')
 }
 
+/** 提交表单，将数据传递给父组件处理 */
 const handleSubmit = async () => {
   submitting.value = true
   try {

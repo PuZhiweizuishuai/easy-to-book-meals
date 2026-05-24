@@ -7,18 +7,21 @@
       </h3>
 
       <form @submit.prevent="handleSubmit" class="flex flex-col gap-4">
+        <!-- 昵称 -->
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">昵称 <span class="text-error">*</span></span></label>
           <input v-model="formData.nickname" type="text" placeholder="请输入昵称"
             class="input input-bordered w-full focus:input-primary" required />
         </div>
 
+        <!-- 密码 -->
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">密码 <span class="text-error">*</span></span></label>
           <input v-model="formData.password" type="password" placeholder="请输入密码"
             class="input input-bordered w-full focus:input-primary" required minlength="6" />
         </div>
 
+        <!-- 手机号 / 邮箱 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-control w-full">
             <label class="label"><span class="label-text font-medium">手机号</span></label>
@@ -32,6 +35,7 @@
           </div>
         </div>
 
+        <!-- 性别 / 收货地址 -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div class="form-control w-full">
             <label class="label"><span class="label-text font-medium">性别</span></label>
@@ -84,6 +88,7 @@ function getDefaultFormData() {
   }
 }
 
+/** 弹窗打开时重置表单 */
 watch(() => props.show, (newVal) => {
   if (newVal) {
     formData.value = getDefaultFormData()
@@ -94,6 +99,7 @@ const handleClose = () => {
   emit('close')
 }
 
+/** 提交表单，将数据传递给父组件处理 */
 const handleSubmit = async () => {
   submitting.value = true
   try {

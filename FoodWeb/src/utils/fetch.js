@@ -4,10 +4,26 @@
 // 如果在其他环境，请调整获取 baseURL 的方式
 const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api';
 
-// 检查未授权访问的函数
+/**
+ * 判断请求是否成功
+ * 后端统一返回 ResponseDetails，status === 200 表示成功
+ * @param {object} json - 后端返回的响应体
+ * @returns {boolean}
+ */
+export const isSuccess = (json) => {
+  return json && json.status === 200;
+};
+
+/**
+ * 检查未授权访问
+ * 后端未授权时可能返回 401 或通过 Sa-Token 重定向
+ * @param {object} json - 后端返回的响应体
+ * @returns {boolean}
+ */
 const checkUnauthorized = function(json) {
-  // 在这里实现你的未授权检查逻辑
-  // 例如：if (json && json.status === 0) { ... }
+  if (json && (json.status === 401 || json.status === 403)) {
+    return true;
+  }
   return false;
 };
 
@@ -25,8 +41,12 @@ const request = (url, options) => {
     .then((response) => response.json())
     .then((json) => {
       if (checkUnauthorized(json)) {
-        // 如果未授权，可以返回一个特定的错误对象，或者直接在这里处理路由跳转
-        // 为了保持函数纯粹，这里只返回一个标记
+        // 未授权时清除本地 token 并跳转到登录页
+        localStorage.removeItem('token')
+        // 避免重复跳转：如果当前不在登录页，则跳转
+        if (window.location.pathname !== '/sys-login') {
+          window.location.href = '/sys-login'
+        }
         return Promise.reject({ type: 'UNAUTHORIZED', data: json });
       }
       return json;
@@ -66,5 +86,6 @@ export const uploadFiles = (url, form) => {
 export default {
   httpGet,
   httpPost,
-  uploadFiles
+  uploadFiles,
+  isSuccess
 };

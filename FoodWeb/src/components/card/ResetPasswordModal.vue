@@ -45,7 +45,7 @@
 
 <script setup>
 import { ref, watch } from 'vue'
-import { httpPost } from '@/utils/fetch'
+import { httpPost, isSuccess } from '@/utils/fetch'
 import toast from '@/utils/toast'
 
 const props = defineProps({
@@ -90,7 +90,7 @@ const handleSubmit = async () => {
       id: props.user.id,
       password: newPassword.value
     })
-    if (res?.data) {
+    if (isSuccess(res)) {
       toast.success('密码重置成功')
       emit('submit')
       handleClose()

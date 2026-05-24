@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.controller.sys;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.data.RoleData;
 import com.buguagaoshu.food.data.RolePermissionData;
 import com.buguagaoshu.food.dto.ResponseDetails;
@@ -45,6 +46,35 @@ public class RoleSysController {
         this.rolePermissionDataService = rolePermissionDataService;
         this.permissionDataService = permissionDataService;
         this.storeAuthHelper = storeAuthHelper;
+    }
+
+    // ==================== 聚合查询（带权限详情） ====================
+
+    /**
+     * 查询所有角色（附带权限详情列表），从缓存读取
+     * 前端可通过此接口一次性获取角色和权限数据，减少请求次数
+     */
+    @SaCheckPermission("role:global:view")
+    @GetMapping("/list-with-permissions")
+    public ResponseDetails listWithPermissions() {
+        return ResponseDetails.ok().put("data", RolePermissionCache.getAllRolesWithPermissions());
+    }
+
+    /**
+     * 查询全局角色（附带权限详情列表），从缓存读取
+     */
+    @SaCheckPermission("role:global:view")
+    @GetMapping("/global/list-with-permissions")
+    public ResponseDetails listGlobalRolesWithPermissions() {
+        return ResponseDetails.ok().put("data", RolePermissionCache.getGlobalRolesWithPermissions());
+    }
+
+    /**
+     * 查询门店模板角色（附带权限详情列表），从缓存读取
+     */
+    @GetMapping("/store/template/list-with-permissions")
+    public ResponseDetails listStoreTemplateRolesWithPermissions() {
+        return ResponseDetails.ok().put("data", RolePermissionCache.getStoreTemplateRolesWithPermissions());
     }
 
     // ==================== 全局角色管理 ====================
@@ -196,13 +226,5 @@ public class RoleSysController {
                                             @RequestParam Long permissionId) {
         rolePermissionDataService.deleteByRoleIdAndPermissionId(roleId, permissionId);
         return ResponseDetails.ok().put("message", "权限移除成功");
-    }
-
-    /**
-     * 查询角色拥有的权限列表
-     */
-    @GetMapping("/permission/{roleId}")
-    public ResponseDetails getRolePermissions(@PathVariable Long roleId) {
-        return ResponseDetails.ok().put("data", rolePermissionDataService.findByRoleId(roleId));
     }
 }

@@ -4,6 +4,7 @@
 
     <div class="card bg-base-100 shadow-sm border border-base-200">
       <div class="card-body p-4 sm:p-6">
+        <!-- 搜索与操作栏 -->
         <div class="flex flex-col md:flex-row justify-between gap-4 mb-6">
           <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
             <label class="input input-bordered flex items-center gap-2 w-full sm:w-64">
@@ -26,10 +27,12 @@
           </button>
         </div>
 
+        <!-- 加载状态 -->
         <div v-if="loading" class="flex justify-center py-16">
           <span class="loading loading-spinner loading-lg text-primary"></span>
         </div>
 
+        <!-- 空状态 -->
         <div v-else-if="users.length === 0" class="text-center py-16 text-base-content/50">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-16 w-16 mx-auto mb-4 opacity-30" fill="none"
             viewBox="0 0 24 24" stroke="currentColor">
@@ -40,76 +43,74 @@
         </div>
 
         <template v-else>
+          <!-- 移动端卡片列表 -->
           <div class="grid grid-cols-1 gap-4 md:hidden">
             <div v-for="user in users" :key="user.id"
-              class="bg-base-200/50 border border-base-200 rounded-2xl p-4 flex gap-4 items-center transition-all hover:shadow-md">
-              <div class="avatar placeholder">
-                <div class="bg-neutral text-neutral-content w-14 h-14 rounded-xl">
-                  <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="user.nickname" />
-                  <span v-else class="text-lg">{{ (user.nickname || '?')[0] }}</span>
+              class="bg-base-200/50 border border-base-200 rounded-2xl p-4 transition-all hover:shadow-md">
+              <div class="flex gap-4 items-start">
+                <div class="avatar placeholder">
+                  <div class="bg-neutral text-neutral-content w-14 h-14 rounded-xl">
+                    <img v-if="user.avatarUrl" :src="user.avatarUrl" :alt="user.nickname" />
+                    <span v-else class="text-lg">{{ (user.nickname || '?')[0] }}</span>
+                  </div>
+                </div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-bold text-base truncate">{{ user.nickname || '未设置' }}</h3>
+                    <span :class="['badge badge-sm', user.status === 0 ? 'badge-success' : 'badge-error']">
+                      {{ user.status === 0 ? '正常' : '禁用' }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-base-content/70 mt-1">
+                    {{ user.phone || '未绑定手机' }} <span v-if="user.email" class="mx-1">·</span>
+                    {{ user.email || '' }}
+                  </div>
+                  <!-- 用户角色标签 -->
+                  <div v-if="user.roleDataList && user.roleDataList.length > 0" class="flex flex-wrap gap-1 mt-2">
+                    <span v-for="role in user.roleDataList" :key="role.id"
+                      class="badge badge-xs"
+                      :class="role.domain === 'GLOBAL' ? 'badge-primary' : 'badge-secondary'">
+                      {{ role.roleName }}
+                    </span>
+                  </div>
+                  <div class="text-xs text-base-content/40 mt-1">{{ formatDate(user.createTime) }}</div>
                 </div>
               </div>
-              <div class="flex-1 min-w-0">
-                <h3 class="font-bold text-base truncate">{{ user.nickname || '未设置' }}</h3>
-                <div class="text-xs text-base-content/70 mt-1">
-                  {{ user.phone || '未绑定手机' }} <span v-if="user.email" class="mx-1">·</span>
-                  {{ user.email || '' }}
-                </div>
-                <div class="flex items-center gap-2 mt-2">
-                  <span :class="['badge badge-sm', user.status === 0 ? 'badge-success' : 'badge-error']">
-                    {{ user.status === 0 ? '正常' : '禁用' }}
-                  </span>
-                  <span class="text-xs text-base-content/40">{{ formatDate(user.createTime) }}</span>
-                </div>
-              </div>
-              <div class="flex flex-col gap-2">
-                <button class="btn btn-circle btn-ghost btn-sm bg-base-100 shadow-sm" @click="openEditModal(user)"
-                  title="编辑信息">
+              <!-- 操作按钮 -->
+              <div class="flex flex-wrap gap-2 mt-3 pt-3 border-t border-base-200">
+                <button class="btn btn-ghost btn-sm" @click="openEditModal(user)">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                   </svg>
+                  编辑
                 </button>
-                <button class="btn btn-circle btn-ghost btn-sm bg-base-100 shadow-sm" @click="openRoleModal(user)"
-                  title="角色管理">
+                <button class="btn btn-ghost btn-sm" @click="openRoleModal(user)">
                   <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
                     stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
                       d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                   </svg>
+                  角色
                 </button>
                 <button
-                  :class="['btn btn-circle btn-ghost btn-sm bg-base-100 shadow-sm', user.status === 0 ? 'text-error' : 'text-success']"
-                  @click="toggleStatus(user)" :title="user.status === 0 ? '禁用' : '启用'">
-                  <svg v-if="user.status === 0" xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                    viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-                  </svg>
-                  <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+                  :class="['btn btn-ghost btn-sm', user.status === 0 ? 'text-error' : 'text-success']"
+                  @click="toggleStatus(user)">
+                  {{ user.status === 0 ? '禁用' : '启用' }}
                 </button>
-                <button class="btn btn-circle btn-ghost btn-sm bg-base-100 shadow-sm text-error"
-                  @click="openResetModal(user)" title="重置密码">
-                  <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24"
-                    stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                      d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
-                  </svg>
-                </button>
+                <button class="btn btn-ghost btn-sm text-error" @click="openResetModal(user)">重置密码</button>
               </div>
             </div>
           </div>
 
+          <!-- 桌面端表格 -->
           <div class="hidden md:block overflow-x-auto rounded-box border border-base-200">
             <table class="table table-zebra w-full">
               <thead class="bg-base-200 text-base-content">
                 <tr>
                   <th>用户信息</th>
+                  <th>角色</th>
                   <th>手机号</th>
                   <th>邮箱</th>
                   <th>状态</th>
@@ -132,6 +133,16 @@
                         <div class="text-sm opacity-50">ID: {{ user.id }}</div>
                       </div>
                     </div>
+                  </td>
+                  <td>
+                    <div v-if="user.roleDataList && user.roleDataList.length > 0" class="flex flex-wrap gap-1">
+                      <span v-for="role in user.roleDataList" :key="role.id"
+                        class="badge badge-xs"
+                        :class="role.domain === 'GLOBAL' ? 'badge-primary badge-outline' : 'badge-secondary badge-outline'">
+                        {{ role.roleName }}
+                      </span>
+                    </div>
+                    <span v-else class="text-sm text-base-content/40">-</span>
                   </td>
                   <td class="text-sm">{{ user.phone || '-' }}</td>
                   <td class="text-sm">{{ user.email || '-' }}</td>
@@ -159,6 +170,7 @@
             </table>
           </div>
 
+          <!-- 分页 -->
           <div class="flex justify-center md:justify-end mt-6">
             <div class="join shadow-sm">
               <button class="join-item btn btn-sm" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">«
@@ -181,6 +193,7 @@
       </div>
     </div>
 
+    <!-- 弹窗组件 -->
     <UserEditModal :show="showEditModal" :user="editingUser" @close="showEditModal = false"
       @submit="handleEditSubmit" />
     <UserAddModal :show="showAddModal" @close="showAddModal = false" @submit="handleAddSubmit" />
@@ -192,7 +205,7 @@
 
 <script setup>
 import { ref, computed, onMounted } from 'vue'
-import { httpGet, httpPost } from '@/utils/fetch'
+import { httpGet, httpPost, isSuccess } from '@/utils/fetch'
 import { formatDate } from '@/utils/format'
 import toast from '@/utils/toast'
 import UserEditModal from '@/components/card/UserEditModal.vue'
@@ -214,6 +227,7 @@ const showRoleModal = ref(false)
 const showResetModal = ref(false)
 const editingUser = ref(null)
 
+/** 计算分页页码显示 */
 const visiblePages = computed(() => {
   const total = totalPages.value
   const current = currentPage.value
@@ -231,16 +245,22 @@ const visiblePages = computed(() => {
   return pages
 })
 
+/**
+ * 加载用户列表
+ * 后端接口：GET /sys/user/list?page=&size=&key=
+ */
 const loadUsers = async () => {
   loading.value = true
   try {
     const keyParam = searchKey.value ? `&key=${encodeURIComponent(searchKey.value)}` : ''
     const res = await httpGet(`/sys/user/list?page=${currentPage.value}&size=${pageSize.value}${keyParam}`)
-    if (res?.data) {
+    if (isSuccess(res) && res.data) {
       const page = res.data
       users.value = page.content || []
-      totalPages.value = page.page.totalPages || 0
-      totalElements.value = page.page.totalElements || 0
+      totalPages.value = page.page?.totalPages || 0
+      totalElements.value = page.page?.totalElements || 0
+    } else {
+      toast.error(res?.message || '加载用户列表失败')
     }
   } catch (e) {
     toast.error('加载用户列表失败')
@@ -249,38 +269,47 @@ const loadUsers = async () => {
   }
 }
 
+/** 搜索用户 */
 const handleSearch = () => {
   currentPage.value = 1
   loadUsers()
 }
 
+/** 跳转页码 */
 const goPage = (page) => {
   if (page < 1 || page > totalPages.value) return
   currentPage.value = page
   loadUsers()
 }
 
+/** 打开编辑弹窗 */
 const openEditModal = (user) => {
   editingUser.value = { ...user }
   showEditModal.value = true
 }
 
+/** 打开角色管理弹窗 */
 const openRoleModal = (user) => {
   editingUser.value = { ...user }
   showRoleModal.value = true
 }
 
+/** 打开重置密码弹窗 */
 const openResetModal = (user) => {
   editingUser.value = { ...user }
   showResetModal.value = true
 }
 
+/**
+ * 切换用户状态（启用/禁用）
+ * 后端接口：POST /sys/user/status?userId=&status=
+ */
 const toggleStatus = async (user) => {
   const newStatus = user.status === 0 ? 1 : 0
   const action = newStatus === 1 ? '禁用' : '启用'
   try {
     const res = await httpPost(`/sys/user/status?userId=${user.id}&status=${newStatus}`)
-    if (res?.data) {
+    if (isSuccess(res)) {
       toast.success(`用户已${action}`)
       loadUsers()
     } else {
@@ -291,10 +320,14 @@ const toggleStatus = async (user) => {
   }
 }
 
+/**
+ * 处理用户信息编辑提交
+ * 后端接口：POST /user/update
+ */
 const handleEditSubmit = async (formData) => {
   try {
     const res = await httpPost('/user/update', formData)
-    if (res?.data) {
+    if (isSuccess(res)) {
       toast.success('用户信息更新成功')
       showEditModal.value = false
       loadUsers()
@@ -306,10 +339,14 @@ const handleEditSubmit = async (formData) => {
   }
 }
 
+/**
+ * 处理新增用户提交
+ * 后端接口：POST /user/register
+ */
 const handleAddSubmit = async (formData) => {
   try {
     const res = await httpPost('/user/register', formData)
-    if (res?.data) {
+    if (isSuccess(res)) {
       toast.success('用户创建成功')
       showAddModal.value = false
       loadUsers()

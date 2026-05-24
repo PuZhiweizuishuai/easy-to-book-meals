@@ -51,12 +51,20 @@ public class RolePermissionDataService {
     @Transactional(rollbackFor = Exception.class)
     public RolePermissionData save(RolePermissionData rolePermissionData) {
         validateDomainConsistency(rolePermissionData.getRoleId(), rolePermissionData.getPermissionId());
-        return rolePermissionDataRepository.save(rolePermissionData);
+        RolePermissionData saved = rolePermissionDataRepository.save(rolePermissionData);
+        // 保存后同步刷新缓存
+        refreshRolePermissionsCache(saved.getRoleId());
+        return saved;
     }
 
     public List<RolePermissionData> saveAll(List<RolePermissionData> rolePermissionDataList) {
         List<RolePermissionData> result = new ArrayList<>();
         rolePermissionDataRepository.saveAll(rolePermissionDataList).forEach(result::add);
+        // 批量保存后同步刷新缓存（按角色ID分组刷新）
+        result.stream()
+                .map(RolePermissionData::getRoleId)
+                .distinct()
+                .forEach(this::refreshRolePermissionsCache);
         return result;
     }
 

@@ -1,9 +1,7 @@
 package com.buguagaoshu.food.controller.sys;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
-import com.buguagaoshu.food.data.PermissionData;
 import com.buguagaoshu.food.dto.ResponseDetails;
-import com.buguagaoshu.food.enums.RoleDomainEnum;
 import com.buguagaoshu.food.service.PermissionDataService;
 import org.springframework.web.bind.annotation.*;
 

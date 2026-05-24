@@ -44,7 +44,7 @@
       
       <header class="navbar bg-base-100 shadow-sm z-10 px-6">
         <div class="flex-1">
-          <span class="text-sm text-base-content/60 font-medium">欢迎回来，管理员</span>
+          <span class="text-sm text-base-content/60 font-medium">欢迎回来，{{ authStore.nickname }}</span>
         </div>
         
         <div class="flex-none gap-4">
@@ -65,7 +65,7 @@
               <li><a>个人中心</a></li>
               <li><a>系统设置</a></li>
               <div class="divider my-0"></div>
-              <li><a class="text-error hover:bg-error/10">退出登录</a></li>
+              <li><a class="text-error hover:bg-error/10" @click="handleLogout">退出登录</a></li>
             </ul>
           </div>
         </div>
@@ -84,7 +84,13 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
+import { useAuthStore } from '@/stores/auth'
+import toast from '@/utils/toast'
+
+const router = useRouter()
+const authStore = useAuthStore()
 
 // 控制左侧抽屉状态：false 为展开，true 为收起
 const isCollapsed = ref(false)
@@ -92,6 +98,20 @@ const isCollapsed = ref(false)
 const toggleDrawer = () => {
   isCollapsed.value = !isCollapsed.value
 }
+
+/** 退出登录 */
+const handleLogout = async () => {
+  await authStore.logout()
+  toast.success('已退出登录')
+  router.push('/sys-login')
+}
+
+/** 页面加载时获取用户信息 */
+onMounted(async () => {
+  if (authStore.isLoggedIn && !authStore.userInfo) {
+    await authStore.fetchUserInfo()
+  }
+})
 
 // 5. 定义路由及对应 SVG 图标 (使用内联 SVG 以保证无需引入额外组件库即可渲染)
 const menuItems = [

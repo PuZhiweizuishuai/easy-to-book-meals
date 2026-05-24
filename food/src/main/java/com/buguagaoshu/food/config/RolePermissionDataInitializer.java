@@ -4,9 +4,16 @@ import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.data.PermissionData;
 import com.buguagaoshu.food.data.RoleData;
 import com.buguagaoshu.food.data.RolePermissionData;
-import com.buguagaoshu.food.service.PermissionDataService;
+import com.buguagaoshu.food.data.UserData;
+import com.buguagaoshu.food.data.UserRoleData;
+import com.buguagaoshu.food.repository.PermissionDataRepository;
+import com.buguagaoshu.food.repository.RoleDataRepository;
+import com.buguagaoshu.food.repository.RolePermissionDataRepository;
+import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.service.RoleDataService;
 import com.buguagaoshu.food.service.RolePermissionDataService;
+import com.buguagaoshu.food.service.UserRoleDataService;
+import com.buguagaoshu.food.utils.MD5Util;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -49,15 +56,27 @@ import java.util.stream.Collectors;
 public class RolePermissionDataInitializer implements CommandLineRunner {
 
     private final RoleDataService roleDataService;
-    private final PermissionDataService permissionDataService;
     private final RolePermissionDataService rolePermissionDataService;
+    private final RoleDataRepository roleDataRepository;
+    private final PermissionDataRepository permissionDataRepository;
+    private final RolePermissionDataRepository rolePermissionDataRepository;
+    private final UserDataRepository userDataRepository;
+    private final UserRoleDataService userRoleDataService;
 
     public RolePermissionDataInitializer(RoleDataService roleDataService,
-                                         PermissionDataService permissionDataService,
-                                         RolePermissionDataService rolePermissionDataService) {
+                                         RolePermissionDataService rolePermissionDataService,
+                                         RoleDataRepository roleDataRepository,
+                                         PermissionDataRepository permissionDataRepository,
+                                         RolePermissionDataRepository rolePermissionDataRepository,
+                                         UserDataRepository userDataRepository,
+                                         UserRoleDataService userRoleDataService) {
         this.roleDataService = roleDataService;
-        this.permissionDataService = permissionDataService;
         this.rolePermissionDataService = rolePermissionDataService;
+        this.roleDataRepository = roleDataRepository;
+        this.permissionDataRepository = permissionDataRepository;
+        this.rolePermissionDataRepository = rolePermissionDataRepository;
+        this.userDataRepository = userDataRepository;
+        this.userRoleDataService = userRoleDataService;
     }
 
     @Override
@@ -67,6 +86,7 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
         initPermissions();
         initRolePermissionRelations();
         loadCache();
+        initSuperAdmin();
         log.info("角色与权限数据初始化完成 - 全局角色: {}, 门店角色: {}, 全局权限: {}, 门店权限: {}",
                 RolePermissionCache.getGlobalRoles().size(),
                 RolePermissionCache.getStoreRoles().size(),
@@ -202,10 +222,9 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
     // ==================== 初始化方法 ====================
 
     private void initRoles() {
-        Set<String> existingRoleCodes = roleDataService.findAll()
-                .stream()
-                .map(RoleData::getRoleCode)
-                .collect(Collectors.toSet());
+        // 初始化阶段缓存为空，必须直接从数据库读取已有角色
+        Set<String> existingRoleCodes = new HashSet<>();
+        roleDataRepository.findAll().forEach(r -> existingRoleCodes.add(r.getRoleCode()));
 
         List<RoleData> roleDataList = new ArrayList<>();
         for (String[] roleDef : DEFAULT_ROLES) {
@@ -228,10 +247,9 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
     }
 
     private void initPermissions() {
-        Set<String> existingPermKeys = permissionDataService.findAll()
-                .stream()
-                .map(p -> p.getPermissionCode() + "_" + p.getDomain())
-                .collect(Collectors.toSet());
+        // 初始化阶段缓存为空，必须直接从数据库读取已有权限
+        Set<String> existingPermKeys = new HashSet<>();
+        permissionDataRepository.findAll().forEach(p -> existingPermKeys.add(p.getPermissionCode() + "_" + p.getDomain()));
 
         List<PermissionData> permissionDataList = new ArrayList<>();
         for (String[] permDef : DEFAULT_PERMISSIONS) {
@@ -250,26 +268,29 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
             }
         }
         if (!permissionDataList.isEmpty()) {
-            permissionDataService.saveAll(permissionDataList);
+            // saveAll 内部会同步写入缓存
+            permissionDataRepository.saveAll(permissionDataList);
         }
     }
 
     private void initRolePermissionRelations() {
-        List<RoleData> allRoles = roleDataService.findAll();
+        // 初始化阶段缓存为空，必须直接从数据库读取
+        List<RoleData> allRoles = new ArrayList<>();
+        roleDataRepository.findAll().forEach(allRoles::add);
         Map<String, Long> roleCodeToIdMap = allRoles.stream()
                 .collect(Collectors.toMap(RoleData::getRoleCode, RoleData::getId));
 
-        List<PermissionData> allPermissions = permissionDataService.findAll();
+        List<PermissionData> allPermissions = new ArrayList<>();
+        permissionDataRepository.findAll().forEach(allPermissions::add);
         Map<String, Long> permCodeToIdMap = allPermissions.stream()
                 .collect(Collectors.toMap(
                         p -> p.getPermissionCode() + "_" + p.getDomain(),
                         PermissionData::getId
                 ));
 
-        Set<String> existingRelations = rolePermissionDataService.findAll()
-                .stream()
-                .map(rp -> rp.getRoleId() + "_" + rp.getPermissionId())
-                .collect(Collectors.toSet());
+        Set<String> existingRelations = new HashSet<>();
+        rolePermissionDataRepository.findAll().forEach(rp ->
+                existingRelations.add(rp.getRoleId() + "_" + rp.getPermissionId()));
 
         List<RolePermissionData> rolePermissionDataList = new ArrayList<>();
         for (var entry : DEFAULT_ROLE_PERMISSIONS.entrySet()) {
@@ -308,24 +329,29 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
         }
 
         if (!rolePermissionDataList.isEmpty()) {
+            // saveAll 内部会同步刷新缓存
             rolePermissionDataService.saveAll(rolePermissionDataList);
         }
     }
 
     private void loadCache() {
-        List<RoleData> allRoles = roleDataService.findAll();
+        // 直接从数据库读取所有数据加载到缓存
+        List<RoleData> allRoles = new ArrayList<>();
+        roleDataRepository.findAll().forEach(allRoles::add);
         allRoles.forEach(role -> {
             RolePermissionCache.ROLE_MAP.put(role.getId(), role);
             RolePermissionCache.ROLE_CODE_MAP.put(role.getRoleCode(), role);
         });
 
-        List<PermissionData> allPermissions = permissionDataService.findAll();
+        List<PermissionData> allPermissions = new ArrayList<>();
+        permissionDataRepository.findAll().forEach(allPermissions::add);
         allPermissions.forEach(perm -> {
             RolePermissionCache.PERMISSION_MAP.put(perm.getId(), perm);
         });
 
-        Map<Long, List<RolePermissionData>> rolePermissionMap = rolePermissionDataService.findAll()
-                .stream()
+        List<RolePermissionData> allRolePermissions = new ArrayList<>();
+        rolePermissionDataRepository.findAll().forEach(allRolePermissions::add);
+        Map<Long, List<RolePermissionData>> rolePermissionMap = allRolePermissions.stream()
                 .collect(Collectors.groupingBy(RolePermissionData::getRoleId));
 
         RolePermissionCache.ROLE_MAP.keySet().forEach(roleId -> {
@@ -345,5 +371,50 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
                 RolePermissionCache.getStoreRoles().size(),
                 RolePermissionCache.getGlobalPermissions().size(),
                 RolePermissionCache.getStorePermissions().size());
+    }
+
+    /**
+     * 初始化超级管理员账号
+     * 当系统中不存在任何用户时，自动创建超级管理员账号
+     * 默认账号: admin，密码: 123456
+     * 仅在开发环境或首次启动时生效，已有用户则跳过
+     */
+    private void initSuperAdmin() {
+        long userCount = userDataRepository.count();
+        if (userCount > 0) {
+            log.info("系统已有 {} 个用户，跳过超级管理员初始化", userCount);
+            return;
+        }
+
+        log.info("系统中无用户，开始初始化超级管理员账号...");
+
+        // 创建超级管理员用户
+        UserData admin = new UserData();
+        admin.setNickname("admin");
+        admin.setPhone("13800000000");
+        admin.setPassword(MD5Util.getMD5("123456"));
+        admin.setGender(0);
+        admin.setStatus(0);
+        long time = System.currentTimeMillis();
+        admin.setCreateTime(time);
+        admin.setUpdateTime(time);
+
+        UserData savedAdmin = userDataRepository.save(admin);
+        log.info("超级管理员账号创建成功 - ID: {}, 昵称: {}, 手机号: 13800000000, 密码: 123456",
+                savedAdmin.getId());
+
+        // 分配 SUPER_ADMIN 角色
+        RoleData superAdminRole = roleDataService.findByRoleCode("SUPER_ADMIN").orElse(null);
+        if (superAdminRole != null) {
+            UserRoleData userRoleData = new UserRoleData();
+            userRoleData.setUserId(savedAdmin.getId());
+            userRoleData.setRoleId(superAdminRole.getId());
+            userRoleData.setStoreId(null);
+            userRoleData.setCreateUser(null);
+            userRoleDataService.save(userRoleData);
+            log.info("已为超级管理员分配 SUPER_ADMIN 角色");
+        } else {
+            log.warn("SUPER_ADMIN 角色未找到，请检查角色初始化逻辑");
+        }
     }
 }

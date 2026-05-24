@@ -4,9 +4,7 @@ import com.buguagaoshu.food.data.PermissionData;
 import com.buguagaoshu.food.data.RoleData;
 import com.buguagaoshu.food.enums.RoleDomainEnum;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -64,6 +62,63 @@ public class RolePermissionCache {
 
     public static List<String> getPermissionCodesByRoleId(Long roleId) {
         return ROLE_PERMISSIONS_MAP.getOrDefault(roleId, Collections.emptyList());
+    }
+
+    /**
+     * 获取指定角色的权限详情列表（从缓存中读取）
+     */
+    public static List<PermissionData> getPermissionDetailsByRoleId(Long roleId) {
+        List<String> permCodes = ROLE_PERMISSIONS_MAP.getOrDefault(roleId, Collections.emptyList());
+        if (permCodes.isEmpty()) {
+            return Collections.emptyList();
+        }
+        return PERMISSION_MAP.values().stream()
+                .filter(p -> permCodes.contains(p.getPermissionCode()))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取所有角色（附带权限详情列表），从缓存中读取
+     */
+    public static List<RoleData> getAllRolesWithPermissions() {
+        return ROLE_MAP.values().stream()
+                .map(RolePermissionCache::fillPermissions)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取指定域的角色（附带权限详情列表），从缓存中读取
+     */
+    public static List<RoleData> getRolesWithPermissionsByDomain(String domain) {
+        return ROLE_MAP.values().stream()
+                .filter(r -> domain.equals(r.getDomain()))
+                .map(RolePermissionCache::fillPermissions)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 获取全局角色（附带权限详情列表）
+     */
+    public static List<RoleData> getGlobalRolesWithPermissions() {
+        return getRolesWithPermissionsByDomain(RoleDomainEnum.GLOBAL.getCode());
+    }
+
+    /**
+     * 获取门店模板角色（附带权限详情列表，storeId为null的门店角色）
+     */
+    public static List<RoleData> getStoreTemplateRolesWithPermissions() {
+        return ROLE_MAP.values().stream()
+                .filter(r -> RoleDomainEnum.STORE.getCode().equals(r.getDomain()) && r.getStoreId() == null)
+                .map(RolePermissionCache::fillPermissions)
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 为角色填充权限详情列表（基于缓存数据）
+     */
+    private static RoleData fillPermissions(RoleData role) {
+        role.setPermissionList(getPermissionDetailsByRoleId(role.getId()));
+        return role;
     }
 
     public static void clear() {

@@ -24,6 +24,15 @@ const router = createRouter({
         requiresAuth: true,
       },
     },
+    // 超级管理员登录
+    {
+      path: '/sys-login',
+      name: 'sysLogin',
+      component: () => import('@/views/login/SysLogin.vue'),
+      meta: {
+        guest: true, // 仅未登录用户可访问
+      },
+    },
     // 店面管理路由
     {
       path: '/admin',
@@ -43,7 +52,7 @@ const router = createRouter({
           name: 'orders',
           component: OrderManagement,
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
           },
         },
         {
@@ -51,7 +60,7 @@ const router = createRouter({
           name: 'DishManagement',
           component: DishManagement,
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
           },
         },
         {
@@ -59,7 +68,7 @@ const router = createRouter({
           name: 'DishEdit',
           component: () => import('@/views/admin/dish/EditDishView.vue'),
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
           },
         },
         {
@@ -91,7 +100,7 @@ const router = createRouter({
           name: 'categories',
           component: CategoryManagement,
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
           },
         },
         {
@@ -99,7 +108,7 @@ const router = createRouter({
           name: 'memberships',
           component: MembershipManagement,
           meta: {
-            requiresAuth: true, // 添加meta字段，标记需要认证才能访问
+            requiresAuth: true,
           },
         },
       ],
@@ -141,6 +150,21 @@ const router = createRouter({
       ]
     }
   ],
+})
+
+// 全局导航守卫
+router.beforeEach((to, from, next) => {
+  const token = localStorage.getItem('token')
+
+  if (to.meta.requiresAuth && !token) {
+    // 需要认证但未登录，跳转到登录页
+    next({ name: 'sysLogin', query: { redirect: to.fullPath } })
+  } else if (to.meta.guest && token) {
+    // 已登录用户访问登录页，跳转到系统首页
+    next({ name: 'systemIndex' })
+  } else {
+    next()
+  }
 })
 
 export default router

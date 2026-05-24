@@ -64,8 +64,11 @@ public class RoleData {
 
     private Integer status = 0;
 
+    /**
+     * 角色关联的权限列表（非持久化，从缓存中填充）
+     */
     @Transient
-    private List<String> permissions;
+    private List<PermissionData> permissionList;
 
     public boolean isGlobal() {
         return RoleDomainEnum.GLOBAL.getCode().equals(this.domain);

@@ -53,21 +53,4 @@ public class PermissionSysController {
         return ResponseDetails.ok().put("data", permissionDataService.findStorePermissions());
     }
 
-    /**
-     * 根据ID查询权限
-     */
-    @SaCheckPermission("permission:view")
-    @GetMapping("/{id}")
-    public ResponseDetails getById(@PathVariable Long id) {
-        return ResponseDetails.ok().put("data", permissionDataService.findById(id).orElse(null));
-    }
-
-    /**
-     * 按域查询权限
-     */
-    @SaCheckPermission("permission:view")
-    @GetMapping("/domain/{domain}")
-    public ResponseDetails listByDomain(@PathVariable String domain) {
-        return ResponseDetails.ok().put("data", permissionDataService.findByDomain(domain));
-    }
 }

@@ -4,20 +4,24 @@ import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.StoreService;
 import com.buguagaoshu.food.service.StoreWithTagService;
-import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 /**
+ * 店面控制器（用户端只读）
+ * <p>
+ * 仅提供面向普通用户的店面浏览和查询功能
+ * 店主端操作见 StoreManageController，超管端操作见 StoreSysController
+ *
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
  * @create 2026-05-20
- * 店面控制器
  */
 @RestController
 @RequestMapping("/api/store")
 public class StoreController {
+
     private final StoreService storeService;
     private final StoreWithTagService storeWithTagService;
 
@@ -27,23 +31,7 @@ public class StoreController {
     }
 
     /**
-     * 创建店面
-     */
-    @PostMapping("/add")
-    public ResponseDetails addStore(@Valid @RequestBody Store store) {
-        return ResponseDetails.ok().put("data", storeService.saveStore(store));
-    }
-
-    /**
-     * 更新店面
-     */
-    @PostMapping("/update")
-    public ResponseDetails updateStore(@Valid @RequestBody Store store) {
-        return ResponseDetails.ok().put("data", storeService.updateStore(store));
-    }
-
-    /**
-     * 根据ID查询店面
+     * 根据ID查询店面详情
      */
     @GetMapping("/{id}")
     public ResponseDetails getStore(@PathVariable Long id) {
@@ -60,16 +48,12 @@ public class StoreController {
     public ResponseDetails list(@RequestParam(value = "page", required = false, defaultValue = "1")
                                 @Min(value = 1, message = "页码不能小于1")
                                 Integer page,
-
                                 @RequestParam(value = "size", required = false, defaultValue = "10")
                                 @Min(value = 1, message = "每页条数不能小于1")
                                 @Max(value = 100, message = "每页条数不能超过100")
                                 Integer size,
-
                                 @RequestParam(value = "key", required = false)
                                 String key) {
         return ResponseDetails.ok().put("data", storeService.findStoresForUser(page, size, key));
     }
-
-
 }

@@ -85,15 +85,7 @@ public class UserSysController {
         return ResponseDetails.ok().put("message", "全局角色移除成功");
     }
 
-    /**
-     * 查询用户的全局角色列表
-     */
-    @SaCheckLogin
-    @GetMapping("/global/role/{userId}")
-    public ResponseDetails getUserGlobalRoles(@PathVariable Long userId) {
-        List<UserRoleData> sysRoles = userRoleDataService.findSystemRolesByUserId(userId);
-        return ResponseDetails.ok().put("data", sysRoles);
-    }
+
 
     // ==================== 门店角色分配 ====================
 

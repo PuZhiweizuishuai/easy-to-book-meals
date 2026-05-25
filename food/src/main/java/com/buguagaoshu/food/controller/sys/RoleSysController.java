@@ -79,14 +79,6 @@ public class RoleSysController {
 
     // ==================== 全局角色管理 ====================
 
-    /**
-     * 查询所有全局角色
-     */
-    @SaCheckPermission("role:global:view")
-    @GetMapping("/global/list")
-    public ResponseDetails listGlobalRoles() {
-        return ResponseDetails.ok().put("data", roleDataService.findGlobalRoles());
-    }
 
     /**
      * 创建全局角色
@@ -131,13 +123,6 @@ public class RoleSysController {
 
     // ==================== 门店角色管理 ====================
 
-    /**
-     * 查询门店模板角色（预设的门店角色，跨门店共享）
-     */
-    @GetMapping("/store/template/list")
-    public ResponseDetails listStoreTemplateRoles() {
-        return ResponseDetails.ok().put("data", roleDataService.findStoreTemplateRoles());
-    }
 
     /**
      * 查询指定门店的自定义角色

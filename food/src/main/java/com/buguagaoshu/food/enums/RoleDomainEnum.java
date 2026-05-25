@@ -1,5 +1,8 @@
 package com.buguagaoshu.food.enums;
 
+import lombok.Getter;
+
+@Getter
 public enum RoleDomainEnum {
     GLOBAL("GLOBAL", "全局域"),
     STORE("STORE", "门店域");
@@ -12,11 +15,4 @@ public enum RoleDomainEnum {
         this.description = description;
     }
 
-    public String getCode() {
-        return code;
-    }
-
-    public String getDescription() {
-        return description;
-    }
 }

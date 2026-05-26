@@ -8,6 +8,7 @@ public enum ReturnCodeEnum {
     SUCCESS(200, "成功"),
     FAIL(500, "失败"),
     PARAM_ERROR(400, "参数错误"),
+    FORBIDDEN(403, "没有权限"),
     NOT_FOUND(404, "资源不存在");
 
     private final Integer code;

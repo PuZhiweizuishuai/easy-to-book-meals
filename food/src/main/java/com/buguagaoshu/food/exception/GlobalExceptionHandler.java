@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.exception;
 
+import cn.dev33.satoken.exception.SaTokenException;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.enums.ReturnCodeEnum;
 import org.slf4j.Logger;
@@ -29,5 +30,11 @@ public class GlobalExceptionHandler {
     public ResponseDetails handleException(Exception e) {
         logger.error("系统异常: ", e);
         return ResponseDetails.ok(ReturnCodeEnum.FAIL.getCode(), "系统内部错误");
+    }
+
+    @ExceptionHandler(SaTokenException.class)
+    public ResponseDetails handSaTokenException(SaTokenException e) {
+        logger.info("账号登录或权限异常：{} {}", e.getMessage(), e.getCode());
+        return ResponseDetails.ok(ReturnCodeEnum.FORBIDDEN);
     }
 }

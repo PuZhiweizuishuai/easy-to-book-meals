@@ -13,7 +13,7 @@
         <form @submit.prevent="handleLogin" class="flex flex-col gap-4">
           <div class="form-control w-full">
             <label class="label"><span class="label-text font-medium">手机号 <span class="text-error">*</span></span></label>
-            <input v-model="formData.phone" type="text" placeholder="请输入手机号"
+            <input v-model="formData.username" type="text" placeholder="请输入手机号"
               class="input input-bordered w-full focus:input-primary" required maxlength="11" />
           </div>
 
@@ -82,26 +82,26 @@ const loading = ref(false)
 const showPassword = ref(false)
 const errorMsg = ref('')
 const formData = ref({
-  phone: '',
+  username: '',
   password: ''
 })
 
 /**
  * 处理登录
- * 后端接口：POST /sys/auth/login/phone
+ * 后端接口：POST /auth/login
  */
 const handleLogin = async () => {
   errorMsg.value = ''
 
-  if (!formData.value.phone || !formData.value.password) {
+  if (!formData.value.username || !formData.value.password) {
     errorMsg.value = '请输入手机号和密码'
     return
   }
 
   loading.value = true
   try {
-    const res = await httpPost('/sys/auth/login/phone', {
-      phone: formData.value.phone,
+    const res = await httpPost('/auth/login', {
+      username: formData.value.username,
       password: formData.value.password
     })
 

@@ -4,7 +4,6 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.dto.ResponseDetails;
-import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.service.StoreService;
 import com.buguagaoshu.food.utils.StoreAuthHelper;
 import jakarta.validation.Valid;

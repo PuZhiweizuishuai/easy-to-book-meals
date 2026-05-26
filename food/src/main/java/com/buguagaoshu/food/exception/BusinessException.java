@@ -1,7 +1,9 @@
 package com.buguagaoshu.food.exception;
 
 import com.buguagaoshu.food.enums.ReturnCodeEnum;
+import lombok.Getter;
 
+@Getter
 public class BusinessException extends RuntimeException {
     private final Integer code;
 
@@ -20,7 +22,4 @@ public class BusinessException extends RuntimeException {
         this.code = returnCodeEnum.getCode();
     }
 
-    public Integer getCode() {
-        return code;
-    }
 }

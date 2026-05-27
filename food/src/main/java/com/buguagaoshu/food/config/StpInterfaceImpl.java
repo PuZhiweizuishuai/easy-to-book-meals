@@ -37,6 +37,7 @@ public class StpInterfaceImpl implements StpInterface {
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
         Long userId = Long.valueOf(loginId.toString());
+        System.out.println("获取登录用户权限：" + userId + "  " + loginType);
         List<UserRoleData> userRoles = userRoleDataService.findByUserId(userId);
 
         List<String> permissionCodes = new ArrayList<>();
@@ -50,6 +51,7 @@ public class StpInterfaceImpl implements StpInterface {
     @Override
     public List<String> getRoleList(Object loginId, String loginType) {
         Long userId = Long.valueOf(loginId.toString());
+        System.out.println("获取登录用户角色：" + userId + "  " + loginType);
         List<UserRoleData> userRoles = userRoleDataService.findByUserId(userId);
 
         List<String> roleCodes = new ArrayList<>();

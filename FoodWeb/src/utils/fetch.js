@@ -1,8 +1,19 @@
-// src/utils/http.js
+/**
+ * 统一网络请求封装
+ *
+ * 设计要点：
+ * - 所有请求自动携带 token（Header + Cookie 双模式），兼容同域和跨域部署
+ * - 后端统一返回 ResponseDetails，status === 200 表示成功
+ * - 401/403 未授权时自动清除本地状态并跳转登录页
+ */
 
-// 假设你使用 Vite，环境变量可以通过 import.meta.env 访问
-// 如果在其他环境，请调整获取 baseURL 的方式
-const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api';
+const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api'
+
+/** Sa-Token 请求头名称，与后端 sa-token.token-name 配置一致 */
+const TOKEN_HEADER = 'satoken'
+
+/** 登录页路径 */
+const LOGIN_PATH = '/login'
 
 /**
  * 判断请求是否成功
@@ -11,27 +22,53 @@ const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api';
  * @returns {boolean}
  */
 export const isSuccess = (json) => {
-  return json && json.status === 200;
-};
+  return json && json.status === 200
+}
 
 /**
- * 检查未授权访问
- * 后端未授权时可能返回 401 或通过 Sa-Token 重定向
+ * 检查是否为未授权响应
  * @param {object} json - 后端返回的响应体
  * @returns {boolean}
  */
-const checkUnauthorized = function(json) {
-  if (json && (json.status === 401 || json.status === 403)) {
-    return true;
-  }
-  return false;
-};
+const isUnauthorized = (json) => {
+  return json && (json.status === 401 || json.status === 403)
+}
 
 /**
- * 通用的请求处理函数，避免代码重复
- * @param {string} url - 请求地址
- * @param {object} options - fetch 的配置项
- * @returns {Promise} - 返回一个 Promise 对象
+ * 处理未授权：清除本地认证状态，跳转登录页
+ */
+function handleUnauthorized() {
+  localStorage.removeItem('token')
+  localStorage.removeItem('user_info')
+  if (window.location.pathname !== LOGIN_PATH) {
+    window.location.href = LOGIN_PATH
+  }
+}
+
+/**
+ * 构建请求 Headers
+ * 自动附加 token 和 Content-Type
+ * @param {object} extraHeaders - 额外的请求头
+ * @returns {object}
+ */
+function buildHeaders(extraHeaders = {}) {
+  const headers = {
+    'Content-Type': 'application/json; charset=UTF-8',
+    ...extraHeaders,
+  }
+  // 从 localStorage 读取 token，通过 Header 携带（兼容跨域场景）
+  const token = localStorage.getItem('token')
+  if (token) {
+    headers[TOKEN_HEADER] = token
+  }
+  return headers
+}
+
+/**
+ * 通用请求函数
+ * @param {string} url - 请求地址（不含 BASE_URL 前缀）
+ * @param {object} options - fetch 配置项
+ * @returns {Promise<object>} - 后端返回的响应体
  */
 const request = (url, options) => {
   return fetch(`${BASE_URL}${url}`, {
@@ -40,52 +77,58 @@ const request = (url, options) => {
   })
     .then((response) => response.json())
     .then((json) => {
-      if (checkUnauthorized(json)) {
-        // 未授权时清除本地 token 并跳转到登录页
-        localStorage.removeItem('token')
-        // 避免重复跳转：如果当前不在登录页，则跳转
-        if (window.location.pathname !== '/sys-login') {
-          window.location.href = '/sys-login'
-        }
-        return Promise.reject({ type: 'UNAUTHORIZED', data: json });
+      if (isUnauthorized(json)) {
+        handleUnauthorized()
+        return Promise.reject({ type: 'UNAUTHORIZED', data: json })
       }
-      return json;
-    });
-};
+      return json
+    })
+}
 
-// 导出独立的工具函数
+/**
+ * GET 请求
+ * @param {string} url - 请求地址
+ * @returns {Promise<object>}
+ */
 export const httpGet = (url) => {
   return request(url, {
     method: 'GET',
-    headers: {
-      'Content-Type': 'application/json; charset=UTF-8',
-    },
-  });
-};
+    headers: buildHeaders(),
+  })
+}
 
+/**
+ * POST 请求
+ * @param {string} url - 请求地址
+ * @param {object} data - 请求体数据
+ * @returns {Promise<object>}
+ */
 export const httpPost = (url, data) => {
   return request(url, {
     method: 'POST',
-    headers: {
-      'Content-Type': 'application/json; charset=UTF-8',
-    },
+    headers: buildHeaders(),
     body: JSON.stringify(data),
-  });
-};
+  })
+}
 
+/**
+ * 文件上传请求
+ * 浏览器会自动设置 Content-Type 为 multipart/form-data，无需手动指定
+ * @param {string} url - 请求地址
+ * @param {FormData} form - 表单数据
+ * @returns {Promise<object>}
+ */
 export const uploadFiles = (url, form) => {
   return request(url, {
     method: 'POST',
-    // 上传文件时，浏览器会自动设置 Content-Type 为 multipart/form-data
-    // 所以这里不需要手动设置 headers
+    headers: buildHeaders({ 'Content-Type': undefined }),
     body: form,
-  });
-};
+  })
+}
 
-// 导出一个默认对象，方便按需导入
 export default {
   httpGet,
   httpPost,
   uploadFiles,
   isSuccess
-};
+}

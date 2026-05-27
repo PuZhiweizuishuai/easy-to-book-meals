@@ -48,22 +48,29 @@
         </div>
         
         <div class="flex-none gap-4">
-          <!-- <button class="btn btn-ghost btn-circle">
-            <div class="indicator">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" /></svg>
-              <span class="badge badge-xs badge-primary indicator-item"></span>
-            </div>
-          </button> -->
-          
           <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-              <div class="bg-neutral text-neutral-content w-8 rounded-full">
-                <img alt="User Avatar" src="https://api.dicebear.com/7.x/notionists/svg?seed=Admin" />
+            <div tabindex="0" role="button" class="btn btn-ghost gap-2 px-2">
+              <!-- 用户头像：有 avatarUrl 则显示图片，否则显示昵称首字 -->
+              <div class="avatar placeholder">
+                <div class="bg-primary text-primary-content w-8 rounded-full">
+                  <img v-if="authStore.userInfo?.avatarUrl" :src="authStore.userInfo.avatarUrl" :alt="authStore.nickname" />
+                  <span v-else class="text-sm">{{ authStore.nickname?.charAt(0) || 'U' }}</span>
+                </div>
               </div>
+              <span class="text-sm font-medium hidden sm:inline">{{ authStore.nickname }}</span>
             </div>
             <ul tabindex="0" class="mt-3 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-52 border border-base-200">
-              <li><a>个人中心</a></li>
-              <li><a>系统设置</a></li>
+              <li class="menu-title py-1.5">
+                <span class="text-xs">{{ authStore.userInfo?.phone || authStore.userInfo?.email || '' }}</span>
+              </li>
+              <li v-for="role in authStore.roles" :key="role.id">
+                <span class="text-xs">
+                  <span class="badge badge-xs" :class="role.domain === 'GLOBAL' ? 'badge-primary' : 'badge-secondary'">
+                    {{ role.domain === 'GLOBAL' ? '全局' : '门店' }}
+                  </span>
+                  {{ role.roleName }}
+                </span>
+              </li>
               <div class="divider my-0"></div>
               <li><a class="text-error hover:bg-error/10" @click="handleLogout">退出登录</a></li>
             </ul>
@@ -103,13 +110,15 @@ const toggleDrawer = () => {
 const handleLogout = async () => {
   await authStore.logout()
   toast.success('已退出登录')
-  router.push('/sys-login')
+  router.push('/login')
 }
 
-/** 页面加载时获取用户信息 */
-onMounted(async () => {
-  if (authStore.isLoggedIn && !authStore.userInfo) {
-    await authStore.fetchUserInfo()
+/** 页面加载时初始化用户信息（从 localStorage 读取，无需请求后端） */
+onMounted(() => {
+  // authStore 在初始化时已从 localStorage 恢复 userInfo
+  // 若 localStorage 中无数据（如被手动清除），则跳转登录页
+  if (!authStore.isLoggedIn || !authStore.userInfo) {
+    router.push('/login')
   }
 })
 

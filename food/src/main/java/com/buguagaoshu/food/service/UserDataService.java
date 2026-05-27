@@ -135,21 +135,29 @@ public class UserDataService {
         for (UserRoleData ur : userRoles) {
             RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
             if (role != null && role.getStatus() == 0) {
-                List<String> permCodes = RolePermissionCache.ROLE_PERMISSIONS_MAP.get(ur.getRoleId());
-                //role.setPermissions(permCodes != null ? permCodes : Collections.emptyList());
+                List<PermissionData> permCodes = RolePermissionCache.getPermissionDetailsByRoleId(ur.getRoleId());
+                role.setPermissionList(permCodes);
                 roleDataList.add(role);
             }
         }
         user.setRoleDataList(roleDataList);
     }
 
+    /**
+     * 修改用户状态（启用/禁用）
+     *
+     * 校验规则：
+     * - 超级管理员不能禁用自己，需先移除超管角色后再禁用
+     * - 系统中仅剩一个超级管理员时，不能禁用该用户
+     */
     @Transactional(rollbackFor = Exception.class)
     public UserData updateStatus(Long userId, Integer status) {
         UserData user = findById(userId)
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
-
-        if (status != 0 && status != 1) {
-            throw new BusinessException(400, "无效的状态值");
+        
+        // 禁用时校验：超级管理员不能被直接禁用
+        if (status == 1 && isSuperAdmin(userId)) {
+            throw new BusinessException(400, "该用户拥有超级管理员角色，无法直接禁用，请先移除超管角色");
         }
 
         user.setStatus(status);
@@ -215,10 +223,34 @@ public class UserDataService {
     /**
      * 移除用户角色
      * storeId 为 null 时移除全局角色，不为 null 时移除门店角色
+     *
+     * 校验规则：
+     * 1. 系统中仅剩一个超级管理员时，不允许移除自己的超级管理员角色
+     * 2. 移除后若用户无任何角色，自动分配 CUSTOMER 角色保底
      */
     @Transactional(rollbackFor = Exception.class)
     public void removeRole(Long userId, Long roleId, Long storeId) {
+        RoleData role = roleDataService.findById(roleId)
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
+
+        // 规则1：最后一个超级管理员不能移除自己的角色
+        if ("SUPER_ADMIN".equals(role.getRoleCode()) && storeId == null) {
+            List<UserRoleData> superAdminBindings = userRoleDataService.findByRoleId(roleId).stream()
+                    .filter(ur -> ur.getStoreId() == null)
+                    .toList();
+            if (superAdminBindings.size() <= 1) {
+                throw new BusinessException(400, "系统仅剩一个超级管理员，不能移除该角色");
+            }
+        }
+
+        // 执行移除
         userRoleDataService.deleteByUserIdAndRoleIdAndStoreId(userId, roleId, storeId);
+
+        // 规则2：移除后若用户无任何角色，自动分配 CUSTOMER 角色保底
+        List<UserRoleData> remainingRoles = userRoleDataService.findByUserId(userId);
+        if (remainingRoles.isEmpty()) {
+            assignDefaultRole(userId);
+        }
     }
 
     /**

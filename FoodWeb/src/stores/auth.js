@@ -1,20 +1,54 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { httpGet, httpPost, isSuccess } from '@/utils/fetch'
+import { httpPost, isSuccess } from '@/utils/fetch'
+
+/** localStorage 键名常量 */
+const STORAGE_KEY_TOKEN = 'token'
+const STORAGE_KEY_USER = 'user_info'
+
+/**
+ * 从 localStorage 读取并解析 JSON，失败返回 null
+ * @param {string} key
+ * @returns {object|null}
+ */
+function loadFromStorage(key) {
+  try {
+    const raw = localStorage.getItem(key)
+    return raw ? JSON.parse(raw) : null
+  } catch {
+    return null
+  }
+}
+
+/**
+ * 将数据序列化后写入 localStorage
+ * @param {string} key
+ * @param {*} value
+ */
+function saveToStorage(key, value) {
+  localStorage.setItem(key, JSON.stringify(value))
+}
 
 /**
  * 认证状态管理 Store
- * 管理用户登录状态、Token、用户信息
+ *
+ * 设计要点：
+ * - 登录成功后，将 token 和用户信息（含角色、权限）全部写入 localStorage
+ * - 后续直接从 localStorage 读取，不再请求 /auth/info 接口，减少后端压力
+ * - 路由守卫通过此 store 的 computed 属性判断用户是否有权访问页面
  */
 export const useAuthStore = defineStore('auth', () => {
-  const token = ref(localStorage.getItem('token') || '')
-  const userInfo = ref(null)
+  /** 登录令牌 */
+  const token = ref(localStorage.getItem(STORAGE_KEY_TOKEN) || '')
+
+  /** 用户信息（含角色 roleDataList，每个角色含 permissionList） */
+  const userInfo = ref(loadFromStorage(STORAGE_KEY_USER))
 
   /** 是否已登录 */
   const isLoggedIn = computed(() => !!token.value)
 
   /** 用户昵称 */
-  const nickname = computed(() => userInfo.value?.nickname || '管理员')
+  const nickname = computed(() => userInfo.value?.nickname || '')
 
   /** 用户角色列表 */
   const roles = computed(() => userInfo.value?.roleDataList || [])
@@ -25,46 +59,82 @@ export const useAuthStore = defineStore('auth', () => {
   })
 
   /**
+   * 获取用户所有权限编码（去重）
+   * 遍历所有角色的 permissionList，提取 permissionCode
+   * @returns {string[]}
+   */
+  const permissionCodes = computed(() => {
+    const codes = new Set()
+    for (const role of roles.value) {
+      if (role.permissionList) {
+        for (const perm of role.permissionList) {
+          if (perm.permissionCode) {
+            codes.add(perm.permissionCode)
+          }
+        }
+      }
+    }
+    return [...codes]
+  })
+
+  /**
+   * 获取用户所有角色编码
+   * @returns {string[]}
+   */
+  const roleCodes = computed(() => {
+    return roles.value.map(r => r.roleCode).filter(Boolean)
+  })
+
+  /**
+   * 判断用户是否拥有指定角色（任一匹配即可）
+   * @param {string[]} requiredRoles - 需要的角色编码列表
+   * @returns {boolean}
+   */
+  function hasAnyRole(requiredRoles) {
+    if (!requiredRoles || requiredRoles.length === 0) return true
+    // 超级管理员默认拥有所有角色权限
+    if (isSuperAdmin.value) return true
+    return requiredRoles.some(code => roleCodes.value.includes(code))
+  }
+
+  /**
+   * 判断用户是否拥有指定权限（任一匹配即可）
+   * @param {string[]} requiredPermissions - 需要的权限编码列表
+   * @returns {boolean}
+   */
+  function hasAnyPermission(requiredPermissions) {
+    if (!requiredPermissions || requiredPermissions.length === 0) return true
+    if (isSuperAdmin.value) return true
+    return requiredPermissions.some(code => permissionCodes.value.includes(code))
+  }
+
+  /**
    * 设置登录信息
-   * @param {object} data - 登录接口返回的数据 { token, userId, nickname }
+   * 登录接口返回 { token, user }，将两者分别持久化
+   * @param {{ token: string, user: object }} data
    */
   function setLoginInfo(data) {
     if (data?.token) {
       token.value = data.token
-      localStorage.setItem('token', data.token)
+      localStorage.setItem(STORAGE_KEY_TOKEN, data.token)
     }
-  }
-
-  /**
-   * 获取当前用户信息（含角色与权限）
-   * 后端接口：GET /sys/auth/info
-   */
-  async function fetchUserInfo() {
-    try {
-      const res = await httpGet('/sys/auth/info')
-      if (isSuccess(res) && res.data) {
-        userInfo.value = res.data
-        return res.data
-      }
-    } catch (e) {
-      console.error('获取用户信息失败', e)
+    if (data?.user) {
+      userInfo.value = data.user
+      saveToStorage(STORAGE_KEY_USER, data.user)
     }
-    return null
   }
 
   /**
    * 登出
-   * 后端接口：POST /sys/auth/logout
+   * 调用后端登出接口，无论成功与否都清除本地状态
    */
   async function logout() {
     try {
-      await httpPost('/sys/auth/logout')
+      await httpPost('/auth/logout')
     } catch {
       // 登出请求失败也清除本地状态
     } finally {
-      token.value = ''
-      userInfo.value = null
-      localStorage.removeItem('token')
+      clearAuth()
     }
   }
 
@@ -74,7 +144,8 @@ export const useAuthStore = defineStore('auth', () => {
   function clearAuth() {
     token.value = ''
     userInfo.value = null
-    localStorage.removeItem('token')
+    localStorage.removeItem(STORAGE_KEY_TOKEN)
+    localStorage.removeItem(STORAGE_KEY_USER)
   }
 
   return {
@@ -84,8 +155,11 @@ export const useAuthStore = defineStore('auth', () => {
     nickname,
     roles,
     isSuperAdmin,
+    permissionCodes,
+    roleCodes,
+    hasAnyRole,
+    hasAnyPermission,
     setLoginInfo,
-    fetchUserInfo,
     logout,
     clearAuth
   }

@@ -469,3 +469,79 @@ public ResponseDetails addDish(@RequestParam Long storeId, @RequestBody DishData
     // ...
 }
 ```
+
+
+为了让代码足够通用，以及让项目足够简单清晰，我调整了登录接口返回的数据样式，登录接口现在返回的数据样例如下：
+{
+    "data": {
+        "user": {
+            "address": null,
+            "avatarUrl": null,
+            "createTime": 1779887355246,
+            "dyOpenid": null,
+            "email": null,
+            "gender": 0,
+            "id": 1,
+            "nickname": "admin",
+            "password": null,
+            "phone": "13800000000",
+            "roleDataList": [
+                {
+                    "description": "拥有系统所有权限，可管理平台级数据和全局角色分配",
+                    "domain": "GLOBAL",
+                    "global": true,
+                    "id": 1,
+                    "permissionList": [
+                        {
+                            "description": "管理用户信息、分配全局角色",
+                            "domain": "GLOBAL",
+                            "global": true,
+                            "id": 1,
+                            "module": "user",
+                            "permissionCode": "user:manage",
+                            "permissionName": "用户管理",
+                            "sort": 1,
+                            "status": 0,
+                            "store": false
+                        },
+                        {
+                            "description": "查看用户基本信息",
+                            "domain": "GLOBAL",
+                            "global": true,
+                            "id": 2,
+                            "module": "user",
+                            "permissionCode": "user:view",
+                            "permissionName": "查看用户",
+                            "sort": 2,
+                            "status": 0,
+                            "store": false
+                        }
+                    ],
+                    "roleCode": "SUPER_ADMIN",
+                    "roleName": "超级管理员",
+                    "sort": 0,
+                    "status": 0,
+                    "store": false,
+                    "storeId": null
+                }
+            ],
+            "status": 0,
+            "updateTime": 1779887355246,
+            "wxOpenid": null,
+            "zfbOpenid": null
+        },
+        "token": "b03f25c9-0df0-4867-8c41-21e57af124e8"
+    },
+    "message": "成功",
+    "status": 200,
+    "timestamp": "2026-05-27T21:38:07.2544526"
+}
+
+下面我希望你对前端代码做如下修改：
+1、修改登录页面，让登录更加通用，让不论是普通用户、店长、超级管理员都可以通过这个页面来进行登录，并且我希望这个登录页面要足够美观有创意，适配移动端，修改完成后同时修改路由配置。
+2、登录后直接跳转用户访问的上一个页面
+3、修改auth.js方法，登陆后将用户权限、信息、角色直接写到localStorage，之后直接读取，不再请求/auth/info接口，减少后端压力
+4、修改路由配置，对店面管理路由的meta字段与系统管理路由的meta字段进行修改，实现用户登录后没有相关角色权限也不允许访问这些页面
+5、同时修改路由守卫
+6、修改代码时注增加必要的代码注释、对可以多次复用的代码提取为函数
+

@@ -8,6 +8,7 @@ import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.UserDataService;
 import com.buguagaoshu.food.service.UserRoleDataService;
 import com.buguagaoshu.food.utils.StoreAuthHelper;
+import com.buguagaoshu.food.valid.ListValue;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -141,8 +142,9 @@ public class UserSysController {
      */
     @SaCheckPermission("user:manage")
     @PostMapping("/status")
+    @Validated
     public ResponseDetails updateStatus(@RequestParam Long userId,
-                                        @RequestParam Integer status) {
+                                        @RequestParam @ListValue(value = {0, 1}) Integer status) {
         UserData user = userDataService.updateStatus(userId, status);
         user.setPassword(null);
         return ResponseDetails.ok().put("data", user);

@@ -7,6 +7,7 @@ import com.buguagaoshu.food.data.UserRoleData;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.service.RoleDataService;
 import com.buguagaoshu.food.service.UserRoleDataService;
+import com.buguagaoshu.food.enums.RbacRoleCode;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -109,7 +110,7 @@ public class StoreAuthHelper {
     }
 
     private boolean isSuperAdmin(Long userId) {
-        RoleData superAdminRole = roleDataService.findByRoleCode("SUPER_ADMIN").orElse(null);
+        RoleData superAdminRole = roleDataService.findByRoleCode(RbacRoleCode.SUPER_ADMIN.getCode()).orElse(null);
         if (superAdminRole == null) {
             return false;
         }
@@ -118,7 +119,7 @@ public class StoreAuthHelper {
     }
 
     private boolean isStoreOwner(Long storeId, Long userId) {
-        RoleData storeOwnerRole = roleDataService.findByRoleCode("STORE_OWNER").orElse(null);
+        RoleData storeOwnerRole = roleDataService.findByRoleCode(RbacRoleCode.STORE_OWNER.getCode()).orElse(null);
         if (storeOwnerRole == null) {
             return false;
         }

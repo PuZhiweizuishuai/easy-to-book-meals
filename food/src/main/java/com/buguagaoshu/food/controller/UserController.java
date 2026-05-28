@@ -4,6 +4,7 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.UserDataService;
+import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -28,6 +29,7 @@ public class UserController {
      * 用户注册
      * 注册成功后自动分配默认角色"顾客"(CUSTOMER)
      */
+    @Valid
     @PostMapping("/register")
     public ResponseDetails register(@RequestBody UserData userData) {
         UserData savedUser = userDataService.register(userData);

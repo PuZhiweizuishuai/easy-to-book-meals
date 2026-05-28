@@ -1,8 +1,10 @@
 package com.buguagaoshu.food.service;
 
 import com.buguagaoshu.food.cache.RolePermissionCache;
+import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.*;
 import com.buguagaoshu.food.enums.RoleDomainEnum;
+import com.buguagaoshu.food.enums.RbacRoleCode;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.utils.MD5Util;
@@ -156,7 +158,7 @@ public class UserDataService {
                 .orElseThrow(() -> new BusinessException(404, "用户不存在"));
         
         // 禁用时校验：超级管理员不能被直接禁用
-        if (status == 1 && isSuperAdmin(userId)) {
+        if (status == WebConstant.ENABLE && isSuperAdmin(userId)) {
             throw new BusinessException(400, "该用户拥有超级管理员角色，无法直接禁用，请先移除超管角色");
         }
 
@@ -234,7 +236,7 @@ public class UserDataService {
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
 
         // 规则1：最后一个超级管理员不能移除自己的角色
-        if ("SUPER_ADMIN".equals(role.getRoleCode()) && storeId == null) {
+        if (RbacRoleCode.SUPER_ADMIN.getCode().equals(role.getRoleCode()) && storeId == null) {
             List<UserRoleData> superAdminBindings = userRoleDataService.findByRoleId(roleId).stream()
                     .filter(ur -> ur.getStoreId() == null)
                     .toList();
@@ -275,7 +277,7 @@ public class UserDataService {
     }
 
     public boolean isSuperAdmin(Long userId) {
-        RoleData superAdminRole = roleDataService.findByRoleCode("SUPER_ADMIN").orElse(null);
+        RoleData superAdminRole = roleDataService.findByRoleCode(RbacRoleCode.SUPER_ADMIN.getCode()).orElse(null);
         if (superAdminRole == null) {
             return false;
         }
@@ -284,7 +286,7 @@ public class UserDataService {
     }
 
     public boolean isStoreOwner(Long storeId, Long userId) {
-        RoleData storeOwnerRole = roleDataService.findByRoleCode("STORE_OWNER").orElse(null);
+        RoleData storeOwnerRole = roleDataService.findByRoleCode(RbacRoleCode.STORE_OWNER.getCode()).orElse(null);
         if (storeOwnerRole == null) {
             return false;
         }
@@ -334,7 +336,7 @@ public class UserDataService {
     }
 
     private void assignDefaultRole(Long userId) {
-        RoleData customerRole = roleDataService.findByRoleCode("CUSTOMER")
+        RoleData customerRole = roleDataService.findByRoleCode(RbacRoleCode.CUSTOMER.getCode())
                 .orElseThrow(() -> new BusinessException(500, "默认角色CUSTOMER未初始化"));
 
         UserRoleData userRoleData = new UserRoleData();

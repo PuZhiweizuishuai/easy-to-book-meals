@@ -1,6 +1,8 @@
 package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotBlank;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -36,6 +38,7 @@ public class UserData {
     private Long id;
 
 
+    @Max(value = 25, message = "密码最长不能超过25位")
     private String password;
 
     /**
@@ -62,6 +65,7 @@ public class UserData {
     /**
      * 用户昵称（微信昵称）
      */
+    @Max(value = 50, message = "昵称最长不超过50个字符")
     @Column(length = 50)
     private String nickname;
 
@@ -74,10 +78,13 @@ public class UserData {
     /**
      * 手机号（用于外卖配送、短信通知）
      */
+    @Max(value = 20, message = "手机号最长不超过20个字符")
     @Column(unique = true, length = 11)
+    @NotBlank(message = "电话不能为空")
     private String phone;
 
 
+    @Max(value = 100, message = "邮箱最长不超过100个字符")
     @Column(unique = true)
     private String email;
 

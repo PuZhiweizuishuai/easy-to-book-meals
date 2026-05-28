@@ -1,6 +1,6 @@
 package com.buguagaoshu.food.controller;
 
-import com.buguagaoshu.food.data.UserData;
+
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.AuthService;
 import org.springframework.web.bind.annotation.*;
@@ -49,7 +49,6 @@ public class AuthController {
      */
     @GetMapping("/info")
     public ResponseDetails getCurrentUserInfo() {
-        UserData user = authService.getCurrentUserInfo();
-        return ResponseDetails.ok().put("data", user);
+        return ResponseDetails.ok().put("data", authService.getCurrentUserInfo());
     }
 }

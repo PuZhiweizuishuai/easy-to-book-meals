@@ -50,7 +50,8 @@ public class RbacDefinition {
                 RbacPermissionCode.DELIVERY_MANAGE, RbacPermissionCode.DELIVERY_VIEW,
                 RbacPermissionCode.REVIEW_MANAGE, RbacPermissionCode.REVIEW_VIEW,
                 RbacPermissionCode.STATS_STORE,
-                RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW
+                RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW,
+                RbacPermissionCode.ROLE_STORE_MANAGE
         ));
         map.put(RbacRoleCode.STORE_CASHIER, List.of(
                 RbacPermissionCode.ORDER_MANAGE, RbacPermissionCode.ORDER_VIEW,

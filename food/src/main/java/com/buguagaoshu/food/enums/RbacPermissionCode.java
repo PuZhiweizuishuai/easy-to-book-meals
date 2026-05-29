@@ -30,7 +30,8 @@ public enum RbacPermissionCode {
     REVIEW_VIEW("review:view", "查看评价", "review", RoleDomainEnum.STORE, "查看评价信息", 12),
     STATS_STORE("stats:store", "店面统计", "stats", RoleDomainEnum.STORE, "查看本店经营统计数据", 13),
     INVENTORY_MANAGE("inventory:manage", "库存管理", "inventory", RoleDomainEnum.STORE, "管理库存信息", 14),
-    INVENTORY_VIEW("inventory:view", "查看库存", "inventory", RoleDomainEnum.STORE, "查看库存信息", 15);
+    INVENTORY_VIEW("inventory:view", "查看库存", "inventory", RoleDomainEnum.STORE, "查看库存信息", 15),
+    ROLE_STORE_MANAGE("role:store:manage", "店面角色管理", "role", RoleDomainEnum.STORE, "管理店面内角色，分配店面角色给员工", 16);
 
     private final String code;
     private final String name;

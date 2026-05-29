@@ -92,12 +92,16 @@ public class UserSysController {
 
     /**
      * 为用户分配门店角色（仅本店店主或超级管理员可操作）
+     * TODO 超级管理员可以操作所有店面
+     *      本店店主只可以操作自己的
      */
+    @SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
     @PostMapping("/store/role/assign")
     public ResponseDetails assignStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,
                                            @RequestParam Long roleId,
                                            @RequestParam Long operatorId) {
+
         UserRoleData userRoleData = userDataService.assignStoreRole(storeId, userId, roleId, operatorId);
         return ResponseDetails.ok().put("data", userRoleData);
     }
@@ -105,6 +109,7 @@ public class UserSysController {
     /**
      * 移除用户的门店角色
      */
+    @SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
     @PostMapping("/store/role/remove")
     public ResponseDetails removeStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,

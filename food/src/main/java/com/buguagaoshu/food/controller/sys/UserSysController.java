@@ -95,7 +95,7 @@ public class UserSysController {
      * TODO 超级管理员可以操作所有店面
      *      本店店主只可以操作自己的
      */
-    @SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
+    //@SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
     @PostMapping("/store/role/assign")
     public ResponseDetails assignStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,
@@ -109,7 +109,7 @@ public class UserSysController {
     /**
      * 移除用户的门店角色
      */
-    @SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
+    //@SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
     @PostMapping("/store/role/remove")
     public ResponseDetails removeStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,

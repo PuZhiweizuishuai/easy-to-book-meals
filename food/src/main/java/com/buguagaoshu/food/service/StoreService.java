@@ -1,8 +1,12 @@
 package com.buguagaoshu.food.service;
 
+import cn.dev33.satoken.stp.StpUtil;
+import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.data.StoreTag;
 import com.buguagaoshu.food.data.StoreWithTag;
+import com.buguagaoshu.food.data.UserRoleData;
+import com.buguagaoshu.food.enums.RbacRoleCode;
 import com.buguagaoshu.food.enums.StoreStatus;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.StoreRepository;
@@ -27,11 +31,14 @@ import java.util.stream.Collectors;
 public class StoreService {
     private final StoreRepository storeRepository;
     private final StoreWithTagService storeWithTagService;
+    private final UserRoleDataService userRoleDataService;
 
     public StoreService(StoreRepository storeRepository,
-                        StoreWithTagService storeWithTagService) {
+                        StoreWithTagService storeWithTagService,
+                        UserRoleDataService userRoleDataService) {
         this.storeRepository = storeRepository;
         this.storeWithTagService = storeWithTagService;
+        this.userRoleDataService = userRoleDataService;
     }
 
     /**
@@ -40,6 +47,7 @@ public class StoreService {
      * */
     @Transactional(rollbackFor = Exception.class)
     public Store saveStore(Store store) {
+        store.setCreateUser(StpUtil.getLoginIdAsLong());
         long time = System.currentTimeMillis();
         store.setCreateTime(time);
         store.setUpdateTime(time);
@@ -50,6 +58,12 @@ public class StoreService {
 
         Store savedStore = storeRepository.save(store);
         savedStore.setTags(new ArrayList<>());
+        // 写入角色权限关联
+        UserRoleData ownerRole = new UserRoleData();
+        ownerRole.setUserId(store.getCreateUser());
+        ownerRole.setRoleId(RolePermissionCache.ROLE_CODE_MAP.get(RbacRoleCode.STORE_OWNER.getCode()).getId());
+        ownerRole.setStoreId(savedStore.getId());
+        userRoleDataService.save(ownerRole);
         return savedStore;
     }
 

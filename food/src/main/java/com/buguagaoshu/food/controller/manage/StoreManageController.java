@@ -45,7 +45,6 @@ public class StoreManageController {
     @SaCheckLogin
     @PostMapping("/add")
     public ResponseDetails addStore(@Valid @RequestBody Store store) {
-        store.setCreateUser(StpUtil.getLoginIdAsLong());
         return ResponseDetails.ok().put("data", storeService.saveStore(store));
     }
 

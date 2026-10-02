@@ -258,6 +258,7 @@
 import { ref, reactive, watch, getCurrentInstance, onMounted } from 'vue';
 import { httpGet, httpPost, uploadFiles } from '@/utils/fetch.js';
 import toast from '@/utils/toast';
+import { useStoreContext } from '@/stores/storeContext.js';
 import EditFoodTagCard from './EditFoodTagCard.vue';
 import ImageUpload from '@/components/upload/ImageUpload.vue';
 const props = defineProps({
@@ -466,7 +467,13 @@ const fetchTags = async () => {
 // 提交表单
 const handleSubmit = async () => {
   //isSubmitting.value = true;
-  console.log(formData);
+  // 附加当前管理门店 ID（菜品归属门店，后端据此做数据隔离与权限校验）
+  const storeContext = useStoreContext();
+  if (!storeContext.currentStoreId) {
+    toast.error('请先选择门店');
+    return;
+  }
+  formData.storefrontId = storeContext.currentStoreId;
   // 提交表单数据
   const json = await httpPost('/dishes/add', formData);
   if (json && json.status === 200) {

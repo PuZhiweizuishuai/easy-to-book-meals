@@ -1,7 +1,10 @@
 package com.buguagaoshu.food.controller.sys;
 
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.cache.RolePermissionCache;
+import com.buguagaoshu.food.data.PermissionData;
 import com.buguagaoshu.food.data.RoleData;
 import com.buguagaoshu.food.data.RolePermissionData;
 import com.buguagaoshu.food.dto.ResponseDetails;
@@ -188,14 +191,38 @@ public class RoleSysController {
 
     /**
      * 为角色分配权限（域隔离：全局角色只能分配全局权限，门店角色只能分配门店权限）
+     * 权限校验：
+     * - 全局角色：需要 role:global:manage 权限
+     * - 门店角色：仅本店店主或超级管理员可操作
      */
+    @SaCheckLogin
     @PostMapping("/permission/assign")
     public ResponseDetails assignPermission(@RequestParam Long roleId,
                                             @RequestParam Long permissionId) {
-        roleDataService.findById(roleId)
+        RoleData role = roleDataService.findById(roleId)
                 .orElseThrow(() -> new BusinessException(404, "角色不存在"));
-        permissionDataService.findById(permissionId)
+        PermissionData permission = permissionDataService.findById(permissionId)
                 .orElseThrow(() -> new BusinessException(404, "权限不存在"));
+
+        // 域隔离校验：全局角色只能绑定全局权限，门店角色只能绑定门店权限
+        if (role.isGlobal() && !permission.isGlobal()) {
+            throw new BusinessException(400, "全局角色只能绑定全局域权限");
+        }
+        if (role.isStore() && !permission.isStore()) {
+            throw new BusinessException(400, "门店角色只能绑定门店域权限");
+        }
+
+        // 操作权限校验
+        if (role.isGlobal()) {
+            StpUtil.checkPermission("role:global:manage");
+        } else {
+            // 门店模板角色(storeId=null)仅超管可改；门店自定义角色仅本店店主可改
+            if (role.getStoreId() != null) {
+                storeAuthHelper.checkStoreOwner(role.getStoreId());
+            } else {
+                StpUtil.checkPermission("role:global:manage");
+            }
+        }
 
         RolePermissionData rp = new RolePermissionData();
         rp.setRoleId(roleId);
@@ -204,11 +231,25 @@ public class RoleSysController {
     }
 
     /**
-     * 移除角色权限
+     * 移除角色权限（权限校验规则与分配相同）
      */
+    @SaCheckLogin
     @PostMapping("/permission/remove")
     public ResponseDetails removePermission(@RequestParam Long roleId,
                                             @RequestParam Long permissionId) {
+        RoleData role = roleDataService.findById(roleId)
+                .orElseThrow(() -> new BusinessException(404, "角色不存在"));
+
+        if (role.isGlobal()) {
+            StpUtil.checkPermission("role:global:manage");
+        } else {
+            if (role.getStoreId() != null) {
+                storeAuthHelper.checkStoreOwner(role.getStoreId());
+            } else {
+                StpUtil.checkPermission("role:global:manage");
+            }
+        }
+
         rolePermissionDataService.deleteByRoleIdAndPermissionId(roleId, permissionId);
         return ResponseDetails.ok().put("message", "权限移除成功");
     }

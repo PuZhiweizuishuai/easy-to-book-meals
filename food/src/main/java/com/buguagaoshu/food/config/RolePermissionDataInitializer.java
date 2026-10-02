@@ -15,7 +15,7 @@ import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.service.RoleDataService;
 import com.buguagaoshu.food.service.RolePermissionDataService;
 import com.buguagaoshu.food.service.UserRoleDataService;
-import com.buguagaoshu.food.utils.MD5Util;
+import com.buguagaoshu.food.utils.PasswordUtil;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
@@ -59,6 +59,11 @@ import java.util.stream.Collectors;
 @Component
 @Order(1)
 public class RolePermissionDataInitializer implements CommandLineRunner {
+
+    /**
+     * 首次启动初始化超级管理员的默认密码（仅用于本地/开发首启，登录后应立即修改）
+     */
+    private static final String DEFAULT_ADMIN_PASSWORD = "123456";
 
     private final RoleDataService roleDataService;
     private final RolePermissionDataService rolePermissionDataService;
@@ -263,7 +268,7 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
         UserData admin = new UserData();
         admin.setNickname("admin");
         admin.setPhone("13800000000");
-        admin.setPassword(MD5Util.getMD5("123456"));
+        admin.setPassword(PasswordUtil.encode(DEFAULT_ADMIN_PASSWORD));
         admin.setGender(0);
         admin.setStatus(0);
         long time = System.currentTimeMillis();
@@ -271,8 +276,8 @@ public class RolePermissionDataInitializer implements CommandLineRunner {
         admin.setUpdateTime(time);
 
         UserData savedAdmin = userDataRepository.save(admin);
-        log.info("超级管理员账号创建成功 - ID: {}, 昵称: {}, 手机号: 13800000000, 密码: 123456",
-                savedAdmin.getId());
+        log.warn("超级管理员账号创建成功 - ID: {}, 昵称: admin, 手机号: 13800000000，" +
+                "已使用初始密码，请登录后立即修改！", savedAdmin.getId());
 
         RoleData superAdminRole = roleDataService.findByRoleCode(RbacRoleCode.SUPER_ADMIN.getCode())
                 .orElseThrow(() -> new RuntimeException("超级管理员角色未初始化"));

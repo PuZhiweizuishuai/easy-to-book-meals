@@ -232,6 +232,9 @@ public class ProductSkuService {
 
     /**
      * 根据规格值组合创建单个 SKU
+     *
+     * @param combination   该 SKU 选中的规格值ID列表（如 [1] 表示选了"大份"）
+     * @param specValueMap  整道菜所有规格值ID→名称映射（用于查找选中项的名称）
      * */
     private ProductSku createSingleSku(List<Long> combination, Long dishId, BaseFood baseFood, Map<Long, String> specValueMap) {
         ProductSku sku = new ProductSku();
@@ -242,7 +245,16 @@ public class ProductSkuService {
         sku.setDescription("");
         sku.setDiscount(1.0);
         sku.setDiscountEndTime(0L);
-        sku.setSpecNames(specValueMap);
+        // specNames 只缓存该 SKU 实际选中的规格值名称（如 {1:"大份"}），
+        // 而非整道菜所有规格值，避免订单详情展示成"大份/小份"
+        Map<Long, String> selectedSpecNames = new LinkedHashMap<>();
+        for (Long id : combination) {
+            String name = specValueMap.get(id);
+            if (name != null) {
+                selectedSpecNames.put(id, name);
+            }
+        }
+        sku.setSpecNames(selectedSpecNames);
         sku.setSpecs(combination);
         sku.setSpecsHash(sku.getSpecs());
         sku.setStatus(WebConstant.ENABLE);

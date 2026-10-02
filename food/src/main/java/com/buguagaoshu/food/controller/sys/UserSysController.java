@@ -2,6 +2,7 @@ package com.buguagaoshu.food.controller.sys;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.data.UserRoleData;
 import com.buguagaoshu.food.dto.ResponseDetails;
@@ -92,24 +93,23 @@ public class UserSysController {
 
     /**
      * 为用户分配门店角色（仅本店店主或超级管理员可操作）
-     * TODO 超级管理员可以操作所有店面
-     *      本店店主只可以操作自己的
+     * 操作人取当前登录用户，不信任前端传入
      */
-    //@SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
+    @SaCheckLogin
     @PostMapping("/store/role/assign")
     public ResponseDetails assignStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,
-                                           @RequestParam Long roleId,
-                                           @RequestParam Long operatorId) {
-
-        UserRoleData userRoleData = userDataService.assignStoreRole(storeId, userId, roleId, operatorId);
+                                           @RequestParam Long roleId) {
+        storeAuthHelper.checkStoreOwner(storeId);
+        UserRoleData userRoleData = userDataService.assignStoreRole(
+                storeId, userId, roleId, StpUtil.getLoginIdAsLong());
         return ResponseDetails.ok().put("data", userRoleData);
     }
 
     /**
      * 移除用户的门店角色
      */
-    //@SaCheckPermission(value = {"role:global:manage", "role:store:manage"}, mode = SaMode.OR)
+    @SaCheckLogin
     @PostMapping("/store/role/remove")
     public ResponseDetails removeStoreRole(@RequestParam Long storeId,
                                            @RequestParam Long userId,
@@ -117,6 +117,17 @@ public class UserSysController {
         storeAuthHelper.checkStoreOwner(storeId);
         userDataService.removeRole(userId, roleId, storeId);
         return ResponseDetails.ok().put("message", "门店角色移除成功");
+    }
+
+    /**
+     * 查询门店员工列表（含用户信息与角色信息，仅本店店主或超级管理员可查看）
+     * 返回该门店所有用户-角色绑定记录
+     */
+    @SaCheckLogin
+    @GetMapping("/store/role/list")
+    public ResponseDetails listStoreEmployees(@RequestParam Long storeId) {
+        storeAuthHelper.checkStoreOwner(storeId);
+        return ResponseDetails.ok().put("data", userDataService.listStoreEmployees(storeId));
     }
 
     /**

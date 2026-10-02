@@ -1,5 +1,7 @@
 package com.buguagaoshu.food.dto;
 
+import jakarta.validation.constraints.NotNull;
+
 import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.data.SpecGroup;
@@ -16,6 +18,12 @@ import java.util.List;
  */
 @Data
 public class CreateDishes {
+
+    /**
+     * 所属门店ID（创建菜品时必填，用于门店数据隔离）
+     */
+    @NotNull(message = "门店ID不能为空")
+    private Long storefrontId;
 
     private String name;
 

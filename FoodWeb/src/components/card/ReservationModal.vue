@@ -162,15 +162,14 @@ const handleSubmit = async () => {
   submitting.value = true
   try {
     emit('submit', {
-      storeId: 0,
+      storeId: props.table?.storefrontId,
       tableId: props.table?.id,
       contactName: formData.value.contactName,
       contactPhone: formData.value.contactPhone,
       guestCount: formData.value.guestCount,
       reservedStartTime: startMs,
       reservedEndTime: endMs,
-      remark: formData.value.remark,
-      operator: 0
+      remark: formData.value.remark
     })
   } finally {
     submitting.value = false

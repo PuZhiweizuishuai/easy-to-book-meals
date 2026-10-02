@@ -5,6 +5,7 @@ import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.FileData;
 import com.buguagaoshu.food.dto.VditorFiles;
 import com.buguagaoshu.food.enums.FileExternalTypeEnum;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.FileStorageRepository;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Repository;
@@ -61,6 +62,10 @@ public class FileStorageInLocal implements FileStorageRepository {
             String path = FileConfig.filePath();
             String originalFilename = file.getOriginalFilename();
             String suffix = FileConfig.getSuffix(originalFilename);
+            if (!FileConfig.isAllowedExtension(suffix)) {
+                errFiles.add(originalFilename);
+                continue;
+            }
             String filename = FileConfig.newFilename(suffix);
             File dest = new File(path);
             if (!dest.exists() && !dest.mkdirs()) {
@@ -110,6 +115,9 @@ public class FileStorageInLocal implements FileStorageRepository {
 
             String originalFilename = file.getOriginalFilename();
             String suffix = FileConfig.getSuffix(originalFilename);
+            if (!FileConfig.isAllowedExtension(suffix)) {
+                throw new BusinessException("不支持的文件类型，仅允许上传图片文件");
+            }
             String newFilename = FileConfig.newFilename(suffix);
             
             try {

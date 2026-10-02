@@ -71,7 +71,7 @@ public class StoreManageController {
 
     /**
      * 店主端分页查询自己管理的店面列表
-     * 显示当前用户作为店主的所有店面（含待审核）
+     * 依据当前用户的门店角色确定管理范围（含待审核），超级管理员可见所有店面
      */
     @SaCheckLogin
     @GetMapping("/list")
@@ -85,6 +85,9 @@ public class StoreManageController {
                                         Integer size,
                                         @RequestParam(value = "key", required = false)
                                         String key) {
-        return ResponseDetails.ok().put("data", storeService.findStoresForAdmin(page, size, key));
+        Long userId = StpUtil.getLoginIdAsLong();
+        boolean isSuperAdmin = storeAuthHelper.isSuperAdmin(userId);
+        return ResponseDetails.ok().put("data",
+                storeService.findMyStores(userId, page, size, key, isSuperAdmin));
     }
 }

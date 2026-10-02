@@ -2,6 +2,7 @@ package com.buguagaoshu.food.service;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.cache.RolePermissionCache;
+import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.data.StoreTag;
 import com.buguagaoshu.food.data.StoreWithTag;
@@ -71,6 +72,9 @@ public class StoreService {
      * 更新店面信息
      * 只允许修改用户可编辑的属性，保护系统维护的属性不被篡改
      * 系统维护的属性：monthlySales、allSales、createTime、isDeleted（由系统自动管理）
+     * <p>
+     * 状态保护：待审核/停业状态的店面，店主不能自行修改状态（需超管审核）；
+     * 已开业店面仅允许在 营业中/休息中 之间切换
      * */
     @Transactional(rollbackFor = Exception.class)
     public Store updateStore(Store updateData) {
@@ -83,8 +87,16 @@ public class StoreService {
         existingStore.setLogoUrl(updateData.getLogoUrl());
         existingStore.setBusinessHours(updateData.getBusinessHours());
         existingStore.setDescription(updateData.getDescription());
-        existingStore.setStatus(updateData.getStatus());
         existingStore.setSort(updateData.getSort());
+
+        // 状态保护：待审核/停业店面不能自行改状态；已开业店面仅能在 营业中/休息中 切换
+        boolean statusLocked = existingStore.getStatus().equals(StoreStatus.PENDING_REVIEW.getCode())
+                || existingStore.getStatus().equals(StoreStatus.DISABLED.getCode());
+        if (!statusLocked && updateData.getStatus() != null
+                && (updateData.getStatus().equals(StoreStatus.OPEN.getCode())
+                || updateData.getStatus().equals(StoreStatus.CLOSED.getCode()))) {
+            existingStore.setStatus(updateData.getStatus());
+        }
 
         // 更新系统维护的时间戳
         existingStore.setUpdateTime(System.currentTimeMillis());
@@ -103,6 +115,18 @@ public class StoreService {
         }
 
         return savedStore;
+    }
+
+    /**
+     * 审核店面（超管专用，允许任意合法状态流转，包括 PENDING_REVIEW → OPEN）
+     * 与 updateStore 的状态保护逻辑区分开
+     * */
+    @Transactional(rollbackFor = Exception.class)
+    public Store auditStore(Long id, Integer status) {
+        Store store = getStore(id);
+        store.setStatus(status);
+        store.setUpdateTime(System.currentTimeMillis());
+        return storeRepository.save(store);
     }
 
     /**
@@ -125,21 +149,25 @@ public class StoreService {
     }
 
     /**
-     * 用户端分页查询店面列表，不显示待审核的店面
+     * 用户端分页查询店面列表
+     * 不显示待审核、已停业、已删除的店面
      * */
     public Page<Store> findStoresForUser(Integer page, Integer size, String key) {
-        List<Integer> excludedStatuses = List.of(StoreStatus.PENDING_REVIEW.getCode());
+        List<Integer> excludedStatuses = List.of(
+                StoreStatus.PENDING_REVIEW.getCode(), StoreStatus.DISABLED.getCode());
         Page<Store> stores;
 
         if (StringUtils.hasLength(key)) {
-            stores = storeRepository.findByStoreNameLikeAndStatusNotIn(
+            stores = storeRepository.findByStoreNameLikeAndStatusNotInAndIsDeleted(
                     "%" + key + "%",
                     excludedStatuses,
+                    WebConstant.UNDELETED,
                     PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")))
             );
         } else {
-            stores = storeRepository.findByStatusNotIn(
+            stores = storeRepository.findByStatusNotInAndIsDeleted(
                     excludedStatuses,
+                    WebConstant.UNDELETED,
                     PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime"))));
         }
 
@@ -147,19 +175,69 @@ public class StoreService {
     }
 
     /**
-     * 管理员分页查询店面列表，显示所有店面（包含待审核）
+     * 管理员分页查询店面列表，显示所有未删除店面（包含待审核）
      * */
     public Page<Store> findStoresForAdmin(Integer page, Integer size, String key) {
-        Page<Store> stores;
+        return findStoresForAdmin(page, size, key, null);
+    }
 
-        if (StringUtils.hasLength(key)) {
-            stores = storeRepository.findByStoreNameLike(
-                    "%" + key + "%",
-                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")))
-            );
+    /**
+     * 管理员分页查询店面列表（可选状态过滤，用于审核筛选）
+     * status 为 null 时查询全部状态
+     * */
+    public Page<Store> findStoresForAdmin(Integer page, Integer size, String key, Integer status) {
+        Page<Store> stores;
+        PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")));
+
+        if (status != null) {
+            if (StringUtils.hasLength(key)) {
+                stores = storeRepository.findByStoreNameLikeAndStatusAndIsDeleted(
+                        "%" + key + "%", status, WebConstant.UNDELETED, pageRequest);
+            } else {
+                stores = storeRepository.findByStatusAndIsDeleted(status, WebConstant.UNDELETED, pageRequest);
+            }
         } else {
-            stores = storeRepository.findAll(
-                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime"))));
+            if (StringUtils.hasLength(key)) {
+                stores = storeRepository.findByStoreNameLikeAndIsDeleted(
+                        "%" + key + "%", WebConstant.UNDELETED, pageRequest);
+            } else {
+                stores = storeRepository.findByIsDeleted(WebConstant.UNDELETED, pageRequest);
+            }
+        }
+
+        return fillStoreTags(stores);
+    }
+
+    /**
+     * 查询当前用户管理的店面列表（店主/店员端）
+     * 依据用户拥有的门店角色（UserRoleData.storeId）确定管理范围：
+     * - 普通用户：返回自己拥有门店角色的店面（含待审核）
+     * - 超级管理员：返回所有未删除店面
+     * */
+    public Page<Store> findMyStores(Long userId, Integer page, Integer size, String key, boolean isSuperAdmin) {
+        PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")));
+
+        // 超级管理员管理所有店面
+        if (isSuperAdmin) {
+            return findStoresForAdmin(page, size, key);
+        }
+
+        // 收集用户拥有门店角色的店面 ID
+        List<UserRoleData> storeRoles = userRoleDataService.findStoreRolesByUserId(userId);
+        if (storeRoles.isEmpty()) {
+            return Page.empty(pageRequest);
+        }
+        List<Long> storeIds = storeRoles.stream()
+                .map(UserRoleData::getStoreId)
+                .distinct()
+                .collect(Collectors.toList());
+
+        Page<Store> stores;
+        if (StringUtils.hasLength(key)) {
+            stores = storeRepository.findByIdInAndStoreNameLikeAndIsDeleted(
+                    storeIds, "%" + key + "%", WebConstant.UNDELETED, pageRequest);
+        } else {
+            stores = storeRepository.findByIdInAndIsDeleted(storeIds, WebConstant.UNDELETED, pageRequest);
         }
 
         return fillStoreTags(stores);

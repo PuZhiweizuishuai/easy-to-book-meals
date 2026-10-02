@@ -7,7 +7,7 @@ import com.buguagaoshu.food.enums.RoleDomainEnum;
 import com.buguagaoshu.food.enums.RbacRoleCode;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.UserDataRepository;
-import com.buguagaoshu.food.utils.MD5Util;
+import com.buguagaoshu.food.utils.PasswordUtil;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -51,7 +51,7 @@ public class UserDataService {
         validateRegistration(userData);
 
         if (StringUtils.hasLength(userData.getPassword())) {
-            userData.setPassword(MD5Util.getMD5(userData.getPassword()));
+            userData.setPassword(PasswordUtil.encode(userData.getPassword()));
         }
 
         long time = System.currentTimeMillis();
@@ -79,10 +79,22 @@ public class UserDataService {
         existing.setUpdateTime(System.currentTimeMillis());
 
         if (StringUtils.hasLength(updateData.getPassword())) {
-            existing.setPassword(MD5Util.getMD5(updateData.getPassword()));
+            existing.setPassword(PasswordUtil.encode(updateData.getPassword()));
         }
 
         return userDataRepository.save(existing);
+    }
+
+    /**
+     * 将历史 MD5 密文透明升级为 BCrypt（登录校验通过后调用）
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void upgradePasswordToBCrypt(Long userId, String rawPassword) {
+        findById(userId).ifPresent(u -> {
+            u.setPassword(PasswordUtil.encode(rawPassword));
+            u.setUpdateTime(System.currentTimeMillis());
+            userDataRepository.save(u);
+        });
     }
 
     public Optional<UserData> findById(Long id) {
@@ -295,6 +307,53 @@ public class UserDataService {
     }
 
     /**
+     * 查询门店员工列表（含用户信息与角色信息）
+     * 用于店主端的员工管理页面
+     */
+    public List<Map<String, Object>> listStoreEmployees(Long storeId) {
+        List<UserRoleData> storeRoles = userRoleDataService.findByStoreId(storeId);
+        if (storeRoles.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        // 批量查询用户信息与角色信息，避免 N+1
+        Set<Long> userIds = new LinkedHashSet<>();
+        for (UserRoleData ur : storeRoles) {
+            userIds.add(ur.getUserId());
+        }
+        Map<Long, UserData> userMap = new HashMap<>();
+        for (UserData u : userDataRepository.findAllById(userIds)) {
+            u.setPassword(null);
+            userMap.put(u.getId(), u);
+        }
+
+        List<Map<String, Object>> result = new ArrayList<>();
+        for (UserRoleData ur : storeRoles) {
+            Map<String, Object> item = new LinkedHashMap<>();
+            item.put("id", ur.getId());
+            item.put("userId", ur.getUserId());
+            item.put("roleId", ur.getRoleId());
+            item.put("storeId", ur.getStoreId());
+
+            UserData user = userMap.get(ur.getUserId());
+            if (user != null) {
+                item.put("nickname", user.getNickname());
+                item.put("phone", user.getPhone());
+                item.put("avatarUrl", user.getAvatarUrl());
+                item.put("userStatus", user.getStatus());
+            }
+
+            RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
+            if (role != null) {
+                item.put("roleName", role.getRoleName());
+                item.put("roleCode", role.getRoleCode());
+            }
+            result.add(item);
+        }
+        return result;
+    }
+
+    /**
      * 获取用户在指定门店拥有的权限编码列表
      */
     public List<String> getUserStorePermissionCodes(Long userId, Long storeId) {
@@ -333,6 +392,61 @@ public class UserDataService {
             }
         }
         return roleCodes;
+    }
+
+    /**
+     * 创建匿名（扫码点餐）顾客用户
+     * <p>
+     * 用于餐桌二维码免登录下单场景：不要求顾客注册/登录，
+     * 由系统创建一条无登录凭证的用户记录，仅用于订单归属与展示。
+     * phone/email/wxOpenid 均为空，不会被 @NotBlank 校验（直接落库，不走注册校验）。
+     *
+     * @param nickname 展示昵称（如"扫码顾客-A1"）
+     * @return 已创建并分配 CUSTOMER 角色的用户
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public UserData createGuestUser(String nickname) {
+        UserData guest = new UserData();
+        guest.setNickname(nickname);
+        guest.setGender(0);
+        guest.setStatus(0);
+        long now = System.currentTimeMillis();
+        guest.setCreateTime(now);
+        guest.setUpdateTime(now);
+        UserData saved = userDataRepository.save(guest);
+        assignDefaultRole(saved.getId());
+        return saved;
+    }
+
+    /**
+     * 为用户绑定手机号（用于免登录顾客结算时升级为可识别会员）
+     * <p>
+     * 规则：
+     * - 若用户已绑定相同手机号，直接返回 true（幂等）
+     * - 若手机号已被其他用户占用，返回 false（不绑定，由调用方决定仅累积积分）
+     * - 否则回填手机号并保存
+     *
+     * @param userId 用户ID
+     * @param phone  手机号
+     * @return true 绑定成功或已绑定相同号码；false 手机号已被占用
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public boolean bindPhone(Long userId, String phone) {
+        if (phone == null || phone.isBlank()) {
+            return false;
+        }
+        UserData user = findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        if (phone.equals(user.getPhone())) {
+            return true;
+        }
+        if (userDataRepository.findByPhone(phone).isPresent()) {
+            return false;
+        }
+        user.setPhone(phone);
+        user.setUpdateTime(System.currentTimeMillis());
+        userDataRepository.save(user);
+        return true;
     }
 
     private void assignDefaultRole(Long userId) {

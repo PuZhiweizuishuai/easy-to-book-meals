@@ -4,7 +4,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.exception.BusinessException;
-import com.buguagaoshu.food.utils.MD5Util;
+import com.buguagaoshu.food.utils.PasswordUtil;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
@@ -51,8 +51,13 @@ public class AuthService {
             throw new BusinessException(403, "账号已被禁用");
         }
 
-        if (!MD5Util.getMD5(password).equals(user.getPassword())) {
+        if (!PasswordUtil.matches(password, user.getPassword())) {
             throw new BusinessException(400, "密码错误");
+        }
+
+        // 历史 MD5 密文在校验通过后透明升级为 BCrypt
+        if (!PasswordUtil.isBCrypt(user.getPassword())) {
+            userDataService.upgradePasswordToBCrypt(user.getId(), password);
         }
 
         StpUtil.login(user.getId());

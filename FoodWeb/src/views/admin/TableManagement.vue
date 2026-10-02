@@ -54,6 +54,7 @@
           @edit="openEditModal"
           @reserve="openReserveModal"
           @delete="openDeleteConfirm"
+          @clean="handleCleanComplete"
         />
       </div>
     </template>
@@ -76,6 +77,7 @@
       :show="showFormModal"
       :modal-type="formModalType"
       :table="currentTable"
+      :areas="areaOptions"
       @close="closeFormModal"
       @submit="handleFormSubmit"
     />
@@ -107,14 +109,17 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { httpGet, httpPost } from '@/utils/fetch.js'
+import { httpGet, httpPost, parsePage } from '@/utils/fetch.js'
 import toast from '@/utils/toast.js'
+import { useStoreContext } from '@/stores/storeContext.js'
 import DiningTableCard from '@/components/card/DiningTableCard.vue'
 import TableFormModal from '@/components/card/TableFormModal.vue'
 import ReservationModal from '@/components/card/ReservationModal.vue'
 import ReservationTimeline from '@/components/card/ReservationTimeline.vue'
 
-const STORE_ID = 0
+const storeContext = useStoreContext()
+/** 当前管理门店 ID（由 AdminLayout 门店切换器提供） */
+const STORE_ID = computed(() => storeContext.currentStoreId)
 
 function getTodayStr() {
   const now = new Date()
@@ -173,15 +178,32 @@ const filteredTables = computed(() => {
   return tables.value.filter(t => t.status === activeFilter.value)
 })
 
+/**
+ * 从已有餐桌数据聚合出区域候选列表（去重、去空），用于区域位置输入建议。
+ * 区域位置由用户自由输入，不再写死；这里仅提供历史录入过的值作为快捷选择。
+ */
+const areaOptions = computed(() => {
+  const set = new Set()
+  tables.value.forEach(t => {
+    if (t.area && String(t.area).trim()) {
+      set.add(String(t.area).trim())
+    }
+  })
+  return Array.from(set).sort()
+})
+
 onMounted(() => {
-  fetchTables()
-  fetchReservations()
+  if (STORE_ID.value) {
+    fetchTables()
+    fetchReservations()
+  }
 })
 
 const fetchTables = async () => {
+  if (!STORE_ID.value) return
   loading.value = true
   try {
-    const res = await httpGet(`/dining-table/list/all?storefrontId=${STORE_ID}`)
+    const res = await httpGet(`/dining-table/list/all?storefrontId=${STORE_ID.value}`)
     if (res && res.data) {
       tables.value = res.data
     }
@@ -194,18 +216,16 @@ const fetchTables = async () => {
 }
 
 const fetchReservations = async () => {
+  if (!STORE_ID.value) return
   reservationLoading.value = true
   try {
     const { start, end } = dateToDayRange(reservationDate.value)
-    const res = await httpGet(`/table-reservation/list/date?storeId=${STORE_ID}&startTime=${start}&endTime=${end}&page=${reservationPage.value}&size=${RESERVATION_PAGE_SIZE}`)
-    if (res && res.data && res.data.content) {
-      reservations.value = res.data.content
-      reservationTotalPages.value = res.data.totalPages || 1
-      reservationTotalElements.value = res.data.totalElements || 0
-    } else if (res && res.data && Array.isArray(res.data)) {
-      reservations.value = res.data
-      reservationTotalPages.value = 1
-      reservationTotalElements.value = res.data.length
+    const res = await httpGet(`/table-reservation/list/date?storeId=${STORE_ID.value}&startTime=${start}&endTime=${end}&page=${reservationPage.value}&size=${RESERVATION_PAGE_SIZE}`)
+    if (res && res.data) {
+      const p = parsePage(res.data)
+      reservations.value = p.content
+      reservationTotalPages.value = p.totalPages
+      reservationTotalElements.value = p.totalElements
     }
   } catch (e) {
     console.error('获取预定列表失败:', e)
@@ -252,7 +272,7 @@ const closeFormModal = () => {
 
 const handleFormSubmit = async (formData) => {
   try {
-    const payload = { ...formData, storefrontId: STORE_ID }
+    const payload = { ...formData, storefrontId: STORE_ID.value }
     const url = formData.id ? '/dining-table/update' : '/dining-table/add'
     const res = await httpPost(url, payload)
     if (res && res.status === 200) {
@@ -308,7 +328,7 @@ const handleDelete = async () => {
   if (!currentTable.value) return
   deleteSubmitting.value = true
   try {
-    const res = await httpPost(`/dining-table/delete/${currentTable.value.id}?storefrontId=${STORE_ID}`)
+    const res = await httpPost(`/dining-table/delete/${currentTable.value.id}?storefrontId=${STORE_ID.value}`)
     if (res && res.status === 200) {
       toast.success('删除成功')
       showDeleteModal.value = false
@@ -326,7 +346,7 @@ const handleDelete = async () => {
 
 const handleConfirmReservation = async (reservation) => {
   try {
-    const res = await httpPost(`/table-reservation/confirm/${reservation.id}?storeId=${STORE_ID}&operatorId=0`)
+    const res = await httpPost(`/table-reservation/confirm/${reservation.id}?storeId=${STORE_ID.value}`)
     if (res && res.status === 200) {
       toast.success('预定已确认')
       fetchReservations()
@@ -341,7 +361,7 @@ const handleConfirmReservation = async (reservation) => {
 
 const handleSeatReservation = async (reservation) => {
   try {
-    const res = await httpPost(`/table-reservation/seat/${reservation.id}?storeId=${STORE_ID}&operatorId=0`)
+    const res = await httpPost(`/table-reservation/seat/${reservation.id}?storeId=${STORE_ID.value}`)
     if (res && res.status === 200) {
       toast.success('已标记到店')
       fetchReservations()
@@ -356,7 +376,7 @@ const handleSeatReservation = async (reservation) => {
 
 const handleCompleteReservation = async (reservation) => {
   try {
-    const res = await httpPost(`/table-reservation/complete/${reservation.id}?storeId=${STORE_ID}&operatorId=0`)
+    const res = await httpPost(`/table-reservation/complete/${reservation.id}?storeId=${STORE_ID.value}`)
     if (res && res.status === 200) {
       toast.success('就餐已完成')
       fetchReservations()
@@ -371,10 +391,24 @@ const handleCompleteReservation = async (reservation) => {
 
 const handleCancelReservation = async (reservation) => {
   try {
-    const res = await httpPost(`/table-reservation/cancel/${reservation.id}?storeId=${STORE_ID}&operatorId=0`)
+    const res = await httpPost(`/table-reservation/cancel/${reservation.id}?storeId=${STORE_ID.value}`)
     if (res && res.status === 200) {
       toast.success('预定已取消')
       fetchReservations()
+      fetchTables()
+    } else {
+      toast.error(res?.message || '操作失败')
+    }
+  } catch (e) {
+    toast.error('操作失败')
+  }
+}
+
+const handleCleanComplete = async (table) => {
+  try {
+    const res = await httpPost(`/dining-table/status?id=${table.id}&storefrontId=${STORE_ID.value}&status=0`)
+    if (res && res.status === 200) {
+      toast.success(`餐桌 ${table.tableNumber} 已清理完成`)
       fetchTables()
     } else {
       toast.error(res?.message || '操作失败')

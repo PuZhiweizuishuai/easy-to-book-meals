@@ -45,14 +45,16 @@
 
         <div class="form-control w-full">
           <label class="label"><span class="label-text font-medium">区域位置</span></label>
-          <select v-model="formData.area" class="select select-bordered w-full focus:select-primary">
-            <option value="">请选择区域</option>
-            <option value="大厅">大厅</option>
-            <option value="包间">包间</option>
-            <option value="露台">露台</option>
-            <option value="卡座">卡座</option>
-            <option value="吧台">吧台</option>
-          </select>
+          <input
+            v-model="formData.area"
+            type="text"
+            list="table-area-options"
+            placeholder="如：大厅、包间、露台，可自由输入"
+            class="input input-bordered w-full focus:input-primary"
+          />
+          <datalist id="table-area-options">
+            <option v-for="area in areas" :key="area" :value="area"></option>
+          </datalist>
         </div>
 
         <div v-if="isEdit" class="form-control w-full">
@@ -94,7 +96,9 @@ import { ref, watch } from 'vue'
 const props = defineProps({
   show: { type: Boolean, default: false },
   modalType: { type: String, default: 'add' },
-  table: { type: Object, default: null }
+  table: { type: Object, default: null },
+  // 已有餐桌的区域候选列表（由父组件从已加载数据聚合，支持自由输入 + 建议）
+  areas: { type: Array, default: () => [] }
 })
 
 const emit = defineEmits(['close', 'submit'])

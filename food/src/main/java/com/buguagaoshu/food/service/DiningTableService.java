@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.service;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.DiningTable;
 import com.buguagaoshu.food.dto.CreateDiningTableDto;
 import com.buguagaoshu.food.dto.UpdateDiningTableDto;
@@ -7,9 +8,12 @@ import com.buguagaoshu.food.enums.ReturnCodeEnum;
 import com.buguagaoshu.food.enums.TableStatus;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.DiningTableRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -18,6 +22,11 @@ import java.util.UUID;
 
 @Service
 public class DiningTableService {
+    private static final Logger logger = LoggerFactory.getLogger(DiningTableService.class);
+
+    /** 清理中超时阈值（10 分钟） */
+    private static final long CLEANING_TIMEOUT_MS = 10 * 60 * 1000L;
+
     private final DiningTableRepository diningTableRepository;
 
     private static final int NOT_DELETED = 0;
@@ -28,7 +37,8 @@ public class DiningTableService {
     }
 
     /**
-     * TODO 校验当前用户是否有在这个店面创建餐桌的权限
+     * 创建餐桌
+     * 创建人由系统记录为当前登录用户，不信任前端传入
      * */
     @Transactional(rollbackFor = Exception.class)
     public DiningTable createTable(CreateDiningTableDto dto) {
@@ -44,10 +54,11 @@ public class DiningTableService {
         table.setCapacity(dto.getCapacity());
         table.setStatus(dto.getStatus() != null ? dto.getStatus() : TableStatus.FREE.getCode());
         table.setArea(dto.getArea());
-        table.setQrCodeKey(dto.getQrCodeKey() != null ? dto.getQrCodeKey() : generateQrCodeKey());
+        table.setQrCodeKey(dto.getQrCodeKey() != null && !dto.getQrCodeKey().isBlank()
+                ? dto.getQrCodeKey() : generateQrCodeKey());
         table.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         table.setRemark(dto.getRemark());
-        table.setCreatUser(dto.getCreatUser());
+        table.setCreatUser(StpUtil.getLoginIdAsLong());
         table.setDeleted(NOT_DELETED);
 
         return diningTableRepository.save(table);
@@ -101,6 +112,15 @@ public class DiningTableService {
         return findTableOrThrow(tableId, storefrontId);
     }
 
+    /**
+     * 通过二维码标识查询餐桌（顾客扫码点餐入口）
+     */
+    public DiningTable getTableByQrCode(String qrCodeKey) {
+        return diningTableRepository.findByQrCodeKeyAndDeleted(qrCodeKey, NOT_DELETED)
+                .orElseThrow(() -> new BusinessException(ReturnCodeEnum.NOT_FOUND.getCode(),
+                        "餐桌不存在或二维码已失效"));
+    }
+
     public List<DiningTable> listTablesByStore(Long storefrontId) {
         return diningTableRepository.findByStorefrontIdAndDeletedOrderBySortOrderAsc(storefrontId, NOT_DELETED);
     }
@@ -138,9 +158,18 @@ public class DiningTableService {
 
     @Transactional(rollbackFor = Exception.class)
     public DiningTable clearCurrentOrder(Long tableId, Long storefrontId) {
+        return clearCurrentOrder(tableId, storefrontId, TableStatus.CLEANING.getCode());
+    }
+
+    /**
+     * 清空餐桌当前订单并设置目标状态。
+     * 取消订单（未真正就餐）→ FREE；订单完成（客人离席）→ CLEANING。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public DiningTable clearCurrentOrder(Long tableId, Long storefrontId, Integer targetStatus) {
         DiningTable table = findTableOrThrow(tableId, storefrontId);
         table.setCurrentOrderId(null);
-        table.setStatus(TableStatus.CLEANING.getCode());
+        table.setStatus(targetStatus);
         return diningTableRepository.save(table);
     }
 
@@ -152,6 +181,24 @@ public class DiningTableService {
             throw new BusinessException(ReturnCodeEnum.PARAM_ERROR.getCode(), "餐桌不属于该门店");
         }
         return table;
+    }
+
+    /**
+     * 定时任务：清理中超时（10 分钟）的餐桌自动复位为空闲。
+     * 每 60 秒扫描一次，避免服务员遗漏手动复位。
+     */
+    @Scheduled(fixedDelay = 60_000)
+    @Transactional(rollbackFor = Exception.class)
+    public void autoResetCleaningTables() {
+        long threshold = System.currentTimeMillis() - CLEANING_TIMEOUT_MS;
+        List<DiningTable> timeoutTables = diningTableRepository
+                .findByStatusAndUpdateTimeBefore(TableStatus.CLEANING.getCode(), threshold);
+        for (DiningTable table : timeoutTables) {
+            table.setStatus(TableStatus.FREE.getCode());
+            diningTableRepository.save(table);
+            logger.info("餐桌清理超时自动复位: tableId={}, tableNumber={}, storeId={}",
+                    table.getId(), table.getTableNumber(), table.getStorefrontId());
+        }
     }
 
     private void validateTableStatus(Integer status) {

@@ -9,8 +9,8 @@
 
 const BASE_URL = import.meta.env.VITE_SERVER_API_URL || '/api'
 
-/** Sa-Token 请求头名称，与后端 sa-token.token-name 配置一致 */
-const TOKEN_HEADER = 'satoken'
+/** Sa-Token 请求头名称，与后端 sa-token.token-name 配置一致（application.yml: token-name: Token） */
+const TOKEN_HEADER = 'Token'
 
 /** 登录页路径 */
 const LOGIN_PATH = '/login'
@@ -23,6 +23,25 @@ const LOGIN_PATH = '/login'
  */
 export const isSuccess = (json) => {
   return json && json.status === 200
+}
+
+/**
+ * 解析后端分页数据（兼容 Spring Data Page DTO 序列化结构）
+ * VIA_DTO 模式下元数据位于 data.page 下，同时兼容旧版平铺结构
+ * @param {object} data - 后端返回的 data 字段（Page 序列化结果）
+ * @returns {{content: Array, page: number, totalPages: number, totalElements: number}}
+ */
+export const parsePage = (data) => {
+  if (!data) {
+    return { content: [], page: 1, totalPages: 1, totalElements: 0 }
+  }
+  const p = data.page || {}
+  return {
+    content: data.content || [],
+    page: (p.number ?? 0) + 1,
+    totalPages: p.totalPages ?? data.totalPages ?? 1,
+    totalElements: p.totalElements ?? data.totalElements ?? 0
+  }
 }
 
 /**

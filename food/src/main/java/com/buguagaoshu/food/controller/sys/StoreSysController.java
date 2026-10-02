@@ -5,6 +5,7 @@ import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.data.StoreTag;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.enums.StoreStatus;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.service.StoreService;
 import com.buguagaoshu.food.service.StoreTagService;
 import jakarta.validation.constraints.Max;
@@ -34,7 +35,7 @@ public class StoreSysController {
     }
 
     /**
-     * 超管分页查询所有店面（含待审核）
+     * 超管分页查询所有店面（含待审核，可按状态筛选）
      */
     @SaCheckPermission("store:audit")
     @GetMapping("/list")
@@ -47,19 +48,32 @@ public class StoreSysController {
                                 @Max(value = 100, message = "每页条数不能超过100")
                                 Integer size,
                                 @RequestParam(value = "key", required = false)
-                                String key) {
-        return ResponseDetails.ok().put("data", storeService.findStoresForAdmin(page, size, key));
+                                String key,
+                                @RequestParam(value = "status", required = false)
+                                Integer status) {
+        return ResponseDetails.ok().put("data", storeService.findStoresForAdmin(page, size, key, status));
     }
 
     /**
      * 审核店面（修改状态）
+     * 仅允许设置为合法的店面状态：OPEN-审核通过营业 / CLOSED-休息中 / DISABLED-停业 / PENDING_REVIEW-重新待审
      */
     @SaCheckPermission("store:audit")
     @PostMapping("/audit")
     public ResponseDetails auditStore(@RequestParam Long id, @RequestParam Integer status) {
-        Store store = storeService.getStore(id);
-        store.setStatus(status);
-        return ResponseDetails.ok().put("data", storeService.updateStore(store));
+        // 校验状态值合法性
+        boolean valid = false;
+        for (StoreStatus s : StoreStatus.values()) {
+            if (s.getCode() == status) {
+                valid = true;
+                break;
+            }
+        }
+        if (!valid) {
+            throw new BusinessException(400, "无效的店面状态: " + status);
+        }
+
+        return ResponseDetails.ok().put("data", storeService.auditStore(id, status));
     }
 
     /**

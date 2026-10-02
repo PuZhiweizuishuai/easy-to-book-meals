@@ -30,4 +30,14 @@ public interface DiningTableRepository extends
 
     @Query("SELECT dt FROM DiningTable dt WHERE dt.storefrontId = :storefrontId AND dt.deleted = 0 AND dt.capacity >= :minCapacity ORDER BY dt.sortOrder ASC")
     List<DiningTable> findByStorefrontIdAndCapacityGreaterThanEqualAndDeleted(Long storefrontId, Integer minCapacity);
+
+    /**
+     * 通过二维码标识查询未删除的餐桌（顾客扫码点餐）
+     */
+    Optional<DiningTable> findByQrCodeKeyAndDeleted(String qrCodeKey, Integer deleted);
+
+    /**
+     * 查询指定状态下、更新时间早于 threshold 的餐桌（定时任务：清理中超时自动复位）
+     */
+    List<DiningTable> findByStatusAndUpdateTimeBefore(Integer status, Long updateTime);
 }

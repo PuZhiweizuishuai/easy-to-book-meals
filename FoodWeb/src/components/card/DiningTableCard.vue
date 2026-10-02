@@ -48,6 +48,12 @@
           </svg>
           编辑
         </button>
+        <button v-if="table.status === 3" class="btn btn-ghost btn-xs flex-1 text-success" @click.stop="$emit('clean', table)">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+          </svg>
+          清理完成
+        </button>
         <button class="btn btn-ghost btn-xs flex-1 text-warning" @click.stop="$emit('reserve', table)">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -75,7 +81,7 @@ const props = defineProps({
   }
 })
 
-defineEmits(['click', 'edit', 'reserve', 'delete'])
+defineEmits(['click', 'edit', 'reserve', 'delete', 'clean'])
 
 const STATUS_MAP = {
   0: { label: '空闲', badge: 'badge-success', dot: 'bg-green-400', border: 'border-success/30', bg: 'bg-success/10', text: 'text-success' },

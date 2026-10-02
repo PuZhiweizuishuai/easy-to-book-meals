@@ -97,6 +97,24 @@ public class StoreAuthHelper {
         throw new BusinessException(403, "只有本店店主或超级管理员才能执行此操作");
     }
 
+    /**
+     * 校验当前登录用户是否为任意门店的店主（或超级管理员）。
+     * 用于全局共享数据（如菜品分类标签）的写操作，防止普通顾客篡改。
+     */
+    public void checkAnyStoreOwner() {
+        Long userId = StpUtil.getLoginIdAsLong();
+
+        if (isSuperAdmin(userId)) {
+            return;
+        }
+
+        if (isAnyStoreOwner(userId)) {
+            return;
+        }
+
+        throw new BusinessException(403, "只有店主或超级管理员才能执行此操作");
+    }
+
     private boolean hasStorePermission(Long userId, Long storeId, String permissionCode) {
         List<UserRoleData> storeRoles = userRoleDataService.findByStoreIdAndUserId(storeId, userId);
 
@@ -109,7 +127,10 @@ public class StoreAuthHelper {
         return false;
     }
 
-    private boolean isSuperAdmin(Long userId) {
+    /**
+     * 判断用户是否为超级管理员（供控制器查询当前用户身份使用）
+     */
+    public boolean isSuperAdmin(Long userId) {
         RoleData superAdminRole = roleDataService.findByRoleCode(RbacRoleCode.SUPER_ADMIN.getCode()).orElse(null);
         if (superAdminRole == null) {
             return false;
@@ -124,6 +145,15 @@ public class StoreAuthHelper {
             return false;
         }
         List<UserRoleData> storeRoles = userRoleDataService.findByStoreIdAndUserId(storeId, userId);
+        return storeRoles.stream().anyMatch(ur -> ur.getRoleId().equals(storeOwnerRole.getId()));
+    }
+
+    private boolean isAnyStoreOwner(Long userId) {
+        RoleData storeOwnerRole = roleDataService.findByRoleCode(RbacRoleCode.STORE_OWNER.getCode()).orElse(null);
+        if (storeOwnerRole == null) {
+            return false;
+        }
+        List<UserRoleData> storeRoles = userRoleDataService.findStoreRolesByUserId(userId);
         return storeRoles.stream().anyMatch(ur -> ur.getRoleId().equals(storeOwnerRole.getId()));
     }
 }

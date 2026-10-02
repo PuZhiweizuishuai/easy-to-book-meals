@@ -1,14 +1,17 @@
 package com.buguagaoshu.food.service;
 
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.cache.CommonlyUsedDataCache;
 import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.BaseFood;
 import com.buguagaoshu.food.data.FoodTag;
 import com.buguagaoshu.food.data.FoodWithTag;
+import com.buguagaoshu.food.data.ProductSku;
 import com.buguagaoshu.food.dto.CreateDishes;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.BaseFoodRepository;
+import com.buguagaoshu.food.repository.ProductSkuRepository;
 import com.buguagaoshu.food.utils.JsonUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -30,12 +33,15 @@ import java.util.stream.Collectors;
 @Service
 public class FoodService {
     private final BaseFoodRepository baseFoodRepository;
+    private final ProductSkuRepository productSkuRepository;
 
     private final FoodWithTagService foodWithTagService;
 
     public FoodService(BaseFoodRepository baseFoodRepository,
+                       ProductSkuRepository productSkuRepository,
                        FoodWithTagService foodWithTagService) {
         this.baseFoodRepository = baseFoodRepository;
+        this.productSkuRepository = productSkuRepository;
         this.foodWithTagService = foodWithTagService;
     }
 
@@ -43,6 +49,8 @@ public class FoodService {
     public BaseFood saveFood(CreateDishes createDishes) {
         long time = System.currentTimeMillis();
         BaseFood baseFood = new BaseFood();
+        baseFood.setStorefrontId(createDishes.getStorefrontId());
+        baseFood.setCreateUser(StpUtil.getLoginIdAsLong());
         baseFood.setName(createDishes.getName());
         baseFood.setDescription(createDishes.getDescription());
         baseFood.setTopImage(createDishes.getTopImage());
@@ -122,6 +130,48 @@ public class FoodService {
         }
     }
 
+    /**
+     * 顾客端查询门店菜单（仅上架菜品，按创建时间倒序）
+     *
+     * 注意：BaseFood.stock 是管理员设置时的"初始/计划库存"快照，
+     * 下单时实际扣减的是 ProductSku.stock，因此 BaseFood.stock 不会随订单变化，
+     * 直接展示会导致下单后库存数据不准确（仍然显示初始值）。
+     *
+     * 这里在返回前用各启用 SKU 的真实库存聚合出菜品可用库存覆盖该字段，
+     * 规则：
+     *   - 任一启用 SKU 不限库存(-1) → 菜品库存 -1（充足）
+     *   - 否则 → 所有启用 SKU 库存之和（全部售罄则为 0）
+     */
+    public List<BaseFood> findStoreMenu(Long storefrontId) {
+        List<BaseFood> foods = baseFoodRepository.findByStorefrontIdAndStatus(
+                storefrontId, WebConstant.ENABLE);
+        fillFoodTags(foods);
+        fillAggregatedStock(foods);
+        return foods;
+    }
+
+    /**
+     * 按门店分页查询菜品（店主/店员管理端，含下架菜品）
+     */
+    public Page<BaseFood> findByStore(Long storefrontId, Integer page, Integer size, String key) {
+        Page<BaseFood> baseFoods;
+
+        if (StringUtils.hasLength(key)) {
+            baseFoods = baseFoodRepository.findByStorefrontIdAndNameLike(
+                    storefrontId,
+                    "%" + key + "%",
+                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")))
+            );
+        } else {
+            baseFoods = baseFoodRepository.findByStorefrontId(
+                    storefrontId,
+                    PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime"))));
+        }
+
+        fillFoodTags(baseFoods.getContent());
+        return baseFoods;
+    }
+
     public Page<BaseFood> findAll(Integer page, Integer size, String key) {
         Page<BaseFood> baseFoods;
 
@@ -135,25 +185,76 @@ public class FoodService {
                     PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime"))));
         }
 
-        // 如果当前页没有数据，直接返回，避免后续无意义的查询
-        if (baseFoods.isEmpty()) {
-            return baseFoods;
+        fillFoodTags(baseFoods.getContent());
+        return baseFoods;
+    }
+
+    /**
+     * 聚合各菜品的可用库存（基于启用 SKU 的实时库存）
+     * 解决 BaseFood.stock 不随订单扣减导致菜单库存显示不准确的问题。
+     */
+    private void fillAggregatedStock(List<BaseFood> foods) {
+        if (foods == null || foods.isEmpty()) {
+            return;
         }
-        // 2. 提取当前页所有菜品的 ID
-        List<Long> foodIds = baseFoods.getContent().stream()
+        List<Long> dishIds = foods.stream()
                 .map(BaseFood::getId)
                 .collect(Collectors.toList());
 
-        // 3. 批量查询这些菜品关联的所有标签（假设你的 Repository 支持 findByFoodIdIn）
-        // 这一步只用 1 次 SQL 就能查出当前页所有菜品对应的标签
+        // 一次性查询所有菜品的 SKU，避免 N+1
+        List<ProductSku> allSkus = productSkuRepository.findByDishIdIn(dishIds);
+        Map<Long, List<ProductSku>> skuMap = allSkus.stream()
+                .collect(Collectors.groupingBy(ProductSku::getDishId));
+
+        for (BaseFood food : foods) {
+            List<ProductSku> skus = skuMap.get(food.getId());
+            // 菜品暂无 SKU：保留管理员设置的初始库存
+            if (skus == null || skus.isEmpty()) {
+                continue;
+            }
+            // 仅统计启用中的 SKU（status == 1）
+            List<ProductSku> enabledSkus = skus.stream()
+                    .filter(s -> s.getStatus() != null && s.getStatus() == WebConstant.ENABLE)
+                    .collect(Collectors.toList());
+            if (enabledSkus.isEmpty()) {
+                food.setStock(0L);
+                continue;
+            }
+            // 任一启用 SKU 不限库存 → 整体展示为充足
+            boolean anyUnlimited = enabledSkus.stream()
+                    .anyMatch(s -> s.getStock() != null && s.getStock() == WebConstant.UNLIMITED_INVENTORY);
+            if (anyUnlimited) {
+                food.setStock(WebConstant.UNLIMITED_INVENTORY);
+            } else {
+                long total = enabledSkus.stream()
+                        .mapToLong(s -> s.getStock() == null ? 0L : Math.max(0L, s.getStock()))
+                        .sum();
+                food.setStock(total);
+            }
+        }
+    }
+
+    /**
+     * 为菜品列表批量填充分类标签信息（避免 N+1 查询）
+     */
+    private void fillFoodTags(List<BaseFood> foods) {
+        if (foods == null || foods.isEmpty()) {
+            return;
+        }
+        // 提取所有菜品的 ID
+        List<Long> foodIds = foods.stream()
+                .map(BaseFood::getId)
+                .collect(Collectors.toList());
+
+        // 批量查询这些菜品关联的所有标签，只用 1 次 SQL
         List<FoodWithTag> allFoodWithTags = foodWithTagService.findByFoodIdIn(foodIds);
 
-        // 4. 将标签数据按 foodId 分组，方便后续 O(1) 复杂度的匹配
+        // 将标签数据按 foodId 分组，方便 O(1) 复杂度的匹配
         Map<Long, List<FoodWithTag>> tagMap = allFoodWithTags.stream()
                 .collect(Collectors.groupingBy(FoodWithTag::getFoodId));
 
-        // 5. 在内存中把标签数据填充到菜品对象中
-        baseFoods.forEach(food -> {
+        // 在内存中把标签数据填充到菜品对象中
+        foods.forEach(food -> {
             List<FoodWithTag> tags = tagMap.get(food.getId());
             if (tags != null) {
                 List<FoodTag> foodTags = new ArrayList<>();
@@ -163,6 +264,6 @@ public class FoodService {
                 food.setCategoryIds(foodTags);
             }
         });
-        return baseFoods;
     }
 }
+

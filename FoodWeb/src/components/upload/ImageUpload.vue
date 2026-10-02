@@ -99,6 +99,12 @@ const serverConfig = {
     const xhr = new XMLHttpRequest();
     xhr.open('POST', '/api/files/upload');
 
+    // 携带 Sa-Token 认证头（后端 /api/files/upload 需要登录）
+    const token = localStorage.getItem('token');
+    if (token) {
+      xhr.setRequestHeader('Token', token);
+    }
+
     // 监听上传进度，驱动 FilePond 的进度条
     xhr.upload.onprogress = (e) => {
       if (e.lengthComputable) {

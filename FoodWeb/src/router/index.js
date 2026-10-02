@@ -3,6 +3,7 @@ import HomeView from '../views/HomeView.vue'
 import AdminLayout from '../layout/AdminLayout.vue'
 import Dashboard from '../views/admin/Dashboard.vue'
 import OrderManagement from '../views/admin/OrderManagement.vue'
+import OrderCreate from '../views/admin/OrderCreate.vue'
 import DishManagement from '../views/admin/DishManagement.vue'
 import TableManagement from '../views/admin/TableManagement.vue'
 import CategoryManagement from '../views/admin/CategoryManagement.vue'
@@ -16,6 +17,19 @@ const router = createRouter({
       path: '/',
       name: 'home',
       component: HomeView,
+    },
+    // 门店点餐页（公开，?table=二维码标识 为扫码点餐入口）
+    {
+      path: '/store/:id',
+      name: 'storeMenu',
+      component: () => import('@/views/customer/StoreMenuPage.vue'),
+    },
+    // 我的订单（顾客端，需登录）
+    {
+      path: '/my/orders',
+      name: 'myOrders',
+      component: () => import('@/views/customer/MyOrders.vue'),
+      meta: { requiresAuth: true },
     },
     {
       path: '/test',
@@ -54,6 +68,15 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             permissions: ['order:manage', 'order:view'],
+          },
+        },
+        {
+          path: 'orders/create',
+          name: 'orderCreate',
+          component: OrderCreate,
+          meta: {
+            requiresAuth: true,
+            permissions: ['order:manage'],
           },
         },
         {
@@ -129,8 +152,8 @@ const router = createRouter({
       redirect: '/system/index',
       meta: {
         requiresAuth: true,
-        // 需要全局域角色：超级管理员、平台运营、审核员
-        roles: ['SUPER_ADMIN', 'PLATFORM_OPERATOR', 'AUDITOR'],
+        // 需要全局域角色：超级管理员、平台运营、平台审核员
+        roles: ['SUPER_ADMIN', 'PLATFORM_OPERATOR', 'PLATFORM_AUDITOR'],
       },
       children: [
         {

@@ -263,7 +263,9 @@ public class TableReservationService {
                 storeId, status, PageRequest.of(page - 1, size, Sort.by(Sort.Direction.ASC, "reservedStartTime")));
     }
 
-    public List<TableReservation> listReservationsByTable(Long tableId, Integer status) {
+    public List<TableReservation> listReservationsByTable(Long tableId, Long storeId, Integer status) {
+        // 校验餐桌归属于该门店，防止越权读取他店餐桌的预定信息
+        diningTableService.getTable(tableId, storeId);
         return tableReservationRepository.findByTableIdAndStatusOrderByReservedStartTimeAsc(tableId, status);
     }
 

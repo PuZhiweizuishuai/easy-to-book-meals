@@ -150,13 +150,18 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import CreateDishesCard from '@/components/card/CreateDishesCard.vue';
 import toast from '@/utils/toast';
 import { httpGet } from '@/utils/fetch.js';
 import { formatDate } from '@/utils/format.js';
 import { useRouter } from 'vue-router'
+import { useStoreContext } from '@/stores/storeContext.js'
 const router = useRouter() // 拿到路由实例
+const storeContext = useStoreContext()
+/** 当前管理门店 ID（由 AdminLayout 门店切换器提供） */
+const STORE_ID = computed(() => storeContext.currentStoreId)
+
 const showCreateForm = ref(false);
 const dishList = ref([]);
 const currentPage = ref(0);
@@ -175,8 +180,9 @@ const handleSearch = () => {
 };
 
 const fetchDishList = async (page = 1, size = 10, key = '') => {
+  if (!STORE_ID.value) return
   try {
-    let url = `/dishes/list?page=${page}&size=${size}`;
+    let url = `/dishes/list?storefrontId=${STORE_ID.value}&page=${page}&size=${size}`;
     if (key) {
       url += `&key=${encodeURIComponent(key)}`;
     }

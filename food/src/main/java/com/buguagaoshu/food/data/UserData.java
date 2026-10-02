@@ -1,8 +1,7 @@
 package com.buguagaoshu.food.data;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import lombok.Data;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -38,7 +37,7 @@ public class UserData {
     private Long id;
 
 
-    @Max(value = 25, message = "密码最长不能超过25位")
+    //@Size(max = 25, message = "密码最长不能超过25位")
     private String password;
 
     /**
@@ -65,7 +64,7 @@ public class UserData {
     /**
      * 用户昵称（微信昵称）
      */
-    @Max(value = 50, message = "昵称最长不超过50个字符")
+    @Size(max = 50, message = "昵称最长不超过50个字符")
     @Column(length = 50)
     private String nickname;
 
@@ -76,15 +75,17 @@ public class UserData {
     private String avatarUrl;
 
     /**
-     * 手机号（用于外卖配送、短信通知）
+     * 手机号（用于外卖配送、短信通知、会员积分关联）
+     * <p>
+     * 允许为空：扫码免登录下单时由系统创建的匿名顾客无手机号，
+     * 结算时由店员录入后回填到用户记录并用于会员积分累积。
      */
-    @Max(value = 20, message = "手机号最长不超过20个字符")
-    @Column(unique = true, length = 11)
-    @NotBlank(message = "电话不能为空")
+    @Size(max = 20, message = "手机号最长不超过20个字符")
+    @Column(unique = true, length = 20)
     private String phone;
 
 
-    @Max(value = 100, message = "邮箱最长不超过100个字符")
+    @Size(max = 100, message = "邮箱最长不超过100个字符")
     @Column(unique = true)
     private String email;
 

@@ -105,13 +105,13 @@
                 <td class="text-right pr-4">
                   <div class="join">
                     <button class="btn btn-ghost btn-xs join-item" @click="showDetail(order)">详情</button>
-                    <button v-if="canManage && order.status < 4" class="btn btn-info btn-xs join-item" :disabled="acting" @click="openAddItems(order)">加菜</button>
+                    <button v-if="canManage && order.status < 4" class="btn btn-info btn-xs join-item" :disabled="addItems.submitting" @click="addItems.open(order)">加菜</button>
                     <template v-if="order.status === 0">
                       <button class="btn btn-success btn-xs join-item" :disabled="acting" @click="act(order, 'confirm')">接单</button>
                       <button class="btn btn-error btn-xs join-item" :disabled="acting" @click="act(order, 'reject')">拒单</button>
                     </template>
                     <button v-if="order.status === 1" class="btn btn-primary btn-xs join-item" :disabled="acting" @click="act(order, 'cooking')">开始制作</button>
-                    <button v-if="order.status === 3" class="btn btn-success btn-xs join-item" :disabled="acting" @click="openCompleteDialog(order)">结算完成</button>
+                    <button v-if="order.status === 3 || order.status === 2" class="btn btn-success btn-xs join-item" :disabled="acting" @click="openCompleteDialog(order)">结算完成</button>
                   </div>
                 </td>
               </tr>
@@ -120,13 +120,7 @@
         </div>
 
         <!-- 分页 -->
-        <div class="flex justify-center mt-4" v-if="totalPages > 1">
-          <div class="join">
-            <button class="join-item btn btn-sm" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
-            <button class="join-item btn btn-sm btn-active">第 {{ page }} / {{ totalPages }} 页</button>
-            <button class="join-item btn btn-sm" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
-          </div>
-        </div>
+        <Pagination v-model="page" :total-pages="totalPages" @change="changePage" />
       </div>
     </div>
 
@@ -230,92 +224,8 @@
       <div class="modal-backdrop" @click="cancelReject"></div>
     </dialog>
 
-    <!-- 加菜弹窗 -->
-    <dialog class="modal" :class="{ 'modal-open': addItemsOrder }">
-      <div class="modal-box max-w-2xl">
-        <template v-if="addItemsOrder">
-          <h3 class="font-bold text-lg">为订单加菜</h3>
-          <p class="text-sm text-base-content/60 mt-1">
-            订单号 <span class="font-mono">{{ addItemsOrder.orderNo }}</span> · 当前 {{ itemCount(addItemsOrder) }} 件 · ¥{{ addItemsOrder.payAmount }}
-          </p>
-          <div class="divider my-3 text-sm">选择菜品</div>
-          <div v-if="dishLoading" class="flex justify-center py-8">
-            <span class="loading loading-spinner text-primary"></span>
-          </div>
-          <div v-else-if="dishList.length === 0" class="text-center py-8 text-base-content/40">暂无可选菜品</div>
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-[40vh] overflow-y-auto">
-            <div v-for="dish in dishList" :key="dish.id"
-                 class="flex items-center justify-between bg-base-200 rounded-xl px-3 py-2 cursor-pointer hover:bg-base-300"
-                 @click="openSkuPicker(dish)">
-              <div class="min-w-0">
-                <div class="text-sm font-medium truncate">{{ dish.name }}</div>
-                <div class="text-xs text-base-content/50">¥{{ dish.basePrice }}起</div>
-              </div>
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </div>
-          </div>
-
-          <!-- 已选加菜清单 -->
-          <div v-if="pendingAddItems.length > 0" class="mt-3 space-y-1">
-            <div class="text-sm font-medium">待加菜品：</div>
-            <div v-for="(it, idx) in pendingAddItems" :key="idx" class="flex items-center justify-between bg-base-100 border border-base-200 rounded px-3 py-1.5 text-sm">
-              <span class="truncate mr-2">{{ it.dishName }}（{{ it.specNamesText || '标准' }}）</span>
-              <div class="flex items-center gap-1">
-                <button class="btn btn-ghost btn-xs btn-circle" @click="changePendingQty(idx, -1)">−</button>
-                <span class="w-6 text-center">{{ it.quantity }}</span>
-                <button class="btn btn-ghost btn-xs btn-circle" @click="changePendingQty(idx, 1)">+</button>
-                <button class="btn btn-ghost btn-xs text-error" @click="removePending(idx)">✕</button>
-              </div>
-            </div>
-          </div>
-
-          <div class="modal-action">
-            <button class="btn btn-ghost" @click="cancelAddItems">取消</button>
-            <button class="btn btn-primary" :disabled="acting || pendingAddItems.length === 0" @click="confirmAddItems">
-              <span v-if="acting" class="loading loading-spinner loading-xs"></span>
-              确认加菜
-            </button>
-          </div>
-        </template>
-      </div>
-      <div class="modal-backdrop" @click="cancelAddItems"></div>
-    </dialog>
-
-    <!-- 加菜-规格选择弹窗 -->
-    <dialog class="modal" :class="{ 'modal-open': skuPickerDish }">
-      <div class="modal-box max-w-md">
-        <template v-if="skuPickerDish">
-          <h3 class="font-bold text-lg">{{ skuPickerDish.name }}</h3>
-          <div class="divider my-2 text-sm">选择规格</div>
-          <div v-if="skuLoading" class="flex justify-center py-6">
-            <span class="loading loading-spinner text-primary"></span>
-          </div>
-          <div v-else-if="skuList.length === 0" class="text-center py-6 text-base-content/40">暂无可选规格</div>
-          <div v-else class="space-y-2">
-            <div v-for="sku in skuList" :key="sku.id" class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3">
-              <div class="min-w-0">
-                <div class="text-sm font-medium truncate">{{ specNamesText(sku.specNames) || '标准份' }}</div>
-                <div class="text-xs text-base-content/50">¥{{ sku.unitPrice }}
-                  <span v-if="sku.stock === -1"> · 库存充足</span>
-                  <span v-else> · 剩余{{ sku.stock }}</span>
-                </div>
-              </div>
-              <button class="btn btn-primary btn-sm btn-circle" :disabled="sku.stock !== -1 && sku.stock <= 0" @click="addPendingSku(sku)">
-                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                </svg>
-              </button>
-            </div>
-          </div>
-          <div class="modal-action">
-            <button class="btn btn-ghost" @click="skuPickerDish = null">完成</button>
-          </div>
-        </template>
-      </div>
-      <div class="modal-backdrop" @click="skuPickerDish = null"></div>
-    </dialog>
+    <!-- 加菜弹窗（菜品选择 + 规格选择，逻辑见 useAddItems） -->
+    <AddItemsDialog :api="addItems" />
 
     <!-- 结算弹窗（完成订单 + 可录入手机号关联会员积分） -->
     <dialog class="modal" :class="{ 'modal-open': completeOrder }">
@@ -355,9 +265,22 @@ import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import toast from '@/utils/toast'
 import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
+import Pagination from '@/components/common/Pagination.vue'
+import AddItemsDialog from '@/components/order/AddItemsDialog.vue'
+import { useAddItems } from '@/composables/useAddItems'
+import { useConfirm } from '@/composables/useConfirm'
+import { formatSpecNames as specNamesText } from '@/utils/format'
+import {
+  orderStatusText as statusText,
+  orderStatusBadge as statusBadge,
+  orderTypeText,
+  orderTypeBadge,
+  orderItemCount as itemCount
+} from '@/utils/order'
 
 const storeContext = useStoreContext()
 const authStore = useAuthStore()
+const { confirm } = useConfirm()
 
 const loading = ref(false)
 const acting = ref(false)
@@ -373,14 +296,19 @@ const detailOrder = ref(null)
 const rejectOrder = ref(null)
 const rejectReason = ref('')
 
-/** 加菜相关状态 */
-const addItemsOrder = ref(null)
-const dishLoading = ref(false)
-const dishList = ref([])
-const skuPickerDish = ref(null)
-const skuLoading = ref(false)
-const skuList = ref([])
-const pendingAddItems = ref([])
+/** 加菜功能（菜品/规格加载、待加清单、提交均在 composable 内） */
+const addItems = useAddItems({
+  title: '为订单加菜',
+  // 管理端：加载门店启用中的菜品
+  loadDishes: async (order) => {
+    const res = await httpGet(`/dishes/list?storefrontId=${order.storeId}&page=1&size=100`)
+    return isSuccess(res) && res.data ? parsePage(res.data).content.filter(d => d.status === 1) : []
+  },
+  // 管理端：店员代客加菜
+  submitItems: (order, items) =>
+    httpPost(`/order/manage/add-items/${order.id}?storeId=${order.storeId}`, { items }),
+  onSuccess: () => fetchOrders()
+})
 
 /** 结算相关状态（完成订单 + 可录入手机号关联会员积分） */
 const completeOrder = ref(null)
@@ -567,7 +495,13 @@ const serveItem = async (item) => {
 /** 退菜（移除未出餐菜品） */
 const removeItem = async (item) => {
   if (!detailOrder.value) return
-  if (!confirm(`确认退菜「${item.dishName}×${item.quantity}」？退菜后恢复库存并重算金额。`)) return
+  const ok = await confirm({
+    title: '确认退菜',
+    message: `确认退菜「${item.dishName}×${item.quantity}」？退菜后恢复库存并重算金额。`,
+    confirmText: '确认退菜',
+    tone: 'error'
+  })
+  if (!ok) return
   acting.value = true
   try {
     const res = await httpPost(`/order/manage/remove-item/${item.id}?storeId=${detailOrder.value.storeId}`)
@@ -684,21 +618,6 @@ const itemsSummary = (order) => {
   return names.length > 30 ? names.slice(0, 30) + '...' : names
 }
 
-const itemCount = (order) => {
-  return (order.items || []).reduce((sum, i) => sum + i.quantity, 0)
-}
-
-const specNamesText = (specNames) => {
-  if (!specNames) return ''
-  try {
-    // 后端存储为 JSON（数组或对象），统一解析出文本
-    const parsed = typeof specNames === 'string' ? JSON.parse(specNames) : specNames
-    if (Array.isArray(parsed)) return parsed.join('/')
-    if (parsed && typeof parsed === 'object') return Object.values(parsed).join('/')
-  } catch { /* 忽略解析失败 */ }
-  return String(specNames || '')
-}
-
 /** 订单内所有正常菜品是否均已出餐（退菜明细视为已处理） */
 const allItemsServed = (order) => {
   const items = order.items || []
@@ -712,136 +631,6 @@ const allItemsServed = (order) => {
 const effectiveStatus = (order) => {
   if (order.status !== 2 && order.status !== 3) return order.status
   return allItemsServed(order) ? 3 : 2
-}
-
-/** 状态展示 */
-const statusText = (status) => {
-  const map = { 0: '待接单', 1: '已接单', 2: '制作中', 3: '已出餐', 4: '已完成', 5: '已取消' }
-  return map[status] ?? '未知'
-}
-
-const statusBadge = (status) => {
-  const map = {
-    0: 'badge-warning',
-    1: 'badge-info',
-    2: 'badge-accent',
-    3: 'badge-secondary',
-    4: 'badge-success',
-    5: 'badge-error'
-  }
-  return map[status] ?? 'badge-ghost'
-}
-
-/** 订单类型展示 */
-const orderTypeText = (type) => {
-  const map = { 0: '堂食', 1: '外送', 2: '线上' }
-  return map[type] ?? '堂食'
-}
-
-const orderTypeBadge = (type) => {
-  const map = { 0: 'badge-success', 1: 'badge-warning', 2: 'badge-info' }
-  return map[type] ?? 'badge-ghost'
-}
-
-// ==================== 加菜功能 ====================
-
-/** 打开加菜弹窗：加载门店菜品列表 */
-const openAddItems = async (order) => {
-  addItemsOrder.value = order
-  pendingAddItems.value = []
-  skuPickerDish.value = null
-  dishList.value = []
-  dishLoading.value = true
-  try {
-    const res = await httpGet(`/dishes/list?storefrontId=${order.storeId}&page=1&size=100`)
-    if (isSuccess(res) && res.data) {
-      dishList.value = parsePage(res.data).content.filter(d => d.status === 1)
-    }
-  } catch (e) {
-    toast.error('加载菜品失败')
-  } finally {
-    dishLoading.value = false
-  }
-}
-
-const cancelAddItems = () => {
-  addItemsOrder.value = null
-  pendingAddItems.value = []
-  skuPickerDish.value = null
-}
-
-/** 打开规格选择弹窗 */
-const openSkuPicker = async (dish) => {
-  skuPickerDish.value = dish
-  skuList.value = []
-  skuLoading.value = true
-  try {
-    const res = await httpGet(`/dishes/${dish.id}`)
-    if (isSuccess(res)) {
-      skuList.value = (res.data?.skuList || []).filter(s => s.status === 1)
-    }
-  } catch (e) {
-    toast.error('加载规格失败')
-  } finally {
-    skuLoading.value = false
-  }
-}
-
-/** 加入待加菜清单 */
-const addPendingSku = (sku) => {
-  const deal = Number(sku.discount) > 0 && Number(sku.discount) < 1
-    ? Number(sku.unitPrice) * Number(sku.discount) : Number(sku.unitPrice)
-  const existing = pendingAddItems.value.find(i => i.skuId === sku.id)
-  if (existing) {
-    existing.quantity = Math.min(existing.quantity + 1, 99)
-  } else {
-    pendingAddItems.value.push({
-      skuId: sku.id,
-      dishId: skuPickerDish.value.id,
-      dishName: skuPickerDish.value.name,
-      specNamesText: specNamesText(sku.specNames) || '标准',
-      unitPrice: Number(sku.unitPrice),
-      dealPrice: deal,
-      quantity: 1
-    })
-  }
-  toast.success('已加入加菜清单')
-}
-
-const changePendingQty = (idx, delta) => {
-  const it = pendingAddItems.value[idx]
-  if (!it) return
-  it.quantity += delta
-  if (it.quantity <= 0) {
-    pendingAddItems.value.splice(idx, 1)
-  }
-}
-
-const removePending = (idx) => {
-  pendingAddItems.value.splice(idx, 1)
-}
-
-/** 提交加菜 */
-const confirmAddItems = async () => {
-  if (!addItemsOrder.value || pendingAddItems.value.length === 0) return
-  acting.value = true
-  try {
-    const payload = {
-      items: pendingAddItems.value.map(i => ({ skuId: i.skuId, quantity: i.quantity }))
-    }
-    const res = await httpPost(`/order/manage/add-items/${addItemsOrder.value.id}?storeId=${addItemsOrder.value.storeId}`, payload)
-    if (isSuccess(res)) {
-      toast.success('加菜成功')
-      cancelAddItems()
-      fetchOrders()
-    } else {
-      toast.error(res?.message || '加菜失败')
-    }
-  } catch (e) {
-    toast.error('加菜失败')
-  } finally {
-    acting.value = false
-  }
 }
 
 /** 时间格式化 */

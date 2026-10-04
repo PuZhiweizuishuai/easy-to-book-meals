@@ -116,13 +116,8 @@
         </div>
 
         <!-- 分页 -->
-        <div class="flex justify-center mt-8" v-if="totalPages > 1">
-          <div class="join">
-            <button class="join-item btn btn-sm" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
-            <button class="join-item btn btn-sm btn-active">第 {{ page }} / {{ totalPages }} 页</button>
-            <button class="join-item btn btn-sm" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
-          </div>
-        </div>
+        <Pagination v-model="page" :total-pages="totalPages" container-class="mt-8"
+                    @change="changePage" />
       </template>
     </main>
   </div>
@@ -134,6 +129,7 @@ import { useRouter } from 'vue-router'
 import { httpGet, isSuccess, parsePage } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
+import Pagination from '@/components/common/Pagination.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

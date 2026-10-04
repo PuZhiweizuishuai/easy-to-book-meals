@@ -244,12 +244,39 @@ class DiningTableServiceTest {
         Long orderId = 200L;
 
         when(diningTableRepository.findByIdAndDeleted(TABLE_ID, 0)).thenReturn(Optional.of(table));
-        when(diningTableRepository.save(any(DiningTable.class))).thenAnswer(invocation -> invocation.getArgument(0));
+        // 原子条件 UPDATE 抢占成功，并模拟数据库已写入新状态
+        when(diningTableRepository.bindOrderIfFree(eq(TABLE_ID), eq(orderId),
+                eq(TableStatus.OCCUPIED.getCode()), eq(TableStatus.DISABLED.getCode()), anyLong()))
+                .thenAnswer(invocation -> {
+                    table.setCurrentOrderId(orderId);
+                    table.setStatus(TableStatus.OCCUPIED.getCode());
+                    return 1;
+                });
 
         DiningTable result = diningTableService.bindCurrentOrder(TABLE_ID, STORE_ID, orderId);
 
         assertEquals(orderId, result.getCurrentOrderId());
         assertEquals(TableStatus.OCCUPIED.getCode(), result.getStatus());
+        verify(diningTableRepository, never()).save(any(DiningTable.class));
+    }
+
+    @Test
+    void bindCurrentOrder_AlreadyOccupied_ThrowsException() {
+        DiningTable table = createTestTable();
+        table.setCurrentOrderId(999L);
+        table.setStatus(TableStatus.OCCUPIED.getCode());
+        Long orderId = 200L;
+
+        when(diningTableRepository.findByIdAndDeleted(TABLE_ID, 0)).thenReturn(Optional.of(table));
+        // 并发场景：条件 UPDATE 抢占失败（该桌已绑定其他订单）
+        when(diningTableRepository.bindOrderIfFree(eq(TABLE_ID), eq(orderId),
+                eq(TableStatus.OCCUPIED.getCode()), eq(TableStatus.DISABLED.getCode()), anyLong()))
+                .thenReturn(0);
+
+        assertThrows(BusinessException.class,
+                () -> diningTableService.bindCurrentOrder(TABLE_ID, STORE_ID, orderId));
+        // 原绑定订单不应被覆盖
+        assertEquals(999L, table.getCurrentOrderId());
     }
 
     @Test

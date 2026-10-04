@@ -222,6 +222,9 @@ import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
 import QRCode from 'qrcode'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const route = useRoute()
 const router = useRouter()
@@ -423,7 +426,13 @@ const changeStatus = async (status) => {
 /** 重置二维码标识（旧码失效，需重新打印） */
 const regenerateQrKey = async () => {
   if (!table.value) return
-  if (!confirm('重置后旧二维码将立即失效，顾客无法用旧码点餐，需重新打印桌牌。确定继续吗？')) return
+  const ok = await confirm({
+    title: '重置桌牌二维码',
+    message: '重置后旧二维码将立即失效，顾客无法用旧码点餐，需重新打印桌牌。确定继续吗？',
+    confirmText: '确认重置',
+    tone: 'warning'
+  })
+  if (!ok) return
   regenerating.value = true
   try {
     const newKey = generateUuid()
@@ -440,6 +449,7 @@ const regenerateQrKey = async () => {
       toast.error(res?.message || '重置失败')
     }
   } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
     toast.error('重置失败')
   } finally {
     regenerating.value = false

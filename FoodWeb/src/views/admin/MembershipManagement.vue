@@ -125,13 +125,7 @@
         </div>
 
         <!-- 分页 -->
-        <div class="flex justify-center mt-4" v-if="!loading && totalPages > 1">
-          <div class="join">
-            <button class="join-item btn btn-sm" :disabled="page <= 1" @click="fetchMembers(page - 1)">«</button>
-            <button class="join-item btn btn-sm btn-active">第 {{ page }} / {{ totalPages }} 页</button>
-            <button class="join-item btn btn-sm" :disabled="page >= totalPages" @click="fetchMembers(page + 1)">»</button>
-          </div>
-        </div>
+        <Pagination v-if="!loading" v-model="page" :total-pages="totalPages" @change="fetchMembers" />
       </div>
     </div>
 
@@ -227,13 +221,8 @@
                 </tbody>
               </table>
             </div>
-            <div class="flex justify-center mt-3" v-if="txTotalPages > 1">
-              <div class="join">
-                <button class="join-item btn btn-xs" :disabled="txPage <= 1" @click="fetchTransactions(txPage - 1)">«</button>
-                <button class="join-item btn btn-xs btn-active">{{ txPage }} / {{ txTotalPages }}</button>
-                <button class="join-item btn btn-xs" :disabled="txPage >= txTotalPages" @click="fetchTransactions(txPage + 1)">»</button>
-              </div>
-            </div>
+            <Pagination v-model="txPage" :total-pages="txTotalPages" size="xs"
+                        container-class="mt-3" @change="fetchTransactions" />
           </div>
 
           <!-- 消费记录 -->
@@ -267,13 +256,8 @@
                 </tbody>
               </table>
             </div>
-            <div class="flex justify-center mt-3" v-if="orderTotalPages > 1">
-              <div class="join">
-                <button class="join-item btn btn-xs" :disabled="orderPage <= 1" @click="fetchOrders(orderPage - 1)">«</button>
-                <button class="join-item btn btn-xs btn-active">{{ orderPage }} / {{ orderTotalPages }}</button>
-                <button class="join-item btn btn-xs" :disabled="orderPage >= orderTotalPages" @click="fetchOrders(orderPage + 1)">»</button>
-              </div>
-            </div>
+            <Pagination v-model="orderPage" :total-pages="orderTotalPages" size="xs"
+                        container-class="mt-3" @change="fetchOrders" />
           </div>
 
           <!-- 操作区 -->
@@ -341,6 +325,7 @@ import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import { useStoreContext } from '@/stores/storeContext'
 import { formatDate } from '@/utils/format'
 import toast from '@/utils/toast'
+import Pagination from '@/components/common/Pagination.vue'
 
 const storeContext = useStoreContext()
 const STORE_ID = () => storeContext.currentStoreId

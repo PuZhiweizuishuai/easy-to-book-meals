@@ -26,7 +26,10 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -68,6 +71,11 @@ public class OrderService {
     private final StoreService storeService;
     private final UserDataService userDataService;
     private final MembershipService membershipService;
+    /**
+     * 逐订单独立事务模板（超时自动取消专用，REQUIRES_NEW）：
+     * 单个订单取消失败只回滚该订单，不影响同批其他订单，也避免大事务长时间持锁
+     */
+    private final TransactionTemplate requiresNewTransaction;
 
     public OrderService(OrderDataRepository orderDataRepository,
                         OrderItemRepository orderItemRepository,
@@ -76,7 +84,8 @@ public class OrderService {
                         DiningTableService diningTableService,
                         StoreService storeService,
                         UserDataService userDataService,
-                        MembershipService membershipService) {
+                        MembershipService membershipService,
+                        PlatformTransactionManager transactionManager) {
         this.orderDataRepository = orderDataRepository;
         this.orderItemRepository = orderItemRepository;
         this.productSkuRepository = productSkuRepository;
@@ -85,6 +94,9 @@ public class OrderService {
         this.storeService = storeService;
         this.userDataService = userDataService;
         this.membershipService = membershipService;
+        this.requiresNewTransaction = new TransactionTemplate(transactionManager);
+        this.requiresNewTransaction.setPropagationBehavior(
+                TransactionDefinition.PROPAGATION_REQUIRES_NEW);
     }
 
     /**
@@ -321,8 +333,12 @@ public class OrderService {
             throw new BusinessException(400, "订单当前状态为「" + current.getName() + "」，无法退菜");
         }
 
-        // 恢复库存
-        productSkuRepository.restoreStock(item.getSkuId(), item.getQuantity().longValue());
+        // 恢复库存（停用/锁定 SKU 不回补，避免禁用 SKU 被凭空累加库存）
+        int restored = productSkuRepository.restoreStock(item.getSkuId(), item.getQuantity().longValue());
+        if (restored == 0) {
+            logger.warn("SKU 已停用/锁定或不存在，退菜时跳过库存回补: skuId={}, orderNo={}",
+                    item.getSkuId(), order.getOrderNo());
+        }
         // 标记明细为已取消
         item.setStatus(OrderItem.STATUS_CANCELLED);
         orderItemRepository.save(item);
@@ -381,7 +397,11 @@ public class OrderService {
                 throw new BusinessException(400, "库存不足，无法将数量增加到 " + formatQuantity(newQuantity));
             }
         } else if (delta < 0) {
-            productSkuRepository.restoreStock(item.getSkuId(), -delta);
+            int restoredRows = productSkuRepository.restoreStock(item.getSkuId(), -delta);
+            if (restoredRows == 0) {
+                logger.warn("SKU 已停用/锁定或不存在，调整数量时跳过库存回补: skuId={}, orderNo={}",
+                        item.getSkuId(), order.getOrderNo());
+            }
         }
 
         java.math.BigDecimal qty = newQuantity.stripTrailingZeros();
@@ -458,7 +478,9 @@ public class OrderService {
 
         // 拒单/取消：恢复库存、释放餐桌
         if (target == OrderStatus.CANCELLED) {
-            cancelOrderInternal(order, reason);
+            if (!cancelOrderInternal(order, reason)) {
+                throw new BusinessException(409, "订单状态已变更，无法取消，请刷新后重试");
+            }
             return getOrderDetail(order.getId());
         }
 
@@ -569,23 +591,44 @@ public class OrderService {
             throw new BusinessException(400, "订单已被接单，无法取消，请联系店家");
         }
 
-        cancelOrderInternal(order, "顾客取消");
+        if (!cancelOrderInternal(order, "顾客取消")) {
+            throw new BusinessException(409, "订单状态已变更，取消失败，请刷新后重试");
+        }
         return getOrderDetail(order.getId());
     }
 
     /**
-     * 取消订单内部逻辑：标记状态、恢复库存、释放餐桌、标记明细
+     * 取消订单内部逻辑：原子翻转状态 → 恢复库存 → 释放餐桌 → 标记明细
+     * <p>
+     * 幂等保护：通过条件 UPDATE 抢占式把订单从「待接单/已接单」翻转为「已取消」。
+     * 顾客取消、店家拒单、超时定时任务并发时只有一方抢占成功，
+     * 抢占失败（返回 false）的一方不再恢复库存，杜绝库存被重复回补。
+     *
+     * @return true=本事务成功取消；false=订单已被其他流程取消或状态已推进，调用方应放弃/报错
      */
-    private void cancelOrderInternal(OrderData order, String reason) {
-        order.setStatus(OrderStatus.CANCELLED.getCode());
-        order.setCancelReason(reason);
-        orderDataRepository.save(order);
+    private boolean cancelOrderInternal(OrderData order, String reason) {
+        int affected = orderDataRepository.cancelIfCancellable(
+                order.getId(),
+                OrderStatus.CANCELLED.getCode(),
+                reason,
+                System.currentTimeMillis(),
+                List.of(OrderStatus.PENDING.getCode(), OrderStatus.CONFIRMED.getCode()));
+        if (affected == 0) {
+            logger.warn("订单取消抢占失败（状态已变更），跳过库存恢复: orderNo={}, currentStatus={}",
+                    order.getOrderNo(), order.getStatus());
+            return false;
+        }
 
-        // 恢复库存
+        // 恢复库存（停用/锁定 SKU 不回补，避免禁用 SKU 被凭空累加库存）
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         for (OrderItem item : items) {
-            if (item.getStatus() == OrderItem.STATUS_NORMAL) {
-                productSkuRepository.restoreStock(item.getSkuId(), item.getQuantity().longValue());
+            if (item.getStatus() != null && item.getStatus() == OrderItem.STATUS_NORMAL) {
+                int restored = productSkuRepository.restoreStock(
+                        item.getSkuId(), item.getQuantity().longValue());
+                if (restored == 0) {
+                    logger.warn("SKU 已停用/锁定或不存在，取消订单时跳过库存回补: skuId={}, orderNo={}",
+                            item.getSkuId(), order.getOrderNo());
+                }
                 item.setStatus(OrderItem.STATUS_CANCELLED);
             }
         }
@@ -593,6 +636,7 @@ public class OrderService {
 
         // 释放餐桌（取消订单时餐桌未真正使用，回到空闲）
         releaseTable(order, false);
+        return true;
     }
 
     /**
@@ -712,23 +756,61 @@ public class OrderService {
     }
 
     /**
-     * 定时任务：每分钟扫描，自动取消超时（30分钟）未接单的订单
-     * 恢复库存并释放餐桌（@Modifying 恢复库存需要事务）
+     * 定时任务：每分钟扫描，自动取消超时（30分钟）未接单的订单。
+     * <p>
+     * 事务策略：扫描本身不开启事务（查询自动提交，不持有锁）；
+     * 每个订单在独立的 REQUIRES_NEW 事务中取消，单条失败仅回滚该订单，
+     * 不会把整批任务标记为 rollback-only，也避免大事务长时间锁定多行。
      */
     @Scheduled(fixedDelay = 60_000)
-    @Transactional(rollbackFor = Exception.class)
     public void cancelTimeoutPendingOrders() {
         long deadline = System.currentTimeMillis() - PENDING_TIMEOUT_MS;
-        List<OrderData> timeoutOrders = orderDataRepository
-                .findByStatusAndCreateTimeBefore(OrderStatus.PENDING.getCode(), deadline);
+        List<OrderData> timeoutOrders;
+        try {
+            timeoutOrders = orderDataRepository
+                    .findByStatusAndCreateTimeBefore(OrderStatus.PENDING.getCode(), deadline);
+        } catch (Exception e) {
+            logger.error("扫描超时未接单订单失败", e);
+            return;
+        }
+        if (timeoutOrders.isEmpty()) {
+            return;
+        }
         for (OrderData order : timeoutOrders) {
+            Long orderId = order.getId();
             try {
-                cancelOrderInternal(order, "超时未接单，系统自动取消");
-                logger.info("超时订单自动取消: orderNo={}", order.getOrderNo());
+                requiresNewTransaction.executeWithoutResult(
+                        status -> cancelTimeoutOrder(orderId, deadline));
             } catch (Exception e) {
-                logger.error("超时订单自动取消失败: orderNo={}", order.getOrderNo(), e);
+                logger.error("超时订单自动取消失败: orderId={}", orderId, e);
             }
         }
+    }
+
+    /**
+     * 取消单个超时订单（运行于 REQUIRES_NEW 独立事务内）。
+     * <p>
+     * 重新加载订单并双重校验状态与超时时间：可能在扫描后已被店家接单或顾客取消，
+     * 此时直接跳过；状态翻转走 CAS，保证与其他取消路径并发时只恢复一次库存。
+     */
+    private void cancelTimeoutOrder(Long orderId, long deadline) {
+        OrderData order = orderDataRepository.findById(orderId).orElse(null);
+        if (order == null) {
+            return;
+        }
+        if (order.getStatus() == null || order.getStatus() != OrderStatus.PENDING.getCode()) {
+            // 已被接单/取消/完成，跳过
+            return;
+        }
+        if (order.getCreateTime() != null && order.getCreateTime() >= deadline) {
+            // 双重校验：尚未超时（理论上不会发生，防御性判断）
+            return;
+        }
+        boolean cancelled = cancelOrderInternal(order, "超时未接单，系统自动取消");
+        if (cancelled) {
+            logger.info("超时订单自动取消: orderNo={}", order.getOrderNo());
+        }
+        // cancelled=false 说明并发下被其他流程处理，正常跳过
     }
 
     // ==================== 私有方法 ====================
@@ -846,11 +928,17 @@ public class OrderService {
     }
 
     /**
-     * 校验餐桌可用餐（未删除、未停用）
+     * 校验餐桌可用餐（未删除、未停用、无进行中的订单）
+     * <p>
+     * 此处为前置快速失败校验，给出友好提示并避免无谓扣库存；
+     * 真正的并发安全由 {@code DiningTableRepository.bindOrderIfFree} 条件 UPDATE 兜底。
      */
     private void checkTableOrderable(DiningTable table) {
         if (table.getStatus() != null && table.getStatus() == TableStatus.DISABLED.getCode()) {
             throw new BusinessException(400, "餐桌已停用: " + table.getTableNumber());
+        }
+        if (table.getCurrentOrderId() != null) {
+            throw new BusinessException(400, "该餐桌已有进行中的订单，可直接在本桌订单中加菜");
         }
     }
 

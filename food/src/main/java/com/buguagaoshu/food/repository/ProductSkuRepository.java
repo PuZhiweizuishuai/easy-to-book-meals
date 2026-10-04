@@ -28,11 +28,15 @@ public interface ProductSkuRepository
     int deductStock(@Param("id") Long id, @Param("quantity") Long quantity);
 
     /**
-     * 回补库存（订单取消时调用），不限库存(-1)保持不变
+     * 回补库存（订单取消/退菜时调用），不限库存(-1)保持不变
+     * <p>
+     * 仅回补仍处于启用状态(status=1)的 SKU；已下架/锁定的 SKU 不累加库存，
+     * 避免「禁用 SKU 却被凭空加库存」导致重新上架后库存数据不一致。
+     * 返回受影响行数：0 表示 SKU 不存在或已停用/锁定，调用方应记录日志。
      */
     @Modifying
     @Query("UPDATE ProductSku s SET s.stock = CASE WHEN s.stock = -1 THEN -1 ELSE s.stock + :quantity END " +
-            "WHERE s.id = :id")
+            "WHERE s.id = :id AND s.status = 1")
     int restoreStock(@Param("id") Long id, @Param("quantity") Long quantity);
 
     /**

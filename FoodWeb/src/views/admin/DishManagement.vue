@@ -135,15 +135,9 @@
         </div>
 
         <!-- 分页组件 -->
-        <div class="flex justify-center md:justify-end mt-6">
-          <div class="join shadow-sm">
-            <button class="join-item btn btn-sm" :disabled="currentPage === 0" @click="handlePrevPage">«</button>
-            <button v-for="page in totalPages" :key="page" class="join-item btn btn-sm"
-              :class="{ 'btn-active': currentPage === page }" @click="handlePageChange(page)">{{ page }}</button>
-            <button class="join-item btn btn-sm" :disabled="currentPage >= totalPages"
-              @click="handleNextPage">»</button>
-          </div>
-        </div>
+        <Pagination v-model="currentPage" :total-pages="totalPages"
+                    mode="numbered" align="end" container-class="mt-6"
+                    @change="handlePageChange" />
       </div>
     </div>
   </div>
@@ -157,6 +151,7 @@ import { httpGet } from '@/utils/fetch.js';
 import { formatDate } from '@/utils/format.js';
 import { useRouter } from 'vue-router'
 import { useStoreContext } from '@/stores/storeContext.js'
+import Pagination from '@/components/common/Pagination.vue'
 const router = useRouter() // 拿到路由实例
 const storeContext = useStoreContext()
 /** 当前管理门店 ID（由 AdminLayout 门店切换器提供） */
@@ -205,18 +200,6 @@ const fetchDishList = async (page = 1, size = 10, key = '') => {
 const handlePageChange = (page) => {
   currentPage.value = page;
   fetchDishList(page, pageSize.value, searchKey.value);
-};
-
-const handlePrevPage = () => {
-  if (currentPage.value > 1) {
-    handlePageChange(currentPage.value - 1);
-  }
-};
-
-const handleNextPage = () => {
-  if (currentPage.value < totalPages.value - 1) {
-    handlePageChange(currentPage.value + 1);
-  }
 };
 
 const handleCreateSuccess = (data) => {

@@ -130,6 +130,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { httpGet, isSuccess, parsePage } from '@/utils/fetch'
 import { useStoreContext } from '@/stores/storeContext'
+import { orderStatusText as statusText, orderStatusBadge as statusBadge } from '@/utils/order'
 
 const storeContext = useStoreContext()
 const loading = ref(false)
@@ -193,19 +194,6 @@ const fetchTopDishes = async () => {
   } catch (e) {
     console.error('加载热销菜品失败:', e)
   }
-}
-
-const statusText = (status) => {
-  const map = { 0: '待接单', 1: '已接单', 2: '制作中', 3: '已出餐', 4: '已完成', 5: '已取消' }
-  return map[status] ?? '未知'
-}
-
-const statusBadge = (status) => {
-  const map = {
-    0: 'badge-warning', 1: 'badge-info', 2: 'badge-accent',
-    3: 'badge-secondary', 4: 'badge-success', 5: 'badge-error'
-  }
-  return map[status] ?? 'badge-ghost'
 }
 
 const badgeClass = (index) => {

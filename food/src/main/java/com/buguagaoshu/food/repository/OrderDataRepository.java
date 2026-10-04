@@ -4,6 +4,7 @@ import com.buguagaoshu.food.data.OrderData;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -49,6 +50,25 @@ public interface OrderDataRepository extends JpaRepository<OrderData, Long> {
      * 查询超时未接单的订单（定时任务自动取消）
      */
     List<OrderData> findByStatusAndCreateTimeBefore(Integer status, Long createTime);
+
+    /**
+     * 取消订单的原子状态翻转（CAS 幂等保护）
+     * <p>
+     * 仅当订单当前状态属于可取消状态（待接单/已接单）时才翻转为已取消。
+     * 顾客取消、店家拒单、超时定时任务并发执行时，只有一条 UPDATE 成功，
+     * 成功者才继续恢复库存，从根本上杜绝库存被重复恢复两倍的问题。
+     * 批量 UPDATE 不触发 JPA 审计，updateTime 需手动写入。
+     *
+     * @return 受影响行数：1=成功抢占取消；0=订单已被取消或状态已推进
+     */
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Query("UPDATE OrderData o SET o.status = :cancelledStatus, o.cancelReason = :reason, o.updateTime = :now " +
+            "WHERE o.id = :id AND o.status IN :cancellableStatuses")
+    int cancelIfCancellable(@Param("id") Long id,
+                            @Param("cancelledStatus") Integer cancelledStatus,
+                            @Param("reason") String reason,
+                            @Param("now") Long now,
+                            @Param("cancellableStatuses") java.util.Collection<Integer> cancellableStatuses);
 
     /**
      * 统计门店某时间之后的订单量

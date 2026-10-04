@@ -171,24 +171,9 @@
           </div>
 
           <!-- 分页 -->
-          <div class="flex justify-center md:justify-end mt-6">
-            <div class="join shadow-sm">
-              <button class="join-item btn btn-sm" :disabled="currentPage <= 1" @click="goPage(currentPage - 1)">«
-              </button>
-              <button v-for="p in visiblePages" :key="p" class="join-item btn btn-sm"
-                :class="{ 'btn-active': p === currentPage, 'btn-disabled': p === '...' }"
-                @click="p !== '...' && goPage(p)">
-                {{ p }}
-              </button>
-              <button class="join-item btn btn-sm" :disabled="currentPage >= totalPages" @click="goPage(currentPage + 1)">
-                »
-              </button>
-            </div>
-          </div>
-
-          <div class="text-center md:text-right text-sm text-base-content/50 mt-2">
-            共 {{ totalElements }} 条记录，第 {{ currentPage }} / {{ totalPages || 1 }} 页
-          </div>
+          <Pagination v-model="currentPage" :total-pages="totalPages" :total-elements="totalElements"
+                      mode="numbered" align="end" container-class="mt-6"
+                      @change="goPage" />
         </template>
       </div>
     </div>
@@ -204,10 +189,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, onMounted } from 'vue'
 import { httpGet, httpPost, isSuccess } from '@/utils/fetch'
 import { formatDate } from '@/utils/format'
 import toast from '@/utils/toast'
+import Pagination from '@/components/common/Pagination.vue'
 import UserEditModal from '@/components/card/UserEditModal.vue'
 import UserAddModal from '@/components/card/UserAddModal.vue'
 import UserRoleModal from '@/components/card/UserRoleModal.vue'
@@ -226,24 +212,6 @@ const showAddModal = ref(false)
 const showRoleModal = ref(false)
 const showResetModal = ref(false)
 const editingUser = ref(null)
-
-/** 计算分页页码显示 */
-const visiblePages = computed(() => {
-  const total = totalPages.value
-  const current = currentPage.value
-  if (total <= 7) {
-    return Array.from({ length: total }, (_, i) => i + 1)
-  }
-  const pages = []
-  pages.push(1)
-  if (current > 3) pages.push('...')
-  for (let i = Math.max(2, current - 1); i <= Math.min(total - 1, current + 1); i++) {
-    pages.push(i)
-  }
-  if (current < total - 2) pages.push('...')
-  pages.push(total)
-  return pages
-})
 
 /**
  * 加载用户列表

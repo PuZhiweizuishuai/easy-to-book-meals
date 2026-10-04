@@ -182,6 +182,12 @@ const router = createRouter({
         },
       ],
     },
+    // 404 兜底：未匹配的路径统一回到首页（须放在所有具名路由之后）
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'notFound',
+      redirect: '/',
+    },
   ],
 })
 

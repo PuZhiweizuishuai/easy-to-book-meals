@@ -148,12 +148,27 @@ public class DiningTableService {
         return diningTableRepository.save(table);
     }
 
+    /**
+     * 绑定餐桌当前订单（原子操作，防止同桌并发下单互相覆盖）
+     * <p>
+     * 通过条件 UPDATE（currentOrderId IS NULL）抢占餐桌：
+     * 抢占失败说明该桌已有进行中的订单，抛出异常使整个下单事务回滚（库存随之回滚）。
+     */
     @Transactional(rollbackFor = Exception.class)
     public DiningTable bindCurrentOrder(Long tableId, Long storefrontId, Long orderId) {
         DiningTable table = findTableOrThrow(tableId, storefrontId);
-        table.setCurrentOrderId(orderId);
-        table.setStatus(TableStatus.OCCUPIED.getCode());
-        return diningTableRepository.save(table);
+        int affected = diningTableRepository.bindOrderIfFree(
+                table.getId(), orderId,
+                TableStatus.OCCUPIED.getCode(),
+                TableStatus.DISABLED.getCode(),
+                System.currentTimeMillis());
+        if (affected == 0) {
+            throw new BusinessException(409, "该餐桌已有进行中的订单，可直接在本桌订单中加菜");
+        }
+        // 批量 UPDATE 后持久化上下文已清空，重新读取返回最新状态
+        return diningTableRepository.findByIdAndDeleted(tableId, NOT_DELETED)
+                .orElseThrow(() -> new BusinessException(ReturnCodeEnum.NOT_FOUND.getCode(),
+                        "餐桌不存在: " + tableId));
     }
 
     @Transactional(rollbackFor = Exception.class)

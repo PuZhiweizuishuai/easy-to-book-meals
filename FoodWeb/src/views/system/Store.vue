@@ -103,13 +103,7 @@
         </div>
 
         <!-- 分页 -->
-        <div class="flex justify-center mt-4" v-if="totalPages > 1">
-          <div class="join">
-            <button class="join-item btn btn-sm" :disabled="page <= 1" @click="changePage(page - 1)">«</button>
-            <button class="join-item btn btn-sm btn-active">第 {{ page }} / {{ totalPages }} 页</button>
-            <button class="join-item btn btn-sm" :disabled="page >= totalPages" @click="changePage(page + 1)">»</button>
-          </div>
-        </div>
+        <Pagination v-model="page" :total-pages="totalPages" @change="changePage" />
       </div>
     </div>
 
@@ -138,6 +132,10 @@
 import { ref, onMounted } from 'vue'
 import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import toast from '@/utils/toast'
+import Pagination from '@/components/common/Pagination.vue'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const loading = ref(false)
 const acting = ref(false)
@@ -259,19 +257,26 @@ const executeAudit = async () => {
 /**
  * 删除门店（逻辑删除）
  */
-const handleDelete = (store) => {
-  if (!confirm(`确定删除门店「${store.storeName}」吗？删除后顾客不可见，为逻辑删除。`)) return
+const handleDelete = async (store) => {
+  const ok = await confirm({
+    title: '删除门店',
+    message: `确定删除门店「${store.storeName}」吗？删除后顾客不可见，为逻辑删除。`,
+    confirmText: '确认删除',
+    tone: 'error'
+  })
+  if (!ok) return
   acting.value = true
   try {
-    httpPost(`/sys/store/delete/${store.id}`).then(res => {
-      if (isSuccess(res)) {
-        toast.success('门店已删除')
-        fetchStores()
-        fetchPendingCount()
-      } else {
-        toast.error(res?.message || '删除失败')
-      }
-    })
+    const res = await httpPost(`/sys/store/delete/${store.id}`)
+    if (isSuccess(res)) {
+      toast.success('门店已删除')
+      fetchStores()
+      fetchPendingCount()
+    } else {
+      toast.error(res?.message || '删除失败')
+    }
+  } catch (e) {
+    if (e?.type !== 'UNAUTHORIZED') toast.error('删除失败')
   } finally {
     acting.value = false
   }

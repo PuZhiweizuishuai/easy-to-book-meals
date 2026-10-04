@@ -392,6 +392,7 @@ import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import toast from '@/utils/toast'
+import { orderStatusText as guestStatusText } from '@/utils/order'
 
 const route = useRoute()
 const router = useRouter()
@@ -436,11 +437,6 @@ const remark = ref('')
 const submitting = ref(false)
 /** 本桌当前未结算订单（扫码刷新后展示已下单菜品） */
 const currentTableOrder = ref(null)
-
-/** 订单状态文字（本桌订单展示用） */
-const guestStatusText = (s) => ({
-  0: '待接单', 1: '已接单', 2: '制作中', 3: '已出餐', 4: '已完成', 5: '已取消'
-}[s] || '未知')
 
 /** 分类列表（全部 + 菜品实际出现的分类） */
 const categories = computed(() => {

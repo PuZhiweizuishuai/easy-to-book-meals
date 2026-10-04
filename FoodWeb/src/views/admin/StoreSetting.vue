@@ -197,6 +197,9 @@ import toast from '@/utils/toast'
 import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
 import ImageUpload from '@/components/upload/ImageUpload.vue'
+import { useConfirm } from '@/composables/useConfirm'
+
+const { confirm } = useConfirm()
 
 const storeContext = useStoreContext()
 const authStore = useAuthStore()
@@ -368,7 +371,13 @@ const handleAssignRole = async () => {
  * 移除员工门店角色
  */
 const handleRemoveRole = async (emp) => {
-  if (!confirm(`确定移除「${emp.nickname || '用户#' + emp.userId}」的「${emp.roleName}」角色吗？`)) return
+  const ok = await confirm({
+    title: '移除角色',
+    message: `确定移除「${emp.nickname || '用户#' + emp.userId}」的「${emp.roleName}」角色吗？`,
+    confirmText: '确认移除',
+    tone: 'error'
+  })
+  if (!ok) return
   try {
     const res = await httpPost(`/sys/user/store/role/remove?storeId=${emp.storeId}&userId=${emp.userId}&roleId=${emp.roleId}`)
     if (isSuccess(res)) {
@@ -378,6 +387,7 @@ const handleRemoveRole = async (emp) => {
       toast.error(res?.message || '移除失败')
     }
   } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
     toast.error('移除失败，请稍后重试')
   }
 }

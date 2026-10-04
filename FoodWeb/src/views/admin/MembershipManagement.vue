@@ -56,7 +56,7 @@
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-5 h-4 opacity-70">
               <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
             </svg>
-            <input type="text" v-model.trim="searchKey" placeholder="按手机号搜索会员..." class="grow" @keyup.enter="fetchMembers(1)" />
+            <input type="text" v-model.trim="searchKey" placeholder="按手机号或昵称搜索会员..." class="grow" @keyup.enter="fetchMembers(1)" />
           </label>
           <button v-if="searchKey" class="btn btn-ghost btn-sm" @click="searchKey = ''; fetchMembers(1)">清除筛选</button>
         </div>
@@ -85,7 +85,7 @@
               <span class="badge badge-primary badge-sm">{{ m.num ?? 0 }} 积分</span>
             </div>
             <div class="text-xs text-base-content/60 flex items-center gap-3">
-              <span>{{ m.nickname || '未设置昵称' }}</span>
+              <span>{{ m.nickname || '未设置本店昵称' }}</span>
               <span>·</span>
               <span>消费 {{ m.count ?? 0 }} 次</span>
             </div>
@@ -98,7 +98,7 @@
             <thead class="bg-base-200 text-base-content">
               <tr>
                 <th>手机号</th>
-                <th>昵称</th>
+                <th>本店昵称</th>
                 <th>积分</th>
                 <th>用餐次数</th>
                 <th>备注</th>
@@ -166,7 +166,9 @@
               </div>
               <div class="stat-title text-xs">手机号</div>
               <div class="stat-value text-base-content text-lg font-mono">{{ detailMember.phone }}</div>
-              <div class="stat-desc text-xs">{{ detailMember.nickname || '未设置昵称' }}</div>
+              <div class="stat-desc text-xs" title="仅在本店生效的会员昵称">
+                {{ detailMember.nickname || '未设置本店昵称' }}
+              </div>
             </div>
           </div>
 
@@ -244,14 +246,16 @@
                     <th>金额</th>
                     <th>状态</th>
                     <th>时间</th>
+                    <th></th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr v-for="o in orders" :key="o.id" class="hover">
+                  <tr v-for="o in orders" :key="o.id" class="hover cursor-pointer" @click="openOrderDetail(o)">
                     <td class="font-mono text-xs">{{ o.orderNo }}</td>
                     <td class="font-semibold text-primary">¥{{ o.payAmount }}</td>
                     <td><span :class="['badge badge-sm', orderStatusBadge(o.status)]">{{ orderStatusText(o.status) }}</span></td>
                     <td class="text-sm text-base-content/60 whitespace-nowrap">{{ formatDate(o.createTime) }}</td>
+                    <td class="text-right pr-2"><span class="text-xs text-primary">查看</span></td>
                   </tr>
                 </tbody>
               </table>
@@ -268,7 +272,12 @@
               </svg>
               调整积分
             </button>
-            
+            <button class="btn btn-outline btn-sm btn-secondary" @click="openNicknameDialog">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              设置昵称
+            </button>
           </div>
         </template>
       </div>
@@ -316,6 +325,49 @@
       </div>
       <div class="modal-backdrop" @click="showAdjustDialog = false"></div>
     </dialog>
+
+    <!-- 设置会员昵称弹窗 -->
+    <dialog class="modal" :class="{ 'modal-open': showNicknameDialog }">
+      <div class="modal-box max-w-md">
+        <h3 class="font-bold text-lg mb-4">设置会员昵称</h3>
+        <div class="space-y-4">
+          <div class="bg-base-200 rounded-xl p-4 space-y-1 text-sm">
+            <div class="flex justify-between items-center">
+              <span class="text-base-content/60">会员手机号</span>
+              <span class="font-mono font-medium">{{ detailMember?.phone }}</span>
+            </div>
+            <div class="flex justify-between items-center">
+              <span class="text-base-content/60">当前昵称</span>
+              <span class="font-medium">{{ detailMember?.nickname || '未设置' }}</span>
+            </div>
+          </div>
+          <div class="form-control">
+            <label class="label">
+              <span class="label-text">本店昵称</span>
+              <span class="label-text-alt text-base-content/50">仅在本店生效，留空表示清除</span>
+            </label>
+            <input v-model.trim="nicknameForm" type="text" maxlength="30"
+                   class="input input-bordered w-full" placeholder="如：张先生 / 常客小李" @keyup.enter="handleUpdateNickname" />
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">
+                仅用于本店识别该顾客，不会修改顾客自己的账号昵称，也不影响他在其他门店的昵称
+              </span>
+            </label>
+          </div>
+        </div>
+        <div class="modal-action">
+          <button class="btn btn-ghost" @click="showNicknameDialog = false">取消</button>
+          <button class="btn btn-secondary" :disabled="updatingNickname" @click="handleUpdateNickname">
+            <span v-if="updatingNickname" class="loading loading-spinner loading-sm"></span>
+            保存
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop" @click="showNicknameDialog = false"></div>
+    </dialog>
+
+    <!-- 消费记录：订单详情弹窗（只读） -->
+    <OrderDetailModal :order="orderDetail" :editable="false" @close="orderDetail = null" />
   </div>
 </template>
 
@@ -326,6 +378,8 @@ import { useStoreContext } from '@/stores/storeContext'
 import { formatDate } from '@/utils/format'
 import toast from '@/utils/toast'
 import Pagination from '@/components/common/Pagination.vue'
+import OrderDetailModal from '@/components/order/OrderDetailModal.vue'
+import { orderStatusText, orderStatusBadge } from '@/utils/order'
 
 const storeContext = useStoreContext()
 const STORE_ID = () => storeContext.currentStoreId
@@ -359,6 +413,15 @@ const orderTotalElements = ref(0)
 const showAdjustDialog = ref(false)
 const adjusting = ref(false)
 const adjustForm = ref({ points: null, remark: '' })
+
+// 设置昵称
+const showNicknameDialog = ref(false)
+const updatingNickname = ref(false)
+const nicknameForm = ref('')
+
+// 消费记录订单详情（只读展示）
+const orderDetail = ref(null)
+const orderDetailLoading = ref(false)
 
 // 统计卡片计算属性
 const totalPointsIssued = computed(() => {
@@ -509,13 +572,55 @@ const txTypeBadge = (type) => {
   return map[type] || 'badge-ghost'
 }
 
-const orderStatusText = (status) => {
-  const map = { 0: '待接单', 1: '已接单', 2: '制作中', 3: '已出餐', 4: '已完成', 5: '已取消' }
-  return map[status] ?? status
+/** 打开设置昵称弹窗 */
+const openNicknameDialog = () => {
+  nicknameForm.value = detailMember.value?.nickname || ''
+  showNicknameDialog.value = true
 }
 
-const orderStatusBadge = (status) => {
-  const map = { 0: 'badge-warning', 1: 'badge-info', 2: 'badge-info', 3: 'badge-primary', 4: 'badge-success', 5: 'badge-ghost' }
-  return map[status] ?? 'badge-ghost'
+/** 提交会员昵称修改 */
+const handleUpdateNickname = async () => {
+  if (!detailMember.value || !STORE_ID()) return
+  updatingNickname.value = true
+  try {
+    const params = new URLSearchParams({
+      storeId: STORE_ID(),
+      membershipId: detailMember.value.id
+    })
+    if (nicknameForm.value) params.append('nickname', nicknameForm.value)
+    const res = await httpPost(`/manage/membership/nickname?${params.toString()}`)
+    if (isSuccess(res)) {
+      toast.success('会员昵称已更新')
+      detailMember.value = res.data || detailMember.value
+      showNicknameDialog.value = false
+      fetchMembers(page.value)
+    } else {
+      toast.error(res?.message || '修改失败')
+    }
+  } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
+    toast.error('修改失败')
+  } finally {
+    updatingNickname.value = false
+  }
+}
+
+/** 查看消费记录对应的订单详情（只读） */
+const openOrderDetail = async (order) => {
+  if (!STORE_ID()) return
+  orderDetailLoading.value = true
+  try {
+    const res = await httpGet(`/order/manage/detail/${order.id}?storeId=${STORE_ID()}`)
+    if (isSuccess(res) && res.data) {
+      orderDetail.value = res.data
+    } else {
+      toast.error(res?.message || '获取订单详情失败')
+    }
+  } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
+    toast.error('获取订单详情失败')
+  } finally {
+    orderDetailLoading.value = false
+  }
 }
 </script>

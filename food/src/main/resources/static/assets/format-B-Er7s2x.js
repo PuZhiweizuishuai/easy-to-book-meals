@@ -1,0 +1,1 @@
+var e=e=>e?new Date(e).toLocaleDateString(`zh-CN`,{year:`numeric`,month:`2-digit`,day:`2-digit`,hour:`2-digit`,minute:`2-digit`}):`-`,t=e=>{if(!e)return``;try{let t=typeof e==`string`?JSON.parse(e):e;if(Array.isArray(t))return t.join(`/`);if(t&&typeof t==`object`)return Object.values(t).join(`/`)}catch{}return String(e||``)};export{t as n,e as t};

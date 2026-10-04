@@ -3,6 +3,7 @@ package com.buguagaoshu.food.service;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.BaseFood;
 import com.buguagaoshu.food.data.DiningTable;
+import com.buguagaoshu.food.data.Membership;
 import com.buguagaoshu.food.data.OrderData;
 import com.buguagaoshu.food.data.OrderItem;
 import com.buguagaoshu.food.data.ProductSku;
@@ -63,6 +64,12 @@ public class OrderService {
 
     private static final DateTimeFormatter ORDER_NO_DATE = DateTimeFormatter.ofPattern("yyyyMMdd");
 
+    /**
+     * 手机号格式（中国大陆 11 位）
+     */
+    private static final java.util.regex.Pattern PHONE_PATTERN =
+            java.util.regex.Pattern.compile("^1[3-9]\\d{9}$");
+
     private final OrderDataRepository orderDataRepository;
     private final OrderItemRepository orderItemRepository;
     private final ProductSkuRepository productSkuRepository;
@@ -71,6 +78,7 @@ public class OrderService {
     private final StoreService storeService;
     private final UserDataService userDataService;
     private final MembershipService membershipService;
+    private final CouponService couponService;
     /**
      * 逐订单独立事务模板（超时自动取消专用，REQUIRES_NEW）：
      * 单个订单取消失败只回滚该订单，不影响同批其他订单，也避免大事务长时间持锁
@@ -85,6 +93,7 @@ public class OrderService {
                         StoreService storeService,
                         UserDataService userDataService,
                         MembershipService membershipService,
+                        CouponService couponService,
                         PlatformTransactionManager transactionManager) {
         this.orderDataRepository = orderDataRepository;
         this.orderItemRepository = orderItemRepository;
@@ -94,6 +103,7 @@ public class OrderService {
         this.storeService = storeService;
         this.userDataService = userDataService;
         this.membershipService = membershipService;
+        this.couponService = couponService;
         this.requiresNewTransaction = new TransactionTemplate(transactionManager);
         this.requiresNewTransaction.setPropagationBehavior(
                 TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -128,12 +138,25 @@ public class OrderService {
         }
         DiningTable table = diningTableService.getTableByQrCode(dto.getQrCodeKey());
         String nickname = "扫码顾客-" + (table.getTableNumber() != null ? table.getTableNumber() : "匿名");
+
+        // 手机号（可选）：下单即关联会员信息，用于识别回头客并在结算后累积积分
+        String phone = normalizePhone(dto.getContactPhone());
+        dto.setContactPhone(phone);
+        if (phone != null) {
+            // 本店已存在该手机号会员时，用会员昵称作为订单展示名，便于店家识别
+            // 注：积分在结算完成后才发放（避免退菜/改量导致积分虚高），此处仅做身份识别
+            Membership member = membershipService.findByStoreAndPhone(table.getStorefrontId(), phone);
+            if (member != null && member.getNickname() != null && !member.getNickname().isBlank()) {
+                nickname = member.getNickname();
+            }
+        }
+
         UserData guest = userDataService.createGuestUser(nickname);
         // 堂食订单强制覆盖类型与餐桌绑定
         dto.setOrderType(OrderType.DINE_IN.getCode());
         OrderData order = doCreateOrder(guest.getId(), dto, nickname);
-        logger.info("扫码免登录下单成功: orderNo={}, guestUserId={}, tableId={}",
-                order.getOrderNo(), guest.getId(), order.getTableId());
+        logger.info("扫码免登录下单成功: orderNo={}, guestUserId={}, tableId={}, phone={}",
+                order.getOrderNo(), guest.getId(), order.getTableId(), phone == null ? "未填写" : phone);
         return order;
     }
 
@@ -162,6 +185,10 @@ public class OrderService {
         if (!type.isDineIn()) {
             dto.setTableId(null);
             dto.setQrCodeKey(null);
+        }
+        // 店员录入的顾客电话兜底写入订单联系电话（堂食也记录，便于结算时关联会员积分）
+        if (isBlank(dto.getContactPhone()) && !isBlank(dto.getCustomerPhone())) {
+            dto.setContactPhone(dto.getCustomerPhone().trim());
         }
         UserData guest = userDataService.createGuestUser(customerName);
         OrderData order = doCreateOrder(guest.getId(), dto, customerName);
@@ -212,6 +239,10 @@ public class OrderService {
         orderItemRepository.saveAll(newItems);
 
         recalcOrderAmount(order);
+
+        // 加菜后新菜品未出餐，订单状态同步回退到「制作中」，避免误判为可结算
+        List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
+        syncOrderStatusByItems(order, allItems);
         orderDataRepository.save(order);
 
         logger.info("订单加菜成功: orderNo={}, addedItems={}", order.getOrderNo(), newItems.size());
@@ -249,7 +280,34 @@ public class OrderService {
         if (table.getQrCodeKey() == null || !table.getQrCodeKey().equals(qrCodeKey)) {
             throw new BusinessException(403, "餐桌二维码不匹配，无权操作该订单");
         }
+        // 首次下单未填手机号时，允许在加菜时补填（后续结算即可累积会员积分）
+        if (isBlank(order.getContactPhone())) {
+            String phone = normalizePhone(dto.getContactPhone());
+            if (phone != null) {
+                order.setContactPhone(phone);
+                orderDataRepository.save(order);
+                logger.info("扫码加菜补填手机号成功: orderNo={}, phone={}", order.getOrderNo(), phone);
+            }
+        }
         return addItemsToOrder(orderId, dto);
+    }
+
+    /**
+     * 手机号归一化：去空格/横线，空值返回 null，格式非法抛业务异常
+     */
+    private String normalizePhone(String raw) {
+        if (raw == null || raw.isBlank()) {
+            return null;
+        }
+        String phone = raw.trim().replace(" ", "").replace("-", "");
+        if (!PHONE_PATTERN.matcher(phone).matches()) {
+            throw new BusinessException(400, "手机号格式不正确，请填写 11 位手机号");
+        }
+        return phone;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /**
@@ -286,20 +344,72 @@ public class OrderService {
         logger.info("菜品出餐: orderNo={}, itemName={}, quantity={}",
                 order.getOrderNo(), item.getDishName(), item.getQuantity());
 
-        // 检查是否所有正常明细都已出餐，是则自动推进订单到 READY
+        // 依据菜品出餐情况同步推进订单状态（未接单直接出餐也能流转到可结算状态）
         List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
-        boolean allServed = allItems.stream()
-                .allMatch(i -> i.getStatus() == OrderItem.STATUS_CANCELLED || i.getServed() == 1);
-        if (allServed && current != OrderStatus.READY) {
-            // 状态机允许 CONFIRMED/COOKING → READY，若当前是 PENDING 则不允许直接跳 READY
-            if (current != null && current.canTransitionTo(OrderStatus.READY)) {
-                order.setStatus(OrderStatus.READY.getCode());
-                orderDataRepository.save(order);
-                logger.info("订单全部菜品已出餐，自动推进到已出餐状态: orderNo={}", order.getOrderNo());
-            }
+        if (syncOrderStatusByItems(order, allItems)) {
+            orderDataRepository.save(order);
         }
         order.setItems(allItems);
         return order;
+    }
+
+    /**
+     * 依据菜品出餐情况同步推进订单状态（出餐已下沉到菜品级，订单状态由明细推导）
+     * <p>
+     * 规则（业界通行做法：明细状态驱动主单状态，避免主单卡在中间态无法结算）：
+     * <ul>
+     *   <li>所有正常明细均已出餐 → 推进到「已出餐 READY」（允许从 PENDING/CONFIRMED/COOKING 直接到达，
+     *       覆盖「未接单就出餐」「订单只有一个菜品」等场景，保证可以正常结算）</li>
+     *   <li>存在部分已出餐 → 说明厨房已开工，推进到「制作中 COOKING」（隐式接单，补写接单时间）</li>
+     *   <li>存在未出餐明细且当前为「已出餐 READY」（如出餐后加菜）→ 回退到「制作中 COOKING」</li>
+     * </ul>
+     * 已完成/已取消为终态，不做自动变更。
+     *
+     * @param order 订单（会被就地修改状态）
+     * @param items 订单全部明细（含已退菜）
+     * @return true=订单状态已变更，调用方需持久化
+     */
+    private boolean syncOrderStatusByItems(OrderData order, List<OrderItem> items) {
+        OrderStatus current = OrderStatus.fromCode(order.getStatus());
+        if (current == null || current == OrderStatus.COMPLETED || current == OrderStatus.CANCELLED) {
+            return false;
+        }
+        List<OrderItem> normalItems = items.stream()
+                .filter(i -> i.getStatus() != null && i.getStatus() == OrderItem.STATUS_NORMAL)
+                .toList();
+        if (normalItems.isEmpty()) {
+            return false;
+        }
+        boolean allServed = normalItems.stream()
+                .allMatch(i -> i.getServed() != null && i.getServed() == 1);
+        boolean anyServed = normalItems.stream()
+                .anyMatch(i -> i.getServed() != null && i.getServed() == 1);
+
+        long now = System.currentTimeMillis();
+        Integer origin = order.getStatus();
+        if (allServed) {
+            if (current.canAdvanceTo(OrderStatus.READY)) {
+                // 未点击接单直接出餐的场景：补全接单时间，保证经营统计口径完整
+                if (order.getConfirmTime() == null) {
+                    order.setConfirmTime(now);
+                }
+                order.setStatus(OrderStatus.READY.getCode());
+                logger.info("订单全部菜品已出餐，自动推进到已出餐状态: orderNo={}, from={}",
+                        order.getOrderNo(), current.getName());
+            }
+        } else if (current == OrderStatus.READY) {
+            // 已出餐后又新增/恢复了未出餐明细，回到制作中等待剩余菜品
+            order.setStatus(OrderStatus.COOKING.getCode());
+            logger.info("订单存在未出餐菜品，回退到制作中状态: orderNo={}", order.getOrderNo());
+        } else if (anyServed && current.canAdvanceTo(OrderStatus.COOKING)) {
+            if (order.getConfirmTime() == null) {
+                order.setConfirmTime(now);
+            }
+            order.setStatus(OrderStatus.COOKING.getCode());
+            logger.info("订单已有菜品出餐，自动推进到制作中状态: orderNo={}, from={}",
+                    order.getOrderNo(), current.getName());
+        }
+        return !origin.equals(order.getStatus());
     }
 
     /**
@@ -344,12 +454,16 @@ public class OrderService {
         orderItemRepository.save(item);
         // 重算订单金额
         recalcOrderAmount(order);
+
+        // 退掉最后一个未出餐菜品后，订单可能已满足「全部出餐」，同步推进状态以便结算
+        List<OrderItem> remainItems = orderItemRepository.findByOrderId(order.getId());
+        syncOrderStatusByItems(order, remainItems);
         orderDataRepository.save(order);
         logger.info("退菜成功: orderNo={}, itemName={}, quantity={}, reason={}",
                 order.getOrderNo(), item.getDishName(), item.getQuantity(),
                 reason == null ? "无" : reason);
 
-        order.setItems(orderItemRepository.findByOrderId(order.getId()));
+        order.setItems(remainItems);
         return order;
     }
 
@@ -506,14 +620,17 @@ public class OrderService {
      * - 手机号无对应用户 → 回填到当前下单用户（匿名顾客升级为可识别会员）
      * - 手机号已被其他用户占用且非当前用户 → 仅累积积分，不改动订单归属
      * <p>
-     * 积分规则：按应付金额 1 元 = 1 积分（向下取整，不足 1 元不计）
+     * 积分规则：按实际应付金额 1 元 = 1 积分（向下取整，不足 1 元不计）
      *
      * @param orderId 订单ID
      * @param storeId 门店ID（权限校验）
      * @param phone 顾客手机号（可选，为空表示未录入）
+     * @param couponCode 使用的优惠券码（可选）
+     * @param manualDiscount 店员手动减免金额（可选，抹零/议价）
      */
     @Transactional(rollbackFor = Exception.class)
-    public OrderData completeOrder(Long orderId, Long storeId, String phone) {
+    public OrderData completeOrder(Long orderId, Long storeId, String phone,
+                                   String couponCode, java.math.BigDecimal manualDiscount) {
         // 0. 结算前校验：所有正常菜品必须已出餐
         OrderData checkOrder = orderDataRepository.findById(orderId)
                 .orElseThrow(() -> new BusinessException(404, "订单不存在"));
@@ -532,17 +649,56 @@ public class OrderService {
             throw new BusinessException(400, "以下菜品尚未出餐，无法结算：" + names);
         }
 
+        // 0.1 状态自愈：历史订单可能存在「菜品全部出餐但订单状态未推进」的脏数据，
+        //     结算前按菜品出餐情况补齐状态，保证可以正常流转到已完成
+        if (syncOrderStatusByItems(checkOrder, items)) {
+            orderDataRepository.save(checkOrder);
+        }
+
+        // 0.2 结算金额试算：菜品折后合计 → 优惠券减免 → 手动减免
+        java.math.BigDecimal baseAmount = items.stream()
+                .filter(i -> i.getStatus() != null && i.getStatus() == OrderItem.STATUS_NORMAL)
+                .map(i -> nvl(i.getTotalPrice()))
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        String normalizedCouponCode = (couponCode == null || couponCode.isBlank()) ? null : couponCode.trim();
+        java.math.BigDecimal couponDiscount = java.math.BigDecimal.ZERO;
+        if (normalizedCouponCode != null) {
+            couponDiscount = couponService.check(storeId, normalizedCouponCode, baseAmount).getDiscountAmount();
+        }
+        java.math.BigDecimal manualCut = manualDiscount == null
+                ? java.math.BigDecimal.ZERO : manualDiscount;
+        if (manualCut.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            throw new BusinessException(400, "手动减免金额不能为负数");
+        }
+        if (manualCut.compareTo(baseAmount.subtract(couponDiscount)) > 0) {
+            throw new BusinessException(400, "手动减免金额不能超过订单应付金额");
+        }
+
         // 1. 状态流转到已完成（内部校验状态机、onOrderCompleted 累加销量、释放餐桌）
         transitionOrder(orderId, storeId, OrderStatus.COMPLETED, null);
 
-        // 2. 处理结算联系电话与会员积分
+        // 2. 写入优惠券与手动减免并重算应付金额
+        OrderData order = orderDataRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if (normalizedCouponCode != null) {
+            order.setCouponCode(normalizedCouponCode);
+            order.setCouponAmount(couponDiscount);
+        }
+        order.setManualDiscountAmount(manualCut);
+        recalcOrderAmount(order);
+        orderDataRepository.save(order);
+
+        // 3. 核销优惠券（放在订单完成后，失败则整单回滚）
+        if (normalizedCouponCode != null) {
+            couponService.use(storeId, normalizedCouponCode, order.getId(), order.getOrderNo(),
+                    phone == null ? null : phone.trim());
+        }
+
+        // 4. 处理结算联系电话与会员积分
         String normalizedPhone = (phone == null) ? null : phone.trim();
         if (normalizedPhone != null && normalizedPhone.isEmpty()) {
             normalizedPhone = null;
         }
-
-        OrderData order = orderDataRepository.findById(orderId)
-                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
 
         if (normalizedPhone != null) {
             order.setContactPhone(normalizedPhone);
@@ -904,7 +1060,19 @@ public class OrderService {
         }
         order.setTotalAmount(total.setScale(2, java.math.RoundingMode.HALF_UP));
         order.setDiscountAmount(discount.setScale(2, java.math.RoundingMode.HALF_UP));
-        order.setPayAmount(pay.setScale(2, java.math.RoundingMode.HALF_UP));
+        // 菜品小计基础上再扣除优惠券与手动减免，得到最终应付（不低于 0）
+        java.math.BigDecimal finalPay = pay
+                .subtract(nvl(order.getCouponAmount()))
+                .subtract(nvl(order.getManualDiscountAmount()));
+        if (finalPay.compareTo(java.math.BigDecimal.ZERO) < 0) {
+            finalPay = java.math.BigDecimal.ZERO;
+        }
+        order.setPayAmount(finalPay.setScale(2, java.math.RoundingMode.HALF_UP));
+    }
+
+    /** 空值安全的 BigDecimal 取值 */
+    private static java.math.BigDecimal nvl(java.math.BigDecimal value) {
+        return value == null ? java.math.BigDecimal.ZERO : value;
     }
 
     /**
@@ -1001,6 +1169,8 @@ public class OrderService {
         }
         order.setStatus(OrderStatus.PENDING.getCode());
         order.setRemark(dto.getRemark());
+        // 联系电话（扫码点餐时由顾客填写，用于关联会员；外送订单为配送联系方式）
+        order.setContactPhone(dto.getContactPhone());
 
         // 金额计算
         java.math.BigDecimal total = java.math.BigDecimal.ZERO;

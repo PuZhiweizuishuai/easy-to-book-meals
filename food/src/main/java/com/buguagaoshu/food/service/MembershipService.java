@@ -3,6 +3,7 @@ package com.buguagaoshu.food.service;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.Membership;
 import com.buguagaoshu.food.data.PointsTransaction;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.MembershipRepository;
 import com.buguagaoshu.food.repository.PointsTransactionRepository;
 import org.springframework.data.domain.Page;
@@ -157,8 +158,42 @@ public class MembershipService {
     public Page<Membership> findStoreMembers(Long storeId, String key, Pageable pageable) {
         if (key != null && !key.trim().isEmpty()) {
             String trimmed = key.trim();
-            return membershipRepository.findByStoreIdAndPhoneContaining(storeId, trimmed, pageable);
+            return membershipRepository.searchByStore(storeId, trimmed, pageable);
         }
         return membershipRepository.findByStoreId(storeId, pageable);
+    }
+
+    /**
+     * 按门店 + 手机号查询会员（结算时查询会员信息用，无记录返回 null）
+     */
+    public Membership findByStoreAndPhone(Long storeId, String phone) {
+        if (storeId == null || phone == null || phone.isBlank()) {
+            return null;
+        }
+        return membershipRepository.findFirstByStoreIdAndPhone(storeId, phone.trim()).orElse(null);
+    }
+
+    /**
+     * 修改会员昵称（仅本店生效）
+     * <p>
+     * 会员昵称是 <b>门店维度</b> 的展示名（membership_table.nickname），与顾客账号昵称
+     * （user_table.nickname）相互独立：
+     * <ul>
+     *   <li>只改本店 membership 记录，不影响顾客在自己账号中设置的昵称</li>
+     *   <li>不影响该顾客在其他门店的会员昵称（各门店各存一条 membership）</li>
+     * </ul>
+     * 因此此处严禁回写 UserData，否则会污染全局账号昵称并跨店串数据。
+     * 门店隔离由 membershipId + storeId 双重定位保证。
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public Membership updateNickname(Long storeId, Long membershipId, String nickname) {
+        Membership m = membershipRepository.findByIdAndStoreId(membershipId, storeId)
+                .orElseThrow(() -> new BusinessException(404, "会员不存在或不属于当前门店"));
+        String trimmed = nickname == null ? "" : nickname.trim();
+        if (trimmed.length() > 30) {
+            throw new BusinessException(400, "会员昵称不能超过 30 个字符");
+        }
+        m.setNickname(trimmed.isEmpty() ? null : trimmed);
+        return membershipRepository.save(m);
     }
 }

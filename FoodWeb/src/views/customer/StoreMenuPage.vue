@@ -43,9 +43,7 @@
         </div>
         <!-- 扫码餐桌提示 -->
         <div v-if="table" class="mt-3 alert alert-info py-2 px-3 text-sm">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 3v18h18M7 16m4 0m4 0m-8-4a4 4 0 11-8 0 4 4 0 018 0zm0 0v1a3 3 0 006 0v-1m-6-4a4 4 0 014-4h2a4 4 0 014 4" />
-          </svg>
+          
           <span>扫码点餐 · {{ table.tableNumber }}号桌（{{ table.capacity }}人桌），下单后将自动绑定此餐桌</span>
         </div>
       </div>
@@ -87,6 +85,13 @@
               <span class="font-bold text-primary">¥{{ currentTableOrder.payAmount }}</span>
             </div>
             <p class="text-xs text-base-content/40 mt-1">继续点菜加入购物车，提交将自动追加到本桌订单</p>
+            <!-- 未关联手机号时给出指引：加菜结算弹窗中可填写，随加菜提交一并写入 -->
+            <p v-if="needPhone" class="mt-2 text-xs text-base-content/40">
+              本桌订单尚未关联手机号；再次点菜提交时可填写手机号，结算后即可累积会员积分（也可由店家在结算时录入）
+            </p>
+            <p v-else class="mt-2 text-xs text-base-content/40">
+              已关联会员手机号 <span class="font-mono">{{ maskedOrderPhone }}</span>
+            </p>
           </div>
         </div>
       </div>
@@ -250,16 +255,22 @@
       <div class="modal-backdrop" @click="showCartDrawer = false"></div>
     </dialog>
 
-    <!-- 菜品详情弹窗（SKU 选择） -->
-    <dialog class="modal" :class="{ 'modal-open': detailDish }">
-      <div class="modal-box max-w-lg">
+    <!-- 菜品详情弹窗（SKU 选择复用 SkuPickerModal，图册通过 header 插槽插入） -->
+    <SkuPickerModal
+      :dish="detailDish"
+      box-class="max-w-lg"
+      confirm-text="加入购物车"
+      @close="closeDishDetail"
+      @confirm="handleSkuConfirm"
+      @loaded="handleDishLoaded"
+    >
+      <template #header>
         <template v-if="detailDish">
           <!-- 主图 + 缩略图画廊 -->
           <figure class="h-44 rounded-xl bg-base-200 overflow-hidden mb-2">
             <img v-if="mainImage" :src="mainImage" :alt="detailDish.name" class="w-full h-full object-cover" />
             <div v-else class="w-full h-full flex items-center justify-center text-6xl">🍜</div>
           </figure>
-          <!-- 详情图片缩略图列表 -->
           <div v-if="dishGallery.length > 1" class="flex gap-2 mb-3 overflow-x-auto pb-1">
             <button
               v-for="(img, idx) in dishGallery"
@@ -271,77 +282,9 @@
               <img :src="img" :alt="`${detailDish.name} ${idx + 1}`" class="w-full h-full object-cover" />
             </button>
           </div>
-
-          <h3 class="font-bold text-xl">{{ detailDish.name }}</h3>
-          <p class="text-sm text-base-content/60 mt-1">{{ detailDish.description || '暂无描述' }}</p>
-
-          <div class="divider my-3 text-sm">选择规格</div>
-          <div v-if="detailLoading" class="flex justify-center py-6">
-            <span class="loading loading-spinner text-primary"></span>
-          </div>
-          <div v-else-if="specGroups.length === 0 && skus.length === 0" class="text-center py-6 text-base-content/40">
-            该菜品暂无可选规格
-          </div>
-          <div v-else class="space-y-4">
-            <!-- 分组单选规格选择 -->
-            <div v-for="group in specGroups" :key="group.id" class="space-y-2">
-              <div class="text-sm font-medium text-base-content/70">{{ group.name }}</div>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="val in (group.values || [])"
-                  :key="val.id"
-                  class="badge badge-lg cursor-pointer transition-all"
-                  :class="selectedSpec[group.id] === val.id ? 'badge-primary' : 'badge-ghost border border-base-300'"
-                  @click="selectSpec(group.id, val.id)"
-                >{{ val.name }}</button>
-              </div>
-            </div>
-
-            <!-- 无规格菜品的价格展示 -->
-            <div v-if="specGroups.length === 0 && matchedSku" class="bg-base-200 rounded-xl px-4 py-3 flex items-center justify-between">
-              <div class="text-sm text-base-content/60">
-                <span v-if="matchedSku.stock === -1">库存充足</span>
-                <span v-else>剩余 {{ matchedSku.stock }}</span>
-              </div>
-              <div class="text-lg font-bold text-primary">¥{{ currentPrice != null ? currentPrice.toFixed(2) : '—' }}</div>
-            </div>
-          </div>
-
-          <!-- 底部加购栏 -->
-          <div v-if="!detailLoading && (specGroups.length > 0 || skus.length > 0)" class="mt-4">
-            <div v-if="matchedSku" class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3 mb-3">
-              <div class="min-w-0">
-                <div class="text-sm text-base-content/60">
-                  <span v-if="matchedSku.stock === -1">库存充足</span>
-                  <span v-else-if="matchedSku.stock <= 0" class="text-error">已售罄</span>
-                  <span v-else>剩余 {{ matchedSku.stock }}</span>
-                </div>
-                <div class="flex items-baseline gap-2">
-                  <span class="text-2xl font-bold text-primary">¥{{ currentPrice != null ? currentPrice.toFixed(2) : '—' }}</span>
-                  <span v-if="Number(matchedSku.discount) > 0 && Number(matchedSku.discount) < 1" class="text-xs text-base-content/40 line-through">¥{{ Number(matchedSku.unitPrice).toFixed(2) }}</span>
-                </div>
-              </div>
-              <!-- 数量选择 -->
-              <div class="flex items-center gap-2">
-                <button class="btn btn-sm btn-circle" :disabled="selectedQuantity <= 1" @click="selectedQuantity--">−</button>
-                <span class="w-6 text-center font-medium">{{ selectedQuantity }}</span>
-                <button class="btn btn-sm btn-circle" @click="selectedQuantity++">+</button>
-              </div>
-            </div>
-            <div class="modal-action">
-              <button class="btn btn-ghost" @click="closeDishDetail">关闭</button>
-              <button
-                v-if="matchedSku"
-                class="btn btn-primary"
-                :disabled="matchedSku.stock !== -1 && matchedSku.stock <= 0"
-                @click="addSkuToCart(matchedSku, selectedQuantity)"
-              >加入购物车</button>
-            </div>
-          </div>
         </template>
-      </div>
-      <div class="modal-backdrop" @click="closeDishDetail"></div>
-    </dialog>
+      </template>
+    </SkuPickerModal>
 
     <!-- 结算弹窗 -->
     <dialog class="modal" :class="{ 'modal-open': showCheckout }">
@@ -366,6 +309,31 @@
           <div v-else class="text-sm text-base-content/60">
             订单类型：<span class="badge badge-info badge-sm">线上订单</span>
           </div>
+          <!-- 手机号：仅扫码堂食展示；首次下单填写用于关联会员积分，已有订单且已关联时只展示 -->
+          <div v-if="cart.isDineInScan" class="form-control">
+            <label class="label">
+              <span class="label-text">手机号{{ needPhone ? '' : '（已关联）' }}</span>
+              <span v-if="!needPhone" class="label-text-alt text-success">已关联会员</span>
+            </label>
+            <input
+              v-if="needPhone"
+              v-model.trim="guestPhone"
+              type="tel"
+              inputmode="numeric"
+              maxlength="11"
+              class="input input-bordered w-full font-mono"
+              placeholder="选填，填写后结算可累积会员积分"
+            />
+            <div v-else class="input input-bordered w-full flex items-center font-mono text-base-content/70">
+              {{ maskedOrderPhone }}
+            </div>
+            <label class="label">
+              <span class="label-text-alt text-base-content/40">
+                {{ needPhone ? '选填，仅用于本店会员积分，结算后生效' : '如需修改请联系店家' }}
+              </span>
+            </label>
+          </div>
+
           <div class="form-control">
             <label class="label"><span class="label-text">备注（如：少辣、不要香菜）</span></label>
             <textarea v-model="remark" class="textarea textarea-bordered w-full" rows="2" maxlength="255"></textarea>
@@ -393,6 +361,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useCartStore } from '@/stores/cart'
 import toast from '@/utils/toast'
 import { orderStatusText as guestStatusText } from '@/utils/order'
+import SkuPickerModal from '@/components/dish/SkuPickerModal.vue'
 
 const route = useRoute()
 const router = useRouter()
@@ -410,10 +379,8 @@ const table = ref(null)
 const loading = ref(true)
 const activeCategory = ref(null)
 
+/** 菜品详情弹窗当前菜品（SKU/规格状态由 SkuPickerModal 内部维护） */
 const detailDish = ref(null)
-const detailLoading = ref(false)
-const skus = ref([])
-const specGroups = ref([])
 const mainImage = ref('')
 
 const dishGallery = computed(() => {
@@ -429,14 +396,32 @@ const dishGallery = computed(() => {
   }
   return images
 })
-const selectedSpec = ref({})  // { groupId: specValueId }
-const selectedQuantity = ref(1)
 const showCheckout = ref(false)
 const showCartDrawer = ref(false)
 const remark = ref('')
 const submitting = ref(false)
 /** 本桌当前未结算订单（扫码刷新后展示已下单菜品） */
 const currentTableOrder = ref(null)
+/** 扫码点餐填写的手机号（选填，用于关联会员积分） */
+const guestPhone = ref('')
+
+/** 手机号本地缓存键：同店同设备下次点餐自动回填 */
+const phoneStorageKey = `guest_phone_${storeId}`
+
+/** 本桌当前订单已关联的手机号（加菜场景展示用） */
+const orderPhone = computed(() => currentTableOrder.value?.contactPhone || '')
+
+/** 是否需要填写手机号：首次下单，或已有订单但当时未填 */
+const needPhone = computed(() => !orderPhone.value)
+
+/** 已关联手机号的脱敏展示：138****8888 */
+const maskedOrderPhone = computed(() => {
+  const p = orderPhone.value
+  return p.length === 11 ? `${p.slice(0, 3)}****${p.slice(7)}` : p
+})
+
+/** 手机号格式校验（中国大陆 11 位） */
+const isValidPhone = (phone) => /^1[3-9]\d{9}$/.test(phone)
 
 /** 分类列表（全部 + 菜品实际出现的分类） */
 const categories = computed(() => {
@@ -539,38 +524,10 @@ const fetchTable = async () => {
   }
 }
 
-/** 打开菜品详情（加载规格组与 SKU） */
-const openDishDetail = async (dish) => {
+/** 打开菜品详情（SKU 与规格由 SkuPickerModal 组件内部加载） */
+const openDishDetail = (dish) => {
   detailDish.value = dish
   mainImage.value = dish.topImage || ''
-  skus.value = []
-  specGroups.value = []
-  selectedSpec.value = {}
-  selectedQuantity.value = 1
-  detailLoading.value = true
-  try {
-    const res = await httpGet(`/dishes/${dish.id}`)
-    if (isSuccess(res)) {
-      // 合并完整菜品数据（含 imageList 详情图）
-      if (res.data?.food) {
-        detailDish.value = { ...dish, ...res.data.food }
-        mainImage.value = res.data.food.topImage || ''
-      }
-      skus.value = (res.data?.skuList || []).filter(s => s.status === 1)
-      specGroups.value = res.data?.specGroups || []
-      // 单规格菜品自动选中第一项，方便顾客直接加购
-      if (specGroups.value.length === 1) {
-        const firstValues = specGroups.value[0].values || []
-        if (firstValues.length > 0) {
-          selectedSpec.value[specGroups.value[0].id] = firstValues[0].id
-        }
-      }
-    }
-  } catch (e) {
-    console.error('加载菜品详情失败:', e)
-  } finally {
-    detailLoading.value = false
-  }
 }
 
 const closeDishDetail = () => {
@@ -578,38 +535,15 @@ const closeDishDetail = () => {
   mainImage.value = ''
 }
 
-/** 当前选中的规格组合是否完整（每组都选了），匹配到的 SKU */
-const matchedSku = computed(() => {
-  if (specGroups.value.length === 0) {
-    // 无规格菜品：只有一个 SKU 或无 SKU
-    return skus.value[0] || null
+/**
+ * 菜品详情加载完成回调：合并完整菜品数据（含 imageList 详情图）
+ * @param {object} data - /dishes/{id} 返回的原始数据
+ */
+const handleDishLoaded = (data) => {
+  if (data?.food) {
+    detailDish.value = { ...detailDish.value, ...data.food }
+    mainImage.value = data.food.topImage || mainImage.value
   }
-  // 校验每组都已选
-  for (const g of specGroups.value) {
-    if (selectedSpec.value[g.id] == null) return null
-  }
-  // 收集选中的规格值ID（排序后匹配）
-  const selectedIds = Object.values(selectedSpec.value).sort((a, b) => a - b)
-  return skus.value.find(sku => {
-    try {
-      const ids = JSON.parse(sku.specs || '[]').sort((a, b) => a - b)
-      return ids.length === selectedIds.length && ids.every((v, i) => v === selectedIds[i])
-    } catch {
-      return false
-    }
-  }) || null
-})
-
-/** 当前展示价格（折后） */
-const currentPrice = computed(() => {
-  const sku = matchedSku.value
-  if (!sku) return null
-  return dealPriceOf(sku)
-})
-
-/** 选择规格值 */
-const selectSpec = (groupId, valueId) => {
-  selectedSpec.value = { ...selectedSpec.value, [groupId]: valueId }
 }
 
 /** SKU 折后价 */
@@ -632,18 +566,21 @@ const specNamesText = (specNames) => {
   return String(specNames || '')
 }
 
-/** 加入购物车 */
-const addSkuToCart = (sku, qty = 1) => {
-  const deal = dealPriceOf(sku)
+/**
+ * 规格选择完成：加入购物车
+ * @param {{sku: object, quantity: number, dealPrice: number, specNamesText: string}} payload
+ */
+const handleSkuConfirm = ({ sku, quantity = 1, dealPrice, specNamesText }) => {
+  if (!detailDish.value) return
   cart.addItem({
     skuId: sku.id,
     dishId: detailDish.value.id,
     dishName: detailDish.value.name,
     topImage: detailDish.value.topImage,
-    specNamesText: specNamesText(sku.specNames) || '标准',
+    specNamesText: specNamesText || '标准',
     unitPrice: Number(sku.unitPrice),
-    dealPrice: deal,
-    quantity: qty
+    dealPrice: dealPrice ?? dealPriceOf(sku),
+    quantity
   })
   toast.success('已加入购物车')
   closeDishDetail()
@@ -652,7 +589,10 @@ const addSkuToCart = (sku, qty = 1) => {
 /** 打开结算（扫码堂食免登录，其它场景需登录） */
 const openCheckout = () => {
   if (cart.isDineInScan) {
-    // 扫码点餐无需登录
+    // 扫码点餐无需登录；首次下单回填本地缓存手机号，减少重复输入
+    if (needPhone.value && !guestPhone.value) {
+      guestPhone.value = localStorage.getItem(phoneStorageKey) || ''
+    }
     showCheckout.value = true
     return
   }
@@ -670,19 +610,28 @@ const submitOrder = async () => {
     toast.error('购物车为空')
     return
   }
+  // 手机号选填，但填了必须合法（后端同样校验，此处提前拦截减少无效请求）
+  const phone = guestPhone.value.trim()
+  if (phone && !isValidPhone(phone)) {
+    toast.warning('请填写正确的 11 位手机号')
+    return
+  }
   submitting.value = true
   try {
     const items = cart.toOrderItems()
     const isGuest = cart.isDineInScan
+    // 只有尚未关联手机号时才提交（已关联的订单不允许被覆盖）
+    const phoneToSubmit = isGuest && needPhone.value && phone ? phone : null
 
     // 扫码且本桌已有未结算订单 → 自动走加菜
     if (isGuest && currentTableOrder.value) {
       const url = `/order/guest-add-items/${currentTableOrder.value.id}?qrCodeKey=${encodeURIComponent(cart.tableQrCodeKey)}`
-      const res = await httpPost(url, { items })
+      const res = await httpPost(url, { items, contactPhone: phoneToSubmit || undefined })
       if (isSuccess(res)) {
         showCheckout.value = false
         cart.clear()
         toast.success('加菜成功，等待店家处理')
+        if (phoneToSubmit) localStorage.setItem(phoneStorageKey, phoneToSubmit)
         await fetchGuestCurrentOrder()
       } else {
         toast.error(res?.message || '加菜失败')
@@ -695,10 +644,11 @@ const submitOrder = async () => {
       remark: remark.value || null,
       items
     }
-    // 扫码堂食：提交二维码标识，走免登录端点
+    // 扫码堂食：提交二维码标识 + 手机号，走免登录端点
     if (isGuest) {
       payload.qrCodeKey = cart.tableQrCodeKey
       payload.orderType = 0 // 堂食
+      if (phoneToSubmit) payload.contactPhone = phoneToSubmit
     }
     const url = isGuest ? '/order/guest-create' : '/order/create'
     const res = await httpPost(url, payload)
@@ -706,6 +656,7 @@ const submitOrder = async () => {
       showCheckout.value = false
       cart.clear()
       toast.success('下单成功，等待店家接单')
+      if (phoneToSubmit) localStorage.setItem(phoneStorageKey, phoneToSubmit)
       // 免登录顾客：加载本桌订单展示，便于继续加菜；登录用户跳订单列表
       if (isGuest) {
         await fetchGuestCurrentOrder()

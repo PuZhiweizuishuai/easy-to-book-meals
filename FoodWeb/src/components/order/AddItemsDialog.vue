@@ -61,49 +61,22 @@
     <div class="modal-backdrop" @click="api.close()"></div>
   </dialog>
 
-  <!-- 规格选择弹窗 -->
-  <dialog class="modal" :class="{ 'modal-open': api.skuPickerDish }">
-    <div class="modal-box max-w-md">
-      <template v-if="api.skuPickerDish">
-        <h3 class="font-bold text-lg">{{ api.skuPickerDish.name }}</h3>
-        <div class="divider my-2 text-sm">选择规格</div>
-        <div v-if="api.skuLoading" class="flex justify-center py-6">
-          <span class="loading loading-spinner text-primary"></span>
-        </div>
-        <div v-else-if="api.skuList.length === 0" class="text-center py-6 text-base-content/40">暂无可选规格</div>
-        <div v-else class="space-y-2">
-          <div v-for="sku in api.skuList" :key="sku.id"
-               class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3">
-            <div class="min-w-0">
-              <div class="text-sm font-medium truncate">{{ api.specNamesText(sku.specNames) || '标准份' }}</div>
-              <div class="text-xs text-base-content/50">¥{{ sku.unitPrice }}
-                <span v-if="sku.stock === -1"> · 库存充足</span>
-                <span v-else> · 剩余{{ sku.stock }}</span>
-              </div>
-            </div>
-            <button class="btn btn-primary btn-sm btn-circle shrink-0"
-                    :disabled="sku.stock !== -1 && sku.stock <= 0"
-                    @click="api.addPendingSku(sku)">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none"
-                   viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-              </svg>
-            </button>
-          </div>
-        </div>
-        <div class="modal-action">
-          <button class="btn btn-ghost" @click="api.closeSkuPicker()">完成</button>
-        </div>
-      </template>
-    </div>
-    <div class="modal-backdrop" @click="api.closeSkuPicker()"></div>
-  </dialog>
+  <!-- 规格选择弹窗（与协助下单共用的 SkuPickerModal） -->
+  <SkuPickerModal
+    :dish="api.skuPickerDish"
+    confirm-text="加入加菜清单"
+    @close="api.closeSkuPicker()"
+    @confirm="api.addPendingFromPicker"
+  />
 </template>
 
 <script setup>
+import SkuPickerModal from '@/components/dish/SkuPickerModal.vue'
+
 /**
  * 加菜弹窗（菜品选择 + 规格选择）
- * 纯展示组件，所有状态与行为由 useAddItems composable 提供
+ * 纯展示组件，所有状态与行为由 useAddItems composable 提供；
+ * 规格选择复用通用组件 SkuPickerModal，避免与协助下单重复实现。
  */
 defineProps({
   /** useAddItems() 返回的 reactive API 对象 */

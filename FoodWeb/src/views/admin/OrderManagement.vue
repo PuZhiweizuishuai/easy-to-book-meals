@@ -124,92 +124,17 @@
       </div>
     </div>
 
-    <!-- 订单详情弹窗 -->
-    <dialog class="modal" :class="{ 'modal-open': detailOrder }">
-      <div class="modal-box max-w-2xl">
-        <template v-if="detailOrder">
-          <h3 class="font-bold text-lg">订单详情</h3>
-          <div class="mt-4 space-y-1 text-sm">
-            <p><span class="text-base-content/50">订单号：</span><span class="font-mono">{{ detailOrder.orderNo }}</span></p>
-            <p><span class="text-base-content/50">订单类型：</span><span :class="['badge badge-sm', orderTypeBadge(detailOrder.orderType)]">{{ orderTypeText(detailOrder.orderType) }}</span></p>
-            <p><span class="text-base-content/50">状态：</span><span :class="['badge badge-sm', statusBadge(effectiveStatus(detailOrder))]">{{ statusText(effectiveStatus(detailOrder)) }}</span></p>
-            <p><span class="text-base-content/50">下单人：</span>{{ detailOrder.userNickname || ('用户#' + detailOrder.userId) }}</p>
-            <p v-if="detailOrder.contactPhone"><span class="text-base-content/50">联系电话：</span><span class="font-mono">{{ detailOrder.contactPhone }}</span></p>
-            <p v-if="detailOrder.tableNumber"><span class="text-base-content/50">桌号：</span>{{ detailOrder.tableNumber }}号桌</p>
-            <p><span class="text-base-content/50">下单时间：</span>{{ formatTime(detailOrder.createTime) }}</p>
-            <p v-if="detailOrder.remark"><span class="text-base-content/50">备注：</span>{{ detailOrder.remark }}</p>
-            <p v-if="detailOrder.cancelReason"><span class="text-base-content/50">取消原因：</span>{{ detailOrder.cancelReason }}</p>
-          </div>
-
-          <div class="divider my-3">菜品明细</div>
-          <div class="overflow-x-auto">
-            <table class="table table-sm">
-              <thead>
-                <tr>
-                  <th>菜品</th>
-                  <th>规格</th>
-                  <th>单价</th>
-                  <th>数量</th>
-                  <th>小计</th>
-                  <th>出餐</th>
-                  <th v-if="canManage && detailOrder.status < 4" class="text-right pr-2">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="item in (detailOrder.items || [])" :key="item.id" :class="{ 'opacity-50': item.status === 1 }">
-                  <td>
-                    <div class="flex items-center gap-2">
-                      <div class="avatar">
-                        <div class="w-9 h-9 rounded bg-base-200">
-                          <img v-if="item.topImage" :src="item.topImage" :alt="item.dishName" class="w-full h-full object-cover rounded" />
-                        </div>
-                      </div>
-                      <div class="flex flex-col">
-                        <span class="flex items-center gap-1">
-                          {{ item.dishName }}
-                          <span v-if="item.addedLater === 1" class="badge badge-warning badge-xs" title="加菜追加">加</span>
-                          <span v-if="item.status === 1" class="badge badge-error badge-xs">已退菜</span>
-                        </span>
-                      </div>
-                    </div>
-                  </td>
-                  <td class="text-sm text-base-content/60">{{ specNamesText(item.specNames) || '标准' }}</td>
-                  <td>¥{{ item.dealPrice }}</td>
-                  <td>×{{ formatQty(item.quantity) }}</td>
-                  <td class="font-medium">¥{{ item.totalPrice }}</td>
-                  <td>
-                    <span v-if="item.status === 1" class="text-base-content/40 text-xs">-</span>
-                    <span v-else-if="item.served === 1" class="badge badge-success badge-sm">已出餐</span>
-                    <button v-else-if="canManage && detailOrder.status < 4"
-                            class="btn btn-warning btn-xs" :disabled="acting" @click="serveItem(item)">出餐</button>
-                    <span v-else class="badge badge-ghost badge-sm">未出餐</span>
-                  </td>
-                  <td v-if="canManage && detailOrder.status < 4" class="text-right pr-2">
-                    <div v-if="item.status !== 1" class="join">
-                      <button class="btn btn-ghost btn-xs join-item" :disabled="acting" @click="adjustItem(item)">改量</button>
-                      <button class="btn btn-error btn-xs join-item" :disabled="acting" @click="removeItem(item)">退菜</button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <div class="mt-3 text-right space-y-1 text-sm">
-            <p><span class="text-base-content/50">原价合计：</span>¥{{ detailOrder.totalAmount }}</p>
-            <p v-if="Number(detailOrder.discountAmount) > 0">
-              <span class="text-base-content/50">优惠：</span><span class="text-success">-¥{{ detailOrder.discountAmount }}</span>
-            </p>
-            <p class="text-lg"><span class="text-base-content/50 font-normal">应付：</span><span class="font-bold text-primary">¥{{ detailOrder.payAmount }}</span></p>
-          </div>
-
-          <div class="modal-action">
-            <button class="btn btn-ghost" @click="detailOrder = null">关闭</button>
-          </div>
-        </template>
-      </div>
-      <div class="modal-backdrop" @click="detailOrder = null"></div>
-    </dialog>
+    <!-- 订单详情弹窗（与会员消费记录详情共用 OrderDetailModal 组件） -->
+    <OrderDetailModal
+      :order="detailOrder"
+      :editable="canManage && detailOrder !== null && detailOrder.status < 4"
+      :busy="acting"
+      @close="detailOrder = null"
+      @serve="serveItem"
+      @remove="removeItem"
+      @adjust="openAdjustDialog"
+      @add="addItems.open"
+    />
 
     <!-- 拒单原因弹窗 -->
     <dialog class="modal" :class="{ 'modal-open': rejectOrder }">
@@ -227,25 +152,116 @@
     <!-- 加菜弹窗（菜品选择 + 规格选择，逻辑见 useAddItems） -->
     <AddItemsDialog :api="addItems" />
 
-    <!-- 结算弹窗（完成订单 + 可录入手机号关联会员积分） -->
+    <!-- 结算弹窗：会员查询 + 优惠券 + 手动减免 -->
     <dialog class="modal" :class="{ 'modal-open': completeOrder }">
-      <div class="modal-box max-w-md">
+      <div class="modal-box max-w-lg max-h-[90vh] overflow-y-auto">
         <template v-if="completeOrder">
           <h3 class="font-bold text-lg mb-3">结算确认</h3>
-          <div class="space-y-2 text-sm bg-base-200 rounded-lg p-3">
+
+          <!-- 订单摘要 -->
+          <div class="space-y-1 text-sm bg-base-200 rounded-lg p-3">
             <p><span class="text-base-content/50">订单号：</span><span class="font-mono">{{ completeOrder.orderNo }}</span></p>
             <p><span class="text-base-content/50">下单人：</span>{{ completeOrder.userNickname || ('用户#' + completeOrder.userId) }}</p>
-            <p><span class="text-base-content/50">应付金额：</span><span class="font-bold text-primary text-lg">¥{{ completeOrder.payAmount }}</span></p>
+            <p><span class="text-base-content/50">菜品合计：</span>¥{{ baseAmount.toFixed(2) }}</p>
           </div>
+
+          <!-- 会员查询 -->
           <div class="form-control mt-4">
             <label class="label"><span class="label-text">顾客手机号（可选）</span></label>
-            <input v-model="completePhone" type="tel" maxlength="20" class="input input-bordered w-full" placeholder="输入手机号可累积会员积分">
+            <div class="join w-full">
+              <input v-model="completePhone" type="tel" maxlength="20" class="input input-bordered join-item flex-1"
+                     placeholder="输入手机号查询会员并累积积分" @keyup.enter="queryMember" />
+              <button class="btn btn-primary join-item" :disabled="memberLoading || !completePhone.trim()" @click="queryMember">
+                <span v-if="memberLoading" class="loading loading-spinner loading-xs"></span>
+                查询
+              </button>
+            </div>
             <label class="label">
               <span class="label-text-alt text-base-content/40">录入后将关联会员并按 1元=1积分 累积</span>
-              <span v-if="completePhone && completePhone.trim()" class="label-text-alt text-success">本次约积 {{ completePoints }} 分</span>
+              <span v-if="completePoints > 0" class="label-text-alt text-success">本次约积 {{ completePoints }} 分</span>
             </label>
           </div>
+
+          <!-- 会员信息 -->
+          <div v-if="memberSearched" class="mt-1 rounded-lg border border-base-200 p-3 text-sm">
+            <template v-if="memberInfo">
+              <div class="flex items-center justify-between">
+                <span class="font-medium">{{ memberInfo.nickname || '未设置昵称' }}</span>
+                <span class="badge badge-primary badge-sm">{{ memberInfo.num ?? 0 }} 积分</span>
+              </div>
+              <div class="text-xs text-base-content/50 mt-1">
+                手机号 {{ memberInfo.phone }} · 本店消费 {{ memberInfo.count ?? 0 }} 次
+              </div>
+            </template>
+            <div v-else class="text-base-content/50">该手机号暂无会员记录，结算后将自动建档</div>
+          </div>
+
+          <!-- 优惠券 -->
+          <div class="form-control mt-4">
+            <label class="label">
+              <span class="label-text">优惠券</span>
+              <span v-if="memberCoupons.length > 0" class="label-text-alt text-base-content/40">
+                会员名下 {{ memberCoupons.length }} 张可用
+              </span>
+            </label>
+
+            <!-- 会员名下可用券 -->
+            <div v-if="memberCoupons.length > 0" class="space-y-1 max-h-32 overflow-y-auto">
+              <label v-for="uc in memberCoupons" :key="uc.id"
+                     class="flex items-center justify-between bg-base-200 rounded-lg px-3 py-2 cursor-pointer hover:bg-base-300">
+                <div class="flex items-center gap-2 min-w-0">
+                  <input type="radio" name="settle-coupon" class="radio radio-primary radio-sm"
+                         :checked="selectedCoupon && selectedCoupon.code === uc.code"
+                         @change="selectMemberCoupon(uc)" />
+                  <div class="min-w-0">
+                    <div class="text-sm truncate">{{ uc.coupon?.name || '优惠券' }}</div>
+                    <div class="text-xs text-base-content/50 font-mono truncate">{{ uc.code }}</div>
+                  </div>
+                </div>
+                <span class="text-sm font-semibold text-success shrink-0">-¥{{ Number(uc.discountAmount || 0).toFixed(2) }}</span>
+              </label>
+            </div>
+
+            <!-- 手动输入/扫码输入券码 -->
+            <div class="join w-full mt-2">
+              <input v-model="couponInput" type="text" class="input input-bordered input-sm join-item flex-1 font-mono text-xs"
+                     placeholder="未关联的券可输入/扫码券码核销" @keyup.enter="checkCouponCode" />
+              <button class="btn btn-sm btn-outline join-item" :disabled="couponChecking || !couponInput.trim()" @click="checkCouponCode">
+                <span v-if="couponChecking" class="loading loading-spinner loading-xs"></span>
+                校验
+              </button>
+              <button v-if="selectedCoupon" class="btn btn-sm btn-ghost join-item text-error" @click="clearCoupon">清除</button>
+            </div>
+            <label v-if="selectedCoupon" class="label">
+              <span class="label-text-alt text-success">
+                已选「{{ selectedCoupon.name }}」优惠 ¥{{ Number(selectedCoupon.discountAmount).toFixed(2) }}
+              </span>
+            </label>
+          </div>
+
+          <!-- 手动减免 -->
+          <div class="form-control mt-3">
+            <label class="label"><span class="label-text">手动减免金额（抹零/议价）</span></label>
+            <input v-model.number="manualDiscount" type="number" min="0" step="0.01"
+                   class="input input-bordered input-sm w-full" placeholder="0.00" />
+          </div>
+
+          <!-- 金额汇总 -->
+          <div class="mt-4 space-y-1 text-sm bg-base-200 rounded-lg p-3">
+            <div class="flex justify-between"><span class="text-base-content/50">菜品合计</span><span>¥{{ baseAmount.toFixed(2) }}</span></div>
+            <div v-if="couponAmount > 0" class="flex justify-between text-success">
+              <span>优惠券</span><span>-¥{{ couponAmount.toFixed(2) }}</span>
+            </div>
+            <div v-if="manualAmount > 0" class="flex justify-between text-success">
+              <span>手动减免</span><span>-¥{{ manualAmount.toFixed(2) }}</span>
+            </div>
+            <div class="flex justify-between items-baseline border-t border-base-300 pt-1">
+              <span class="text-base-content/50">应付</span>
+              <span class="font-bold text-primary text-xl">¥{{ payableAmount.toFixed(2) }}</span>
+            </div>
+          </div>
         </template>
+
         <div class="modal-action">
           <button class="btn btn-ghost" @click="cancelComplete">取消</button>
           <button class="btn btn-success" :disabled="acting" @click="confirmComplete">
@@ -255,6 +271,49 @@
         </div>
       </div>
       <div class="modal-backdrop" @click="cancelComplete"></div>
+    </dialog>
+
+    <!-- 改量弹窗：调整菜品数量/重量（称重菜按实际重量重新计价） -->
+    <dialog class="modal" :class="{ 'modal-open': adjustItem_ }">
+      <div class="modal-box max-w-sm">
+        <template v-if="adjustItem_">
+          <h3 class="font-bold text-lg">调整数量</h3>
+          <p class="text-sm text-base-content/60 mt-1">
+            {{ adjustItem_.dishName }}
+            <span v-if="adjustItem_.specNames">（{{ specNamesText(adjustItem_.specNames) }}）</span>
+          </p>
+
+          <div class="mt-4 space-y-3">
+            <div class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3">
+              <span class="text-sm text-base-content/60">单价</span>
+              <span class="font-semibold text-primary">¥{{ adjustItem_.dealPrice }}</span>
+            </div>
+            <div class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3">
+              <span class="text-sm text-base-content/60">数量 / 重量</span>
+              <div class="flex items-center gap-2">
+                <button class="btn btn-sm btn-circle" @click="stepAdjustQty(-1)">−</button>
+                <input v-model="adjustQty" type="number" min="0.001" step="0.1"
+                       class="input input-bordered input-sm w-24 text-center" />
+                <button class="btn btn-sm btn-circle" @click="stepAdjustQty(1)">+</button>
+              </div>
+            </div>
+            <div class="flex items-center justify-between px-1">
+              <span class="text-sm text-base-content/60">调整后小计</span>
+              <span class="font-bold text-primary text-lg">¥{{ adjustSubtotal.toFixed(2) }}</span>
+            </div>
+            <p class="text-xs text-base-content/40">支持小数（最多 3 位），如按斤称重可填 1.6</p>
+          </div>
+        </template>
+
+        <div class="modal-action">
+          <button class="btn btn-ghost" @click="cancelAdjust">取消</button>
+          <button class="btn btn-primary" :disabled="acting || !adjustQty || Number(adjustQty) <= 0" @click="confirmAdjust">
+            <span v-if="acting" class="loading loading-spinner loading-xs"></span>
+            确认调整
+          </button>
+        </div>
+      </div>
+      <div class="modal-backdrop" @click="cancelAdjust"></div>
     </dialog>
   </div>
 </template>
@@ -267,6 +326,7 @@ import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
 import Pagination from '@/components/common/Pagination.vue'
 import AddItemsDialog from '@/components/order/AddItemsDialog.vue'
+import OrderDetailModal from '@/components/order/OrderDetailModal.vue'
 import { useAddItems } from '@/composables/useAddItems'
 import { useConfirm } from '@/composables/useConfirm'
 import { formatSpecNames as specNamesText } from '@/utils/format'
@@ -310,14 +370,37 @@ const addItems = useAddItems({
   onSuccess: () => fetchOrders()
 })
 
-/** 结算相关状态（完成订单 + 可录入手机号关联会员积分） */
+/** ============ 结算：会员 + 优惠券 + 手动减免 ============ */
 const completeOrder = ref(null)
 const completePhone = ref('')
-const completePoints = computed(() => {
-  if (!completeOrder.value) return 0
-  const amt = Number(completeOrder.value.payAmount)
-  return isNaN(amt) ? 0 : Math.floor(amt)
+/** 会员查询结果（null=查无会员；undefined=未查询） */
+const memberInfo = ref(undefined)
+const memberSearched = ref(false)
+const memberLoading = ref(false)
+/** 会员名下可用优惠券 */
+const memberCoupons = ref([])
+/** 已选中的券：{ code, name, discountAmount } */
+const selectedCoupon = ref(null)
+const couponInput = ref('')
+const couponChecking = ref(false)
+const manualDiscount = ref(0)
+
+/** 结算基准金额：菜品折后合计（与后端一致，不含优惠券与手动减免） */
+const baseAmount = computed(() => {
+  const order = completeOrder.value
+  if (!order) return 0
+  return (order.items || [])
+    .filter(i => i.status !== 1)
+    .reduce((sum, i) => sum + Number(i.totalPrice || 0), 0)
 })
+const couponAmount = computed(() => Number(selectedCoupon.value?.discountAmount || 0))
+const manualAmount = computed(() => {
+  const v = Number(manualDiscount.value)
+  return Number.isFinite(v) && v > 0 ? v : 0
+})
+const payableAmount = computed(() => Math.max(0, baseAmount.value - couponAmount.value - manualAmount.value))
+/** 积分按实际应付金额累积：1 元 = 1 积分 */
+const completePoints = computed(() => Math.floor(payableAmount.value))
 
 /** 是否有订单管理权限（无则只读） */
 const canManage = computed(() =>
@@ -519,52 +602,12 @@ const removeItem = async (item) => {
   }
 }
 
-/** 数量/重量展示格式化：去掉多余的小数尾零（1.600 -> 1.6，2.000 -> 2） */
-const formatQty = (q) => {
-  const n = Number(q)
-  return Number.isFinite(n) ? String(n) : '0'
-}
-
-/** 调整菜品数量/重量（称重菜按实际重量重新计价） */
-const adjustItem = async (item) => {
-  if (!detailOrder.value) return
-  const current = Number(item.quantity)
-  const input = prompt(
-    `调整「${item.dishName}」的数量/重量（单价 ¥${item.dealPrice}，支持小数，如按斤称重填 1.6）`,
-    Number.isFinite(current) ? current : ''
-  )
-  if (input === null) return
-  const qty = Number(String(input).trim())
-  if (!Number.isFinite(qty) || qty <= 0) {
-    toast.warning('请输入大于 0 的数量')
-    return
-  }
-  if (qty === current) return
-  acting.value = true
-  try {
-    const res = await httpPost(
-      `/order/manage/adjust-item/${item.id}?storeId=${detailOrder.value.storeId}&quantity=${qty}`
-    )
-    if (isSuccess(res)) {
-      toast.success('数量已调整')
-      detailOrder.value = res.data
-      fetchOrders()
-    } else {
-      toast.error(res?.message || '调整失败')
-    }
-  } catch (e) {
-    toast.error('调整失败')
-  } finally {
-    acting.value = false
-  }
-}
-
 /** 订单是否包含加菜菜品 */
 const hasAddedItems = (order) => {
   return (order.items || []).some(i => i.addedLater === 1 && i.status === 0)
 }
 
-/** 结算弹窗：完成订单，可录入顾客手机号关联会员积分（需所有菜品已出餐） */
+/** 结算弹窗：完成订单（需所有菜品已出餐） */
 const openCompleteDialog = (order) => {
   if (!canManage.value) {
     toast.error('您没有订单操作权限')
@@ -577,24 +620,108 @@ const openCompleteDialog = (order) => {
   }
   completeOrder.value = order
   completePhone.value = order.contactPhone || ''
+  memberInfo.value = undefined
+  memberSearched.value = false
+  memberCoupons.value = []
+  selectedCoupon.value = null
+  couponInput.value = ''
+  manualDiscount.value = 0
 }
 
 const cancelComplete = () => {
   completeOrder.value = null
   completePhone.value = ''
+  memberInfo.value = undefined
+  memberSearched.value = false
+  memberCoupons.value = []
+  selectedCoupon.value = null
+  couponInput.value = ''
+  manualDiscount.value = 0
+}
+
+/**
+ * 查询手机号对应的会员信息（积分、消费次数）与其名下可用优惠券
+ */
+const queryMember = async () => {
+  const phone = completePhone.value.trim()
+  if (!phone || !completeOrder.value) return
+  memberLoading.value = true
+  memberSearched.value = true
+  try {
+    const [memberRes, couponRes] = await Promise.all([
+      httpGet(`/manage/membership/by-phone?storeId=${completeOrder.value.storeId}&phone=${encodeURIComponent(phone)}`),
+      httpGet(`/manage/coupon/member-coupons?storeId=${completeOrder.value.storeId}&phone=${encodeURIComponent(phone)}&amount=${baseAmount.value}`)
+    ])
+    memberInfo.value = isSuccess(memberRes) ? (memberRes.data || null) : null
+    memberCoupons.value = (isSuccess(couponRes) && couponRes.data?.coupons) || []
+  } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
+    toast.error('查询会员信息失败')
+  } finally {
+    memberLoading.value = false
+  }
+}
+
+/** 选择会员名下的优惠券 */
+const selectMemberCoupon = (uc) => {
+  selectedCoupon.value = {
+    code: uc.code,
+    name: uc.coupon?.name || '优惠券',
+    discountAmount: Number(uc.discountAmount || 0)
+  }
+  couponInput.value = uc.code
+}
+
+/**
+ * 校验手动输入的券码（未关联到用户账户的券也可核销）
+ */
+const checkCouponCode = async () => {
+  const code = couponInput.value.trim()
+  if (!code || !completeOrder.value) return
+  couponChecking.value = true
+  try {
+    const res = await httpGet(
+      `/coupon/check?storeId=${completeOrder.value.storeId}` +
+      `&code=${encodeURIComponent(code)}&amount=${baseAmount.value}`
+    )
+    if (isSuccess(res) && res.data) {
+      selectedCoupon.value = {
+        code: res.data.code,
+        name: res.data.name,
+        discountAmount: Number(res.data.discountAmount || 0)
+      }
+      toast.success(`优惠券可用，已优惠 ¥${Number(res.data.discountAmount).toFixed(2)}`)
+    } else {
+      toast.error(res?.message || '优惠券不可用')
+    }
+  } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
+    toast.error('校验优惠券失败')
+  } finally {
+    couponChecking.value = false
+  }
+}
+
+const clearCoupon = () => {
+  selectedCoupon.value = null
+  couponInput.value = ''
 }
 
 const confirmComplete = async () => {
   if (!completeOrder.value) return
+  if (manualAmount.value > baseAmount.value - couponAmount.value) {
+    toast.warning('手动减免金额不能超过订单应付金额')
+    return
+  }
   acting.value = true
   try {
     const phone = completePhone.value.trim()
     const pts = (phone && completePoints.value > 0) ? completePoints.value : 0
-    let url = `/order/manage/complete/${completeOrder.value.id}?storeId=${completeOrder.value.storeId}`
-    if (phone) {
-      url += `&phone=${encodeURIComponent(phone)}`
-    }
-    const res = await httpPost(url)
+    const params = new URLSearchParams({ storeId: String(completeOrder.value.storeId) })
+    if (phone) params.append('phone', phone)
+    if (selectedCoupon.value) params.append('couponCode', selectedCoupon.value.code)
+    if (manualAmount.value > 0) params.append('manualDiscount', manualAmount.value.toFixed(2))
+    const res = await httpPost(`/order/manage/complete/${completeOrder.value.id}?${params.toString()}`)
     if (isSuccess(res)) {
       const tip = phone && pts > 0 ? `订单已结算完成，已累积 ${pts} 会员积分` : '订单已结算完成'
       toast.success(tip)
@@ -604,7 +731,79 @@ const confirmComplete = async () => {
       toast.error(res?.message || '操作失败')
     }
   } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
     toast.error('操作失败')
+  } finally {
+    acting.value = false
+  }
+}
+
+/** ============ 改量：由原生 prompt 改为 DaisyUI modal ============ */
+const adjustItem_ = ref(null)
+const adjustQty = ref(1)
+
+const adjustSubtotal = computed(() => {
+  if (!adjustItem_.value) return 0
+  const qty = Number(adjustQty.value)
+  if (!Number.isFinite(qty) || qty <= 0) return 0
+  return qty * Number(adjustItem_.value.dealPrice || 0)
+})
+
+/** 打开改量弹窗 */
+const openAdjustDialog = (item) => {
+  if (!canManage.value) {
+    toast.error('您没有订单操作权限')
+    return
+  }
+  adjustItem_.value = item
+  adjustQty.value = Number(item.quantity)
+}
+
+const cancelAdjust = () => {
+  adjustItem_.value = null
+  adjustQty.value = 1
+}
+
+/** 快捷步进（称重菜按 0.1 步进，计件菜按 1 步进） */
+const stepAdjustQty = (delta) => {
+  const current = Number(adjustQty.value)
+  if (!Number.isFinite(current)) {
+    adjustQty.value = 1
+    return
+  }
+  const step = Number.isInteger(current) ? 1 : 0.1
+  const next = Math.max(0.001, Number((current + delta * step).toFixed(3)))
+  adjustQty.value = next
+}
+
+/** 提交改量：按成交单价 × 新数量重算小计（后端联动重算订单总额与库存） */
+const confirmAdjust = async () => {
+  if (!adjustItem_.value || !detailOrder.value) return
+  const qty = Number(adjustQty.value)
+  if (!Number.isFinite(qty) || qty <= 0) {
+    toast.warning('请输入大于 0 的数量')
+    return
+  }
+  if (qty === Number(adjustItem_.value.quantity)) {
+    cancelAdjust()
+    return
+  }
+  acting.value = true
+  try {
+    const res = await httpPost(
+      `/order/manage/adjust-item/${adjustItem_.value.id}?storeId=${detailOrder.value.storeId}&quantity=${qty}`
+    )
+    if (isSuccess(res)) {
+      toast.success('数量已调整')
+      detailOrder.value = res.data
+      cancelAdjust()
+      fetchOrders()
+    } else {
+      toast.error(res?.message || '调整失败')
+    }
+  } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
+    toast.error('调整失败')
   } finally {
     acting.value = false
   }

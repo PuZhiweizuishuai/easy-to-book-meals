@@ -16,7 +16,7 @@
  *   const addItems = useAddItems({...}); <AddItemsDialog :api="addItems" />
  */
 import { reactive, ref } from 'vue'
-import { httpGet, isSuccess } from '@/utils/fetch'
+import { isSuccess } from '@/utils/fetch'
 import toast from '@/utils/toast'
 import { formatSpecNames } from '@/utils/format'
 import { orderItemCount } from '@/utils/order'
@@ -28,10 +28,8 @@ export function useAddItems(options = {}) {
   const order = ref(null)
   const dishes = ref([])
   const dishLoading = ref(false)
-  /** 规格选择弹窗当前菜品 */
+  /** 规格选择弹窗当前菜品（SKU 加载与规格匹配由 SkuPickerModal 组件内部完成） */
   const skuPickerDish = ref(null)
-  const skuList = ref([])
-  const skuLoading = ref(false)
   /** 待加菜品清单 */
   const pendingItems = ref([])
   const submitting = ref(false)
@@ -59,50 +57,33 @@ export function useAddItems(options = {}) {
     skuPickerDish.value = null
   }
 
-  /** 打开规格选择弹窗并加载该菜品的启用 SKU */
-  const openSkuPicker = async (dish) => {
+  /** 打开规格选择弹窗（SKU 数据由 SkuPickerModal 组件自行加载） */
+  const openSkuPicker = (dish) => {
     skuPickerDish.value = dish
-    skuList.value = []
-    skuLoading.value = true
-    try {
-      const res = await httpGet(`/dishes/${dish.id}`)
-      if (isSuccess(res)) {
-        skuList.value = (res.data?.skuList || []).filter(s => s.status === 1)
-      }
-    } catch (e) {
-      if (e?.type === 'UNAUTHORIZED') return
-      toast.error('加载规格失败')
-    } finally {
-      skuLoading.value = false
-    }
   }
 
   const closeSkuPicker = () => {
     skuPickerDish.value = null
   }
 
-  /** 计算 SKU 成交价（折扣 0~1 时折后价） */
-  const skuDealPrice = (sku) => {
-    const discount = Number(sku.discount)
-    return discount > 0 && discount < 1
-      ? Number(sku.unitPrice) * discount
-      : Number(sku.unitPrice)
-  }
-
-  /** 加入待加菜清单（同 SKU 累加数量，上限 99） */
-  const addPendingSku = (sku) => {
+  /**
+   * 规格选择完成回调（由 SkuPickerModal 的 confirm 事件触发）
+   * @param {{sku: object, quantity: number, dealPrice: number, specNamesText: string}} payload
+   */
+  const addPendingFromPicker = ({ sku, quantity = 1, dealPrice, specNamesText }) => {
+    if (!skuPickerDish.value) return
     const existing = pendingItems.value.find(i => i.skuId === sku.id)
     if (existing) {
-      existing.quantity = Math.min(existing.quantity + 1, 99)
+      existing.quantity = Math.min(existing.quantity + quantity, 99)
     } else {
       pendingItems.value.push({
         skuId: sku.id,
         dishId: skuPickerDish.value.id,
         dishName: skuPickerDish.value.name,
-        specNamesText: formatSpecNames(sku.specNames) || '标准',
+        specNamesText: specNamesText || formatSpecNames(sku.specNames) || '标准',
         unitPrice: Number(sku.unitPrice),
-        dealPrice: skuDealPrice(sku),
-        quantity: 1
+        dealPrice: dealPrice ?? Number(sku.unitPrice),
+        quantity
       })
     }
     toast.success('已加入加菜清单')
@@ -151,8 +132,6 @@ export function useAddItems(options = {}) {
     dishes,
     dishLoading,
     skuPickerDish,
-    skuList,
-    skuLoading,
     pendingItems,
     submitting,
     itemCount: orderItemCount,
@@ -161,7 +140,7 @@ export function useAddItems(options = {}) {
     close,
     openSkuPicker,
     closeSkuPicker,
-    addPendingSku,
+    addPendingFromPicker,
     changePendingQty,
     removePending,
     submit

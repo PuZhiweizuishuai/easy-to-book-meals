@@ -24,6 +24,12 @@ const router = createRouter({
       name: 'storeMenu',
       component: () => import('@/views/customer/StoreMenuPage.vue'),
     },
+    // 优惠券详情（公开：未登录也可展示券面与二维码，登录后可领取）
+    {
+      path: '/coupon/:code',
+      name: 'couponDetail',
+      component: () => import('@/views/customer/CouponDetail.vue'),
+    },
     // 我的订单（顾客端，需登录）
     {
       path: '/my/orders',
@@ -140,6 +146,15 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             permissions: ['member:manage'],
+          },
+        },
+        {
+          path: 'coupons',
+          name: 'coupons',
+          component: () => import('@/views/admin/CouponManagement.vue'),
+          meta: {
+            requiresAuth: true,
+            permissions: ['coupon:manage', 'coupon:view'],
           },
         },
       ],

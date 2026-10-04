@@ -95,10 +95,17 @@
                      class="input input-bordered input-sm w-full" />
             </div>
 
-            <div v-if="orderType === 1" class="form-control">
-              <label class="label py-1"><span class="label-text text-sm">联系电话 <span class="text-error">*</span></span></label>
-              <input v-model="customerPhone" type="tel" placeholder="外送必填" maxlength="20"
-                     class="input input-bordered input-sm w-full" />
+            <!-- 联系电话：外送必填用于配送；堂食选填，填写后结算可累积会员积分 -->
+            <div class="form-control">
+              <label class="label py-1">
+                <span class="label-text text-sm">联系电话 <span v-if="orderType === 1" class="text-error">*</span></span>
+              </label>
+              <input v-model.trim="customerPhone" type="tel" inputmode="numeric" maxlength="11"
+                     :placeholder="orderType === 1 ? '外送必填' : '选填，填写后结算可累积会员积分'"
+                     class="input input-bordered input-sm w-full font-mono" />
+              <label v-if="orderType !== 1" class="label py-0">
+                <span class="label-text-alt text-base-content/40">选填，仅用于本店会员积分</span>
+              </label>
             </div>
 
             <div v-if="orderType === 1" class="form-control">
@@ -153,83 +160,13 @@
       </div>
     </div>
 
-    <!-- 规格（SKU）选择弹窗（与顾客端点餐一致：按规格分组单选） -->
-    <dialog class="modal" :class="{ 'modal-open': skuPickerDish }">
-      <div class="modal-box max-w-md">
-        <template v-if="skuPickerDish">
-          <h3 class="font-bold text-lg">{{ skuPickerDish.name }}</h3>
-          <p class="text-sm text-base-content/60 mt-1">{{ skuPickerDish.description || '' }}</p>
-
-          <div class="divider my-3 text-sm">选择规格</div>
-          <div v-if="skuLoading" class="flex justify-center py-6">
-            <span class="loading loading-spinner text-primary"></span>
-          </div>
-          <div v-else-if="specGroups.length === 0 && skus.length === 0" class="text-center py-6 text-base-content/40">
-            该菜品暂无可选规格
-          </div>
-          <div v-else class="space-y-4">
-            <!-- 分组单选规格选择 -->
-            <div v-for="group in specGroups" :key="group.id" class="space-y-2">
-              <div class="text-sm font-medium text-base-content/70">{{ group.name }}</div>
-              <div class="flex flex-wrap gap-2">
-                <button
-                  v-for="val in (group.values || [])"
-                  :key="val.id"
-                  class="badge badge-lg cursor-pointer transition-all"
-                  :class="selectedSpec[group.id] === val.id ? 'badge-primary' : 'badge-ghost border border-base-300'"
-                  @click="selectSpec(group.id, val.id)"
-                >{{ val.name }}</button>
-              </div>
-            </div>
-
-            <!-- 无规格菜品的价格展示 -->
-            <div v-if="specGroups.length === 0 && matchedSku" class="bg-base-200 rounded-xl px-4 py-3 flex items-center justify-between">
-              <div class="text-sm text-base-content/60">
-                <span v-if="matchedSku.stock === -1">库存充足</span>
-                <span v-else>剩余 {{ matchedSku.stock }}</span>
-              </div>
-              <div class="text-lg font-bold text-primary">¥{{ currentPrice != null ? currentPrice.toFixed(2) : '—' }}</div>
-            </div>
-          </div>
-
-          <!-- 底部加购栏 -->
-          <div v-if="!skuLoading && (specGroups.length > 0 || skus.length > 0)" class="mt-4">
-            <div v-if="matchedSku" class="flex items-center justify-between bg-base-200 rounded-xl px-4 py-3 mb-3">
-              <div class="min-w-0">
-                <div class="text-sm text-base-content/60">
-                  <span v-if="matchedSku.stock === -1">库存充足</span>
-                  <span v-else-if="matchedSku.stock <= 0" class="text-error">已售罄</span>
-                  <span v-else>剩余 {{ matchedSku.stock }}</span>
-                </div>
-                <div class="flex items-baseline gap-2">
-                  <span class="text-2xl font-bold text-primary">¥{{ currentPrice != null ? currentPrice.toFixed(2) : '—' }}</span>
-                  <span v-if="Number(matchedSku.discount) > 0 && Number(matchedSku.discount) < 1" class="text-xs text-base-content/40 line-through">¥{{ Number(matchedSku.unitPrice).toFixed(2) }}</span>
-                </div>
-              </div>
-              <!-- 数量选择 -->
-              <div class="flex items-center gap-2">
-                <button class="btn btn-sm btn-circle" :disabled="selectedQuantity <= 1" @click="selectedQuantity--">−</button>
-                <span class="w-6 text-center font-medium">{{ selectedQuantity }}</span>
-                <button class="btn btn-sm btn-circle" @click="selectedQuantity++">+</button>
-              </div>
-            </div>
-            <div v-else-if="specGroups.length > 0" class="text-center text-sm text-base-content/40 py-3 mb-3">
-              请选择完整规格组合
-            </div>
-            <div class="modal-action">
-              <button class="btn btn-ghost" @click="skuPickerDish = null">关闭</button>
-              <button
-                v-if="matchedSku"
-                class="btn btn-primary"
-                :disabled="matchedSku.stock !== -1 && matchedSku.stock <= 0"
-                @click="addSkuToCart(matchedSku, selectedQuantity)"
-              >加入已选菜品</button>
-            </div>
-          </div>
-        </template>
-      </div>
-      <div class="modal-backdrop" @click="skuPickerDish = null"></div>
-    </dialog>
+    <!-- 规格（SKU）选择弹窗（与订单加菜共用 SkuPickerModal：按规格分组单选 + 选数量） -->
+    <SkuPickerModal
+      :dish="skuPickerDish"
+      confirm-text="加入已选菜品"
+      @close="skuPickerDish = null"
+      @confirm="handleSkuConfirm"
+    />
   </div>
 </template>
 
@@ -240,6 +177,7 @@ import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
+import SkuPickerModal from '@/components/dish/SkuPickerModal.vue'
 
 const router = useRouter()
 const storeContext = useStoreContext()
@@ -265,12 +203,8 @@ const remark = ref('')
 const cartItems = ref([])
 const submitting = ref(false)
 
+/** 规格选择弹窗当前菜品（SKU 加载与规格匹配由 SkuPickerModal 内部完成） */
 const skuPickerDish = ref(null)
-const skuLoading = ref(false)
-const skus = ref([])
-const specGroups = ref([])
-const selectedSpec = ref({})  // { groupId: specValueId }
-const selectedQuantity = ref(1)
 
 const totalCount = computed(() =>
   cartItems.value.reduce((s, i) => s + i.quantity, 0)
@@ -319,99 +253,29 @@ const changeOrderType = (t) => {
   }
 }
 
-/** 打开规格选择弹窗（加载规格组与 SKU） */
-const openSkuPicker = async (dish) => {
+/** 打开规格选择弹窗（SKU 数据由 SkuPickerModal 组件自行加载） */
+const openSkuPicker = (dish) => {
   skuPickerDish.value = dish
-  skus.value = []
-  specGroups.value = []
-  selectedSpec.value = {}
-  selectedQuantity.value = 1
-  skuLoading.value = true
-  try {
-    const res = await httpGet(`/dishes/${dish.id}`)
-    if (isSuccess(res)) {
-      skus.value = (res.data?.skuList || []).filter(s => s.status === 1)
-      specGroups.value = res.data?.specGroups || []
-      // 单规格菜品自动选中第一项，方便直接加购
-      if (specGroups.value.length === 1) {
-        const firstValues = specGroups.value[0].values || []
-        if (firstValues.length > 0) {
-          selectedSpec.value[specGroups.value[0].id] = firstValues[0].id
-        }
-      }
-    }
-  } catch (e) {
-    toast.error('加载规格失败')
-  } finally {
-    skuLoading.value = false
-  }
 }
 
-/** 当前选中的规格组合是否完整（每组都选了），匹配到的 SKU */
-const matchedSku = computed(() => {
-  if (specGroups.value.length === 0) {
-    // 无规格菜品：只有一个 SKU 或无 SKU
-    return skus.value[0] || null
-  }
-  // 校验每组都已选
-  for (const g of specGroups.value) {
-    if (selectedSpec.value[g.id] == null) return null
-  }
-  // 收集选中的规格值ID（排序后匹配）
-  const selectedIds = Object.values(selectedSpec.value).sort((a, b) => a - b)
-  return skus.value.find(sku => {
-    try {
-      const ids = JSON.parse(sku.specs || '[]').sort((a, b) => a - b)
-      return ids.length === selectedIds.length && ids.every((v, i) => v === selectedIds[i])
-    } catch {
-      return false
-    }
-  }) || null
-})
-
-/** 当前展示价格（折后） */
-const currentPrice = computed(() => {
-  const sku = matchedSku.value
-  if (!sku) return null
-  return dealPriceOf(sku)
-})
-
-/** 选择规格值 */
-const selectSpec = (groupId, valueId) => {
-  selectedSpec.value = { ...selectedSpec.value, [groupId]: valueId }
-}
-
-const specNamesText = (specNames) => {
-  if (!specNames) return ''
-  try {
-    const parsed = typeof specNames === 'string' ? JSON.parse(specNames) : specNames
-    if (Array.isArray(parsed)) return parsed.join('/')
-    if (parsed && typeof parsed === 'object') return Object.values(parsed).join('/')
-  } catch { /* 忽略 */ }
-  return String(specNames || '')
-}
-
-const dealPriceOf = (sku) => {
-  const d = Number(sku.discount)
-  if (d > 0 && d < 1) return Number(sku.unitPrice) * d
-  return Number(sku.unitPrice)
-}
-
-/** 加入已选菜品 */
-const addSkuToCart = (sku, qty = 1) => {
-  const deal = dealPriceOf(sku)
+/**
+ * 规格选择完成：加入已选菜品并关闭弹窗
+ * @param {{sku: object, quantity: number, dealPrice: number, specNamesText: string}} payload
+ */
+const handleSkuConfirm = ({ sku, quantity = 1, dealPrice, specNamesText }) => {
+  if (!skuPickerDish.value) return
   const existing = cartItems.value.find(i => i.skuId === sku.id)
   if (existing) {
-    existing.quantity = Math.min(existing.quantity + qty, 99)
+    existing.quantity = Math.min(existing.quantity + quantity, 99)
   } else {
     cartItems.value.push({
       skuId: sku.id,
       dishId: skuPickerDish.value.id,
       dishName: skuPickerDish.value.name,
-      specNamesText: specNamesText(sku.specNames) || '标准',
+      specNamesText: specNamesText || '标准',
       unitPrice: Number(sku.unitPrice),
-      dealPrice: deal,
-      quantity: qty
+      dealPrice: dealPrice ?? Number(sku.unitPrice),
+      quantity
     })
   }
   toast.success('已加入')
@@ -463,9 +327,11 @@ const submitOrder = async () => {
     if (orderType.value === 0 && selectedTableId.value) {
       payload.tableId = selectedTableId.value
     }
-    // 外送附带配送信息
-    if (orderType.value === 1) {
+    // 外送附带配送信息；联系电话无论何种订单类型都提交（用于配送 / 关联会员积分）
+    if (customerPhone.value) {
       payload.contactPhone = customerPhone.value
+    }
+    if (orderType.value === 1) {
       payload.deliveryAddress = deliveryAddress.value
     }
 

@@ -74,6 +74,43 @@ public class MembershipManageController {
     }
 
     /**
+     * 按手机号查询会员（结算时录入手机号后查询会员信息：积分、昵称等）
+     * <p>
+     * 该手机号尚无会员记录时返回 data=null，前端按「新会员」处理。
+     */
+    @SaCheckLogin
+    @GetMapping("/by-phone")
+    public ResponseDetails memberByPhone(@RequestParam Long storeId,
+                                         @RequestParam String phone) {
+        storeAuthHelper.checkStorePermission(storeId, "member:manage");
+        Membership m = membershipService.findByStoreAndPhone(storeId, phone);
+        if (m != null) {
+            m.setCount(orderService.countStoreOrdersByPhone(storeId, m.getPhone()));
+        }
+        return ResponseDetails.ok().put("data", m);
+    }
+
+    /**
+     * 修改会员昵称（仅本店生效）
+     * <p>
+     * 会员昵称是门店维度的展示名，只会修改本店的 membership 记录：
+     * 不影响顾客账号昵称、也不影响该顾客在其他门店的会员昵称。
+     * 门店隔离由 membershipId + storeId 双重定位保证（越权会返回 404）。
+     */
+    @SaCheckLogin
+    @PostMapping("/nickname")
+    public ResponseDetails updateNickname(@RequestParam Long storeId,
+                                          @RequestParam Long membershipId,
+                                          @RequestParam(required = false) String nickname) {
+        storeAuthHelper.checkStorePermission(storeId, "member:manage");
+        getMemberOrThrow(membershipId, storeId);
+        Membership updated = membershipService.updateNickname(storeId, membershipId, nickname);
+        // 用餐次数与列表/详情接口保持同一口径（按手机号统计本店订单数）
+        updated.setCount(orderService.countStoreOrdersByPhone(storeId, updated.getPhone()));
+        return ResponseDetails.ok().put("data", updated);
+    }
+
+    /**
      * 会员积分流水（分页，按手机号统一查询）
      */
     @SaCheckLogin

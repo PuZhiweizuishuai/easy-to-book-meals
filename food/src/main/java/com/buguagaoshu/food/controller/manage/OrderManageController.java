@@ -130,17 +130,23 @@ public class OrderManageController {
      * 完成订单（结算）
      * <p>
      * 可携带顾客手机号：录入后会把订单归属关联到该手机号对应的会员，
-     * 并按应付金额累积会员积分（1 元 = 1 积分）。
+     * 并按实际应付金额累积会员积分（1 元 = 1 积分）。
      * 手机号为空时按普通结算处理（匿名堂食订单常见）。
+     * <p>
+     * 结算金额构成：菜品折后合计 − 优惠券减免 − 手动减免 = 应付金额。
+     * 券码可为空（不使用券）；manualDiscount 为店员手动录入的抹零/议价金额。
      */
     @SaCheckLogin
     @PostMapping("/complete/{id}")
     public ResponseDetails complete(@PathVariable Long id,
                                     @RequestParam @NotNull(message = "门店ID不能为空") Long storeId,
-                                    @RequestParam(value = "phone", required = false) String phone) {
+                                    @RequestParam(value = "phone", required = false) String phone,
+                                    @RequestParam(value = "couponCode", required = false) String couponCode,
+                                    @RequestParam(value = "manualDiscount", required = false)
+                                    @DecimalMin(value = "0", message = "手动减免金额不能为负数") BigDecimal manualDiscount) {
         storeAuthHelper.checkStorePermission(storeId, "order:manage");
         return ResponseDetails.ok().put("data",
-                orderService.completeOrder(id, storeId, phone));
+                orderService.completeOrder(id, storeId, phone, couponCode, manualDiscount));
     }
 
     /**

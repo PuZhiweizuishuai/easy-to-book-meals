@@ -98,13 +98,31 @@ public class OrderData {
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     /**
-     * 优惠金额
+     * 优惠金额（菜品/SKU 级折扣合计）
      */
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal discountAmount = BigDecimal.ZERO;
 
     /**
-     * 应付金额 = totalAmount - discountAmount
+     * 优惠券优惠金额（结算时核销优惠券产生的减免）
+     */
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal couponAmount = BigDecimal.ZERO;
+
+    /**
+     * 结算时店员手动录入的减免金额（抹零、议价等）
+     */
+    @Column(nullable = false, precision = 12, scale = 2)
+    private BigDecimal manualDiscountAmount = BigDecimal.ZERO;
+
+    /**
+     * 使用的优惠券码（无横线 UUID，核销后留痕便于对账）
+     */
+    @Column(length = 64)
+    private String couponCode;
+
+    /**
+     * 应付金额 = totalAmount - discountAmount - couponAmount - manualDiscountAmount
      */
     @Column(nullable = false, precision = 12, scale = 2)
     private BigDecimal payAmount = BigDecimal.ZERO;

@@ -52,12 +52,15 @@ public class RbacDefinition {
                 RbacPermissionCode.STATS_STORE,
                 RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW,
                 RbacPermissionCode.ROLE_STORE_MANAGE,
-                RbacPermissionCode.MEMBER_MANAGE
+                RbacPermissionCode.MEMBER_MANAGE,
+                RbacPermissionCode.COUPON_MANAGE, RbacPermissionCode.COUPON_VIEW
         ));
         map.put(RbacRoleCode.STORE_CASHIER, List.of(
                 RbacPermissionCode.ORDER_MANAGE, RbacPermissionCode.ORDER_VIEW,
                 RbacPermissionCode.DISH_VIEW,
-                RbacPermissionCode.TABLE_VIEW
+                RbacPermissionCode.TABLE_VIEW,
+                RbacPermissionCode.MEMBER_MANAGE,
+                RbacPermissionCode.COUPON_VIEW
         ));
         map.put(RbacRoleCode.STORE_KITCHEN, List.of(
                 RbacPermissionCode.ORDER_VIEW,

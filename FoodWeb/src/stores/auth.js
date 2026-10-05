@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
-import { httpPost, isSuccess } from '@/utils/fetch'
+import { httpGet, httpPost, isSuccess } from '@/utils/fetch'
 
 /** localStorage 键名常量 */
 const STORAGE_KEY_TOKEN = 'token'
@@ -139,6 +139,28 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   /**
+   * 重新拉取当前用户信息（角色/权限可能已变化）
+   *
+   * 用于「接受门店邀请」等场景：角色绑定在服务端变更后，
+   * 本地缓存的 roleDataList 已过期，需刷新才能让路由守卫与菜单立即生效。
+   * @returns {Promise<boolean>} 是否刷新成功
+   */
+  async function refreshUserInfo() {
+    if (!token.value) return false
+    try {
+      const res = await httpGet('/auth/info')
+      if (isSuccess(res) && res.data) {
+        userInfo.value = res.data
+        saveToStorage(STORAGE_KEY_USER, res.data)
+        return true
+      }
+    } catch {
+      // 刷新失败时保留原有缓存，不影响当前会话
+    }
+    return false
+  }
+
+  /**
    * 清除登录状态（不调用后端接口）
    */
   function clearAuth() {
@@ -160,6 +182,7 @@ export const useAuthStore = defineStore('auth', () => {
     hasAnyRole,
     hasAnyPermission,
     setLoginInfo,
+    refreshUserInfo,
     logout,
     clearAuth
   }

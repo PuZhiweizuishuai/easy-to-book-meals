@@ -15,6 +15,19 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url))
     },
   },
+  build: {
+    // echarts 体积较大，单独成块便于浏览器长期缓存，且报表页本身是懒加载路由
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/echarts') || id.includes('node_modules/zrender')) {
+            return 'echarts'
+          }
+        }
+      }
+    },
+    chunkSizeWarningLimit: 700
+  },
   server: {
     allowedHosts: [
       'localhost',

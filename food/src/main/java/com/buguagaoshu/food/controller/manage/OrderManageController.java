@@ -18,6 +18,9 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
  * 订单管理控制器（店主/店员端）
@@ -182,14 +185,80 @@ public class OrderManageController {
     /**
      * 出餐（菜品级标记）
      * <p>
-     * 店员逐个菜品确认出餐，当订单所有正常菜品均出餐后自动推进订单到「已出餐」状态。
+     * 店员/后厨逐个菜品确认出餐，当订单所有正常菜品均出餐后自动推进订单到「已出餐」状态。
+     * 前置条件：订单必须已接单（待接单订单不允许出餐）。
+     * <p>
+     * 权限：门店订单管理（order:manage）或后厨出餐（kitchen:manage）。
      */
     @SaCheckLogin
     @PostMapping("/serve-item/{itemId}")
     public ResponseDetails serveItem(@PathVariable Long itemId,
                                      @RequestParam @NotNull(message = "门店ID不能为空") Long storeId) {
-        storeAuthHelper.checkStorePermission(storeId, "order:manage");
+        storeAuthHelper.checkStoreAnyPermission(storeId, "order:manage", "kitchen:manage");
         return ResponseDetails.ok().put("data", orderService.serveOrderItem(itemId, storeId));
+    }
+
+    /**
+     * 整单出餐：一次性把订单内所有未出餐菜品标记为已出餐（后厨批量完成）
+     */
+    @SaCheckLogin
+    @PostMapping("/serve-order/{id}")
+    public ResponseDetails serveOrder(@PathVariable Long id,
+                                      @RequestParam @NotNull(message = "门店ID不能为空") Long storeId) {
+        storeAuthHelper.checkStoreAnyPermission(storeId, "order:manage", "kitchen:manage");
+        return ResponseDetails.ok().put("data", orderService.serveAllOrderItems(id, storeId));
+    }
+
+    /**
+     * 开始制作（认领菜品）
+     * <p>
+     * 后厨人员点击后，该菜品从其他人的待制作列表中消失，仅在认领人列表中显示为「制作中」。
+     */
+    @SaCheckLogin
+    @PostMapping("/start-preparing/{itemId}")
+    public ResponseDetails startPreparing(@PathVariable Long itemId,
+                                          @RequestParam @NotNull(message = "门店ID不能为空") Long storeId) {
+        storeAuthHelper.checkStoreAnyPermission(storeId, "order:manage", "kitchen:manage");
+        Long userId = cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong();
+        return ResponseDetails.ok().put("data", orderService.startPreparingItem(itemId, storeId, userId));
+    }
+
+    /**
+     * 释放制作（取消认领，菜品退回待制作队列）
+     */
+    @SaCheckLogin
+    @PostMapping("/release-preparing/{itemId}")
+    public ResponseDetails releasePreparing(@PathVariable Long itemId,
+                                            @RequestParam @NotNull(message = "门店ID不能为空") Long storeId) {
+        storeAuthHelper.checkStoreAnyPermission(storeId, "order:manage", "kitchen:manage");
+        Long userId = cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong();
+        orderService.releasePreparingItem(itemId, storeId, userId);
+        return ResponseDetails.ok().put("message", "已释放");
+    }
+
+    /**
+     * 后厨待制作队列（KDS）
+     * <p>
+     * 返回已接单且尚未出餐的<b>单个菜品</b>扁平列表，按菜品下单时间升序
+     * （先下单先做，加菜自然落到后面）。每条记录自带所属订单信息
+     * （订单号、桌号、类型、备注、手机号）。
+     * <p>
+     * 已被其他人认领制作的菜品不会出现在当前用户的列表中。
+     */
+    @SaCheckLogin
+    @GetMapping("/kitchen/queue")
+    public ResponseDetails kitchenQueue(@RequestParam @NotNull(message = "门店ID不能为空") Long storeId) {
+        storeAuthHelper.checkStoreAnyPermission(storeId, "kitchen:manage", "order:manage", "order:view");
+        Long userId = cn.dev33.satoken.stp.StpUtil.getLoginIdAsLong();
+        Map<String, Object> result = new HashMap<>();
+        List<Map<String, Object>> items = orderService.kitchenQueue(storeId, userId);
+        // 菜品维度：items 即队列本体，itemCount 为菜品总数，maxWaitedMinutes 为最长等待
+        result.put("items", items);
+        result.put("itemCount", items.size());
+        result.put("maxWaitedMinutes", items.stream()
+                .mapToLong(g -> ((Number) g.get("waitedMinutes")).longValue())
+                .max().orElse(0L));
+        return ResponseDetails.ok().put("data", result);
     }
 
     /**

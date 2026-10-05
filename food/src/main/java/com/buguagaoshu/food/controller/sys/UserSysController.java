@@ -3,13 +3,17 @@ package com.buguagaoshu.food.controller.sys;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
+import com.buguagaoshu.food.data.NotificationData;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.data.UserRoleData;
 import com.buguagaoshu.food.dto.ResponseDetails;
+import com.buguagaoshu.food.dto.StaffInviteDto;
+import com.buguagaoshu.food.service.NotificationService;
 import com.buguagaoshu.food.service.UserDataService;
 import com.buguagaoshu.food.service.UserRoleDataService;
 import com.buguagaoshu.food.utils.StoreAuthHelper;
 import com.buguagaoshu.food.valid.ListValue;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import org.springframework.validation.annotation.Validated;
@@ -35,13 +39,16 @@ public class UserSysController {
     private final UserDataService userDataService;
     private final UserRoleDataService userRoleDataService;
     private final StoreAuthHelper storeAuthHelper;
+    private final NotificationService notificationService;
 
     public UserSysController(UserDataService userDataService,
                              UserRoleDataService userRoleDataService,
-                             StoreAuthHelper storeAuthHelper) {
+                             StoreAuthHelper storeAuthHelper,
+                             NotificationService notificationService) {
         this.userDataService = userDataService;
         this.userRoleDataService = userRoleDataService;
         this.storeAuthHelper = storeAuthHelper;
+        this.notificationService = notificationService;
     }
 
     /**
@@ -121,13 +128,45 @@ public class UserSysController {
 
     /**
      * 查询门店员工列表（含用户信息与角色信息，仅本店店主或超级管理员可查看）
-     * 返回该门店所有用户-角色绑定记录
+     * <p>
+     * 按员工聚合返回：每人一行，含已生效角色 roles、待确认角色 pendingRoles。
      */
     @SaCheckLogin
     @GetMapping("/store/role/list")
     public ResponseDetails listStoreEmployees(@RequestParam Long storeId) {
         storeAuthHelper.checkStoreOwner(storeId);
         return ResponseDetails.ok().put("data", userDataService.listStoreEmployees(storeId));
+    }
+
+    // ==================== 员工邀请（按手机号，需员工确认） ====================
+
+    /**
+     * 按手机号邀请员工加入门店（可一次邀请多个角色）
+     * <p>
+     * 邀请不会立即赋权：系统会给该手机号对应的用户发一条待确认通知，
+     * 员工在通知中心点「同意」后才真正写入角色绑定；未确认前在员工列表显示「待确认」。
+     */
+    @SaCheckLogin
+    @PostMapping("/store/staff/invite")
+    public ResponseDetails inviteStaff(@Valid @RequestBody StaffInviteDto dto) {
+        storeAuthHelper.checkStoreOwner(dto.getStoreId());
+        NotificationData notification = notificationService.inviteStaff(
+                dto.getStoreId(), dto.getPhone(), dto.getRoleIds(), StpUtil.getLoginIdAsLong());
+        return ResponseDetails.ok()
+                .put("data", notification)
+                .put("message", "邀请已发送，等待员工确认");
+    }
+
+    /**
+     * 撤销待确认的员工邀请
+     */
+    @SaCheckLogin
+    @PostMapping("/store/staff/invite/cancel")
+    public ResponseDetails cancelStaffInvite(@RequestParam Long storeId,
+                                             @RequestParam Long notificationId) {
+        storeAuthHelper.checkStoreOwner(storeId);
+        notificationService.cancelStaffInvite(notificationId, storeId, StpUtil.getLoginIdAsLong());
+        return ResponseDetails.ok().put("message", "邀请已撤销");
     }
 
     /**

@@ -34,7 +34,8 @@ public enum RbacPermissionCode {
     ROLE_STORE_MANAGE("role:store:manage", "店面角色管理", "role", RoleDomainEnum.STORE, "管理店面内角色，分配店面角色给员工", 16),
     MEMBER_MANAGE("member:manage", "会员管理", "member", RoleDomainEnum.STORE, "管理门店会员、积分及流水", 17),
     COUPON_MANAGE("coupon:manage", "优惠券管理", "coupon", RoleDomainEnum.STORE, "创建、发放、启停门店优惠券", 18),
-    COUPON_VIEW("coupon:view", "查看优惠券", "coupon", RoleDomainEnum.STORE, "查看门店优惠券与券码", 19);
+    COUPON_VIEW("coupon:view", "查看优惠券", "coupon", RoleDomainEnum.STORE, "查看门店优惠券与券码", 19),
+    KITCHEN_MANAGE("kitchen:manage", "后厨出餐", "kitchen", RoleDomainEnum.STORE, "查看后厨待制作队列并标记菜品出餐", 20);
 
     private final String code;
     private final String name;

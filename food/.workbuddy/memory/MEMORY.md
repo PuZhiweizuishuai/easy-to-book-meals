@@ -35,7 +35,14 @@
   **禁止回写 UserData**，否则污染账号昵称并跨店串数据
 - 同一手机号在 A/B 店各有一条 membership，昵称互不影响
 
+## 数据报表
+- 后端 `ReportService` / `ReportController`（`/api/manage/report`，权限 stats:store）
+- 口径：营业额=已完成订单实付；客单价=实付/已完成单；畅销榜排除退菜；按 createTime 归属营业日
+- 聚合放内存做（避免 native SQL 日期方言差异），明细按 500 单分批查
+
 ## 前端可复用组件
+- `components/chart/EChart.vue`：echarts 按需引入（core + line/bar + grid/tooltip/legend + canvas），
+  ResizeObserver 自适应、卸载 dispose。echarts 已在 vite manualChunks 中单独分包
 - `components/dish/SkuPickerModal.vue`：规格分组单选 + 数量 + 价格；props(dish, confirmText, boxClass)、
   emits(close, confirm, loaded)、header 插槽。已被协助下单 / 加菜 / 顾客端点餐三处复用
 - **坑**：SkuPickerModal 内部必须 `watch(() => props.dish?.id)`，不能 watch 整个 dish 对象——

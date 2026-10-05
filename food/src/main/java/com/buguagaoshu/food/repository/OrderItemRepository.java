@@ -2,6 +2,8 @@ package com.buguagaoshu.food.repository;
 
 import com.buguagaoshu.food.data.OrderItem;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -20,4 +22,11 @@ public interface OrderItemRepository extends JpaRepository<OrderItem, Long> {
      * 批量查询多个订单的明细（避免 N+1 查询）
      */
     List<OrderItem> findByOrderIdIn(Collection<Long> orderIds);
+
+    /**
+     * 批量查询多个订单的正常明细（报表统计用，排除已退菜）
+     */
+    @Query("SELECT i FROM OrderItem i WHERE i.orderId IN :orderIds " +
+            "AND i.status = 0 ORDER BY i.createTime ASC")
+    List<OrderItem> findNormalItemsByOrderIds(@Param("orderIds") Collection<Long> orderIds);
 }

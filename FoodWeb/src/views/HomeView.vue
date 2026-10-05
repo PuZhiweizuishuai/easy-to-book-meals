@@ -21,6 +21,7 @@
 
       <div class="flex-none gap-2">
         <template v-if="authStore.isLoggedIn">
+          <NotificationBell />
           <router-link to="/my/orders" class="btn btn-ghost btn-sm">我的订单</router-link>
           <!-- 有门店角色的用户显示管理入口 -->
           <router-link
@@ -37,6 +38,7 @@
             <ul tabindex="0" class="mt-2 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-44 border border-base-200">
               <li class="px-3 py-1.5 text-xs text-base-content/50">{{ authStore.nickname || '未设置昵称' }}</li>
               <li><router-link to="/my/orders">我的订单</router-link></li>
+              <li><router-link to="/my/notifications">消息通知</router-link></li>
               <li v-if="canManageStore"><router-link to="/admin">门店管理</router-link></li>
               <li><a class="text-error" @click.prevent="handleLogout">退出登录</a></li>
             </ul>
@@ -130,6 +132,7 @@ import { httpGet, isSuccess, parsePage } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
 import Pagination from '@/components/common/Pagination.vue'
+import NotificationBell from '@/components/common/NotificationBell.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()

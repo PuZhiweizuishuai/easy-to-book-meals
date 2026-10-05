@@ -12,6 +12,7 @@
   "dependencies": {
     "autoprefixer": "^10.5.0",
     "cropperjs": "^1.6.2",
+    "echarts": "^6.1.0",
     "filepond": "^4.32.12",
     "filepond-plugin-file-validate-size": "^2.2.8",
     "filepond-plugin-file-validate-type": "^1.2.9",

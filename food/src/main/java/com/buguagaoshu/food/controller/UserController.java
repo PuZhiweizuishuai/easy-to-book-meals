@@ -1,11 +1,18 @@
 package com.buguagaoshu.food.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.stp.StpUtil;
+import com.buguagaoshu.food.data.Membership;
 import com.buguagaoshu.food.data.UserData;
 import com.buguagaoshu.food.dto.ResponseDetails;
+import com.buguagaoshu.food.service.MembershipService;
+import com.buguagaoshu.food.service.OrderService;
 import com.buguagaoshu.food.service.UserDataService;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * 用户控制器
@@ -20,9 +27,15 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserDataService userDataService;
+    private final MembershipService membershipService;
+    private final OrderService orderService;
 
-    public UserController(UserDataService userDataService) {
+    public UserController(UserDataService userDataService,
+                          MembershipService membershipService,
+                          OrderService orderService) {
         this.userDataService = userDataService;
+        this.membershipService = membershipService;
+        this.orderService = orderService;
     }
 
     /**
@@ -58,5 +71,68 @@ public class UserController {
         UserData user = userDataService.findUserWithRolesAndPermissions(id);
         user.setPassword(null);
         return ResponseDetails.ok().put("data", user);
+    }
+
+    /**
+     * 查询当前登录用户在指定门店的会员信息（顾客端，无需 member:manage 权限）
+     * <p>
+     * 用于顾客下单/结算页自动同步会员信息：
+     * <ul>
+     *   <li>优先按当前用户档案手机号在本店查会员记录</li>
+     *   <li>手机号为空时按 userId 关联（早期数据可能用 userId 关联）</li>
+     *   <li>查无记录返回 membership=null，前端按「非会员」展示，下单后自动建档</li>
+     * </ul>
+     * 返回内容已脱敏：手机号中间四位用 **** 替换；不含任何敏感备注字段。
+     *
+     * @param storeId 门店ID
+     */
+    @SaCheckLogin
+    @GetMapping("/me/membership")
+    public ResponseDetails myMembership(@RequestParam Long storeId) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        UserData user = userDataService.findById(userId).orElse(null);
+        String phone = user != null ? user.getPhone() : null;
+
+        Membership m = null;
+        if (phone != null && !phone.isBlank()) {
+            m = membershipService.findByStoreAndPhone(storeId, phone);
+        }
+        if (m == null) {
+            // 手机号未关联会员时，按 userId 兜底查（历史数据可能用 userId 直接关联）
+            var list = membershipService.findByStoreIdAndUserId(storeId, userId);
+            if (!list.isEmpty()) {
+                m = list.get(0);
+            }
+        }
+
+        Map<String, Object> result = new HashMap<>();
+        // 用户档案手机号（脱敏），供前端展示与下单时自动回填
+        result.put("phone", phone);
+        result.put("maskedPhone", maskPhone(phone));
+
+        if (m != null) {
+            Map<String, Object> membership = new HashMap<>();
+            membership.put("id", m.getId());
+            membership.put("nickname", m.getNickname());
+            membership.put("num", m.getNum() != null ? m.getNum() : 0L);
+            // 用餐次数按手机号在本店的订单数实时统计（与店主端口径一致）
+            if (phone != null && !phone.isBlank()) {
+                membership.put("count", orderService.countStoreOrdersByPhone(storeId, phone));
+            } else {
+                membership.put("count", m.getCount() != null ? m.getCount() : 0L);
+            }
+            result.put("membership", membership);
+        } else {
+            result.put("membership", null);
+        }
+        return ResponseDetails.ok().put("data", result);
+    }
+
+    /** 手机号脱敏：138****8888，长度非 11 位则原样返回 */
+    private String maskPhone(String phone) {
+        if (phone == null || phone.length() != 11) {
+            return phone == null ? "" : phone;
+        }
+        return phone.substring(0, 3) + "****" + phone.substring(7);
     }
 }

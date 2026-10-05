@@ -53,7 +53,8 @@ public class RbacDefinition {
                 RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW,
                 RbacPermissionCode.ROLE_STORE_MANAGE,
                 RbacPermissionCode.MEMBER_MANAGE,
-                RbacPermissionCode.COUPON_MANAGE, RbacPermissionCode.COUPON_VIEW
+                RbacPermissionCode.COUPON_MANAGE, RbacPermissionCode.COUPON_VIEW,
+                RbacPermissionCode.KITCHEN_MANAGE
         ));
         map.put(RbacRoleCode.STORE_CASHIER, List.of(
                 RbacPermissionCode.ORDER_MANAGE, RbacPermissionCode.ORDER_VIEW,
@@ -65,7 +66,9 @@ public class RbacDefinition {
         map.put(RbacRoleCode.STORE_KITCHEN, List.of(
                 RbacPermissionCode.ORDER_VIEW,
                 RbacPermissionCode.DISH_VIEW,
-                RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW
+                RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW,
+                // 后厨核心职责：查看待制作队列并标记出餐（不含接单/拒单/结算）
+                RbacPermissionCode.KITCHEN_MANAGE
         ));
         map.put(RbacRoleCode.STORE_WAITER, List.of(
                 RbacPermissionCode.ORDER_VIEW,

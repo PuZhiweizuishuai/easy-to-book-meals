@@ -75,8 +75,11 @@
                 <td>
                   <span v-if="item.status === 1" class="text-base-content/40 text-xs">-</span>
                   <span v-else-if="item.served === 1" class="badge badge-success badge-sm">已出餐</span>
-                  <button v-else-if="editable"
+                  <!-- 出餐前置：订单必须先接单（待接单订单不允许出餐） -->
+                  <button v-else-if="editable && canServe"
                           class="btn btn-warning btn-xs" :disabled="busy" @click="emit('serve', item)">出餐</button>
+                  <span v-else-if="editable && !canServe"
+                        class="badge badge-ghost badge-sm" title="订单接单后才能出餐">待接单</span>
                   <span v-else class="badge badge-ghost badge-sm">未出餐</span>
                 </td>
                 <td v-if="editable" class="text-right pr-2">
@@ -151,6 +154,20 @@ const displayStatus = computed(() => {
   const items = props.order.items || []
   const allServed = items.length > 0 && items.every(i => i.status === 1 || i.served === 1)
   return allServed ? 3 : 2
+})
+
+/**
+ * 是否允许对该订单的菜品出餐
+ * <p>
+ * 出餐前置条件：订单必须已接单（待接单订单不允许出餐）。
+ * 仅已接单(1)/制作中(2)/已出餐(3，加菜后回退场景) 可出餐；
+ * 待接单(0)、已完成(4)、已取消(5) 不允许。
+ * 与后端 OrderService.serveOrderItem 的 PENDING 校验保持一致。
+ */
+const canServe = computed(() => {
+  if (!props.order) return false
+  const status = props.order.status
+  return status === 1 || status === 2 || status === 3
 })
 
 /** 数量/重量展示格式化：去掉多余的小数尾零（1.600 -> 1.6，2.000 -> 2） */

@@ -6,6 +6,7 @@ import com.buguagaoshu.food.data.*;
 import com.buguagaoshu.food.enums.RoleDomainEnum;
 import com.buguagaoshu.food.enums.RbacRoleCode;
 import com.buguagaoshu.food.exception.BusinessException;
+import com.buguagaoshu.food.repository.NotificationRepository;
 import com.buguagaoshu.food.repository.UserDataRepository;
 import com.buguagaoshu.food.utils.PasswordUtil;
 import org.springframework.data.domain.Page;
@@ -35,15 +36,18 @@ public class UserDataService {
     private final UserRoleDataService userRoleDataService;
     private final RoleDataService roleDataService;
     private final StoreService storeService;
+    private final NotificationRepository notificationRepository;
 
     public UserDataService(UserDataRepository userDataRepository,
                            UserRoleDataService userRoleDataService,
                            RoleDataService roleDataService,
-                           StoreService storeService) {
+                           StoreService storeService,
+                           NotificationRepository notificationRepository) {
         this.userDataRepository = userDataRepository;
         this.userRoleDataService = userRoleDataService;
         this.roleDataService = roleDataService;
         this.storeService = storeService;
+        this.notificationRepository = notificationRepository;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -307,20 +311,39 @@ public class UserDataService {
     }
 
     /**
-     * 查询门店员工列表（含用户信息与角色信息）
-     * 用于店主端的员工管理页面
+     * 查询门店员工列表（按员工聚合，含已生效角色与待确认邀请）
+     * <p>
+     * 用于店主端员工管理页面。每个员工一行，包含：
+     * <ul>
+     *   <li>{@code roles}：已生效的角色（员工已确认，可正常使用门店功能）</li>
+     *   <li>{@code pendingRoles}：待确认的角色（邀请已发出但员工尚未同意，不具备任何权限）</li>
+     *   <li>{@code pending}：是否存在待确认邀请，前端据此展示「待确认」标记与撤销按钮</li>
+     * </ul>
+     * 支持一个员工拥有多个角色（如同时是服务员与收银员）。
      */
     public List<Map<String, Object>> listStoreEmployees(Long storeId) {
         List<UserRoleData> storeRoles = userRoleDataService.findByStoreId(storeId);
-        if (storeRoles.isEmpty()) {
+        List<NotificationData> pendingInvites = notificationRepository.findByStoreIdAndTypeAndStatus(
+                storeId, NotificationData.TYPE_STAFF_INVITE, NotificationData.STATUS_PENDING);
+        if (storeRoles.isEmpty() && pendingInvites.isEmpty()) {
             return new ArrayList<>();
         }
 
-        // 批量查询用户信息与角色信息，避免 N+1
-        Set<Long> userIds = new LinkedHashSet<>();
+        // 已生效角色按员工分组
+        Map<Long, List<UserRoleData>> rolesByUser = new LinkedHashMap<>();
         for (UserRoleData ur : storeRoles) {
-            userIds.add(ur.getUserId());
+            rolesByUser.computeIfAbsent(ur.getUserId(), k -> new ArrayList<>()).add(ur);
         }
+        // 待确认邀请按员工索引（同店同人最多一条待处理邀请）
+        Map<Long, NotificationData> inviteByUser = new LinkedHashMap<>();
+        for (NotificationData n : pendingInvites) {
+            inviteByUser.putIfAbsent(n.getUserId(), n);
+        }
+
+        // 批量查询用户信息，避免 N+1
+        Set<Long> userIds = new LinkedHashSet<>();
+        userIds.addAll(rolesByUser.keySet());
+        userIds.addAll(inviteByUser.keySet());
         Map<Long, UserData> userMap = new HashMap<>();
         for (UserData u : userDataRepository.findAllById(userIds)) {
             u.setPassword(null);
@@ -328,14 +351,11 @@ public class UserDataService {
         }
 
         List<Map<String, Object>> result = new ArrayList<>();
-        for (UserRoleData ur : storeRoles) {
+        for (Long userId : userIds) {
+            UserData user = userMap.get(userId);
             Map<String, Object> item = new LinkedHashMap<>();
-            item.put("id", ur.getId());
-            item.put("userId", ur.getUserId());
-            item.put("roleId", ur.getRoleId());
-            item.put("storeId", ur.getStoreId());
-
-            UserData user = userMap.get(ur.getUserId());
+            item.put("userId", userId);
+            item.put("storeId", storeId);
             if (user != null) {
                 item.put("nickname", user.getNickname());
                 item.put("phone", user.getPhone());
@@ -343,13 +363,50 @@ public class UserDataService {
                 item.put("userStatus", user.getStatus());
             }
 
-            RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
-            if (role != null) {
-                item.put("roleName", role.getRoleName());
-                item.put("roleCode", role.getRoleCode());
+            // 已生效角色
+            List<Map<String, Object>> roles = new ArrayList<>();
+            for (UserRoleData ur : rolesByUser.getOrDefault(userId, List.of())) {
+                Map<String, Object> roleVo = new LinkedHashMap<>();
+                roleVo.put("userRoleId", ur.getId());
+                roleVo.put("roleId", ur.getRoleId());
+                RoleData role = RolePermissionCache.ROLE_MAP.get(ur.getRoleId());
+                if (role != null) {
+                    roleVo.put("roleName", role.getRoleName());
+                    roleVo.put("roleCode", role.getRoleCode());
+                }
+                roles.add(roleVo);
             }
+            item.put("roles", roles);
+
+            // 待确认邀请
+            NotificationData invite = inviteByUser.get(userId);
+            List<Map<String, Object>> pendingRoles = new ArrayList<>();
+            if (invite != null) {
+                for (String raw : (invite.getRoleIds() == null ? "" : invite.getRoleIds()).split(",")) {
+                    if (raw.isBlank()) {
+                        continue;
+                    }
+                    Long roleId = Long.valueOf(raw.trim());
+                    RoleData role = RolePermissionCache.ROLE_MAP.get(roleId);
+                    if (role == null) {
+                        continue;
+                    }
+                    Map<String, Object> roleVo = new LinkedHashMap<>();
+                    roleVo.put("roleId", roleId);
+                    roleVo.put("roleName", role.getRoleName());
+                    roleVo.put("roleCode", role.getRoleCode());
+                    pendingRoles.add(roleVo);
+                }
+                item.put("notificationId", invite.getId());
+                item.put("inviteTime", invite.getCreateTime());
+                item.put("inviterName", invite.getInviterName());
+            }
+            item.put("pendingRoles", pendingRoles);
+            item.put("pending", invite != null);
             result.add(item);
         }
+        // 待确认的排前面，便于店主关注未完成的邀请
+        result.sort(Comparator.comparing(m -> !(Boolean) m.get("pending")));
         return result;
     }
 

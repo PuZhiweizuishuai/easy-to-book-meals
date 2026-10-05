@@ -37,6 +37,15 @@ const router = createRouter({
       component: () => import('@/views/customer/MyOrders.vue'),
       meta: { requiresAuth: true },
     },
+    // 消息通知（仅需登录，不限角色）
+    // 被邀请的员工在确认前还没有任何门店角色，若挂在 /admin 下会被路由守卫挡在外面，
+    // 导致永远看不到邀请、无法确认，因此独立成登录即可访问的页面。
+    {
+      path: '/my/notifications',
+      name: 'myNotifications',
+      component: () => import('@/views/customer/NotificationsView.vue'),
+      meta: { requiresAuth: true },
+    },
     {
       path: '/test',
       name: 'test',
@@ -74,6 +83,15 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             permissions: ['order:manage', 'order:view'],
+          },
+        },
+        {
+          path: 'kitchen',
+          name: 'kitchen',
+          component: () => import('@/views/admin/KitchenView.vue'),
+          meta: {
+            requiresAuth: true,
+            permissions: ['kitchen:manage', 'order:manage', 'order:view'],
           },
         },
         {
@@ -146,6 +164,15 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             permissions: ['member:manage'],
+          },
+        },
+        {
+          path: 'reports',
+          name: 'reports',
+          component: () => import('@/views/admin/DataReport.vue'),
+          meta: {
+            requiresAuth: true,
+            permissions: ['stats:store'],
           },
         },
         {

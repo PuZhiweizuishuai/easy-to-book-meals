@@ -60,6 +60,7 @@
         </div>
 
         <div class="flex-none gap-4">
+          <NotificationBell />
           <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
               <div class="bg-neutral text-neutral-content w-8 rounded-full">
@@ -73,6 +74,9 @@
               <div class="divider my-0"></div>
               <li>
                 <router-link to="/">前台首页</router-link>
+              </li>
+              <li>
+                <router-link to="/my/notifications">消息通知</router-link>
               </li>
               <li>
                 <a class="text-error hover:bg-error/10" @click.prevent="handleLogout">退出登录</a>
@@ -183,6 +187,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useStoreContext } from '@/stores/storeContext'
 import toast from '@/utils/toast'
 import ImageUpload from '@/components/upload/ImageUpload.vue'
+import NotificationBell from '@/components/common/NotificationBell.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -287,6 +292,15 @@ const menuItems = [
     icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" /></svg>`
   },
   {
+    path: '/admin/kitchen',
+    label: '后厨出餐',
+    permissions: ['kitchen:manage', 'order:manage', 'order:view'],
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.505 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.505 18 9.473 18 10.608v2.513M15 8.25v-1.5m-6 1.5v-1.5m0 1.5h6m-6 0h6m-3 0V6.375c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125v1.875M6 13.121V17.25m12-4.129V17.25M6.75 20.25h10.5a2.25 2.25 0 0 0 2.25-2.25V6.75a2.25 2.25 0 0 0-2.25-2.25H6.75A2.25 2.25 0 0 0 4.5 6.75v11.25a2.25 2.25 0 0 0 2.25 2.25Z" />
+</svg>
+`
+  },
+  {
     path: '/admin/dishes',
     label: '菜品管理',
     permissions: ['dish:view'],
@@ -314,6 +328,15 @@ const menuItems = [
     permissions: ['member:manage'],
     icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
   <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+</svg>
+`
+  },
+  {
+    path: '/admin/reports',
+    label: '数据报表',
+    permissions: ['stats:store'],
+    icon: `<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" class="size-6">
+  <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
 </svg>
 `
   },

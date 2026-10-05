@@ -105,4 +105,35 @@ public interface OrderDataRepository extends JpaRepository<OrderData, Long> {
      * 统计门店某手机号的消费记录数量（会员用餐次数）
      */
     long countByStoreIdAndContactPhone(Long storeId, String contactPhone);
+
+    /**
+     * 查询门店指定时间区间内的订单（左闭右开，报表统计用）
+     * <p>
+     * 只返回报表需要的字段以控制内存：金额、时间、状态、优惠、联系电话。
+     */
+    @Query("SELECT o.id, o.orderNo, o.createTime, o.status, o.payAmount, o.totalAmount, " +
+            "o.discountAmount, o.couponAmount, o.manualDiscountAmount, o.contactPhone " +
+            "FROM OrderData o WHERE o.storeId = :storeId " +
+            "AND o.createTime >= :start AND o.createTime < :end " +
+            "ORDER BY o.createTime ASC")
+    List<Object[]> findOrdersBetween(@Param("storeId") Long storeId,
+                                     @Param("start") Long start,
+                                     @Param("end") Long end);
+
+    /**
+     * 统计门店历史累计营业额（全部已完成订单）
+     */
+    @Query("SELECT COALESCE(SUM(o.payAmount), 0) FROM OrderData o " +
+            "WHERE o.storeId = :storeId AND o.status = 4")
+    BigDecimal sumTotalRevenue(@Param("storeId") Long storeId);
+
+    /**
+     * 后厨队列：查询门店已接单（含制作中/已出餐后加菜）且尚未完成的订单
+     * <p>
+     * 按接单时间升序（未接单的用下单时间兜底），保证先接单先制作。
+     * 不含待接单（后厨未确认不进入队列）、已完成、已取消订单。
+     */
+    @Query("SELECT o FROM OrderData o WHERE o.storeId = :storeId AND o.status IN (1, 2, 3) " +
+            "ORDER BY COALESCE(o.confirmTime, o.createTime) ASC")
+    List<OrderData> findKitchenOrders(@Param("storeId") Long storeId);
 }

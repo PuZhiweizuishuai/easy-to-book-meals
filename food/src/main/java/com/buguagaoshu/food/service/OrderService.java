@@ -35,7 +35,9 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ThreadLocalRandom;
@@ -311,6 +313,87 @@ public class OrderService {
     }
 
     /**
+     * 开始制作（认领菜品）：标记某个菜品由当前操作员制作
+     * <p>
+     * 认领后该菜品从其他人的待制作列表中消失，仅对认领人可见。
+     * 已出餐或已被他人认领的菜品不可重复认领。
+     *
+     * @param itemId  订单明细ID
+     * @param storeId 门店ID（权限校验）
+     * @param userId  当前操作人ID
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public OrderData startPreparingItem(Long itemId, Long storeId, Long userId) {
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> new BusinessException(404, "菜品明细不存在"));
+        if (item.getStatus() != null && item.getStatus() == OrderItem.STATUS_CANCELLED) {
+            throw new BusinessException(400, "该菜品已退菜，无法制作");
+        }
+        if (item.getServed() != null && item.getServed() == 1) {
+            throw new BusinessException(400, "该菜品已出餐");
+        }
+        if (item.getPreparingBy() != null && !item.getPreparingBy().equals(userId)) {
+            throw new BusinessException(400, "该菜品已被其他人认领制作");
+        }
+        if (item.getPreparingBy() != null && item.getPreparingBy().equals(userId)) {
+            throw new BusinessException(400, "您已开始制作该菜品");
+        }
+        OrderData order = orderDataRepository.findById(item.getOrderId())
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if (!order.getStoreId().equals(storeId)) {
+            throw new BusinessException(403, "订单不属于该门店");
+        }
+        OrderStatus current = OrderStatus.fromCode(order.getStatus());
+        if (current == OrderStatus.PENDING) {
+            throw new BusinessException(400, "订单尚未接单，请先接单后再制作");
+        }
+        if (current == OrderStatus.COMPLETED || current == OrderStatus.CANCELLED) {
+            throw new BusinessException(400, "订单当前状态为「" + current.getName() + "」，无法制作");
+        }
+
+        item.setPreparingBy(userId);
+        item.setPreparingTime(System.currentTimeMillis());
+        orderItemRepository.save(item);
+        logger.info("开始制作: orderNo={}, itemName={}, operator={}",
+                order.getOrderNo(), item.getDishName(), userId);
+
+        // 推进订单到制作中（如果还在已接单状态）
+        if (current == OrderStatus.CONFIRMED) {
+            order.setStatus(OrderStatus.COOKING.getCode());
+            orderDataRepository.save(order);
+        }
+
+        List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
+        order.setItems(allItems);
+        return order;
+    }
+
+    /**
+     * 释放制作（取消认领）：将菜品退回待制作队列
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void releasePreparingItem(Long itemId, Long storeId, Long userId) {
+        OrderItem item = orderItemRepository.findById(itemId)
+                .orElseThrow(() -> new BusinessException(404, "菜品明细不存在"));
+        if (item.getPreparingBy() == null) {
+            throw new BusinessException(400, "该菜品尚未被认领");
+        }
+        if (!item.getPreparingBy().equals(userId)) {
+            throw new BusinessException(403, "只能释放自己认领的菜品");
+        }
+        OrderData order = orderDataRepository.findById(item.getOrderId())
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if (!order.getStoreId().equals(storeId)) {
+            throw new BusinessException(403, "订单不属于该门店");
+        }
+        item.setPreparingBy(null);
+        item.setPreparingTime(null);
+        orderItemRepository.save(item);
+        logger.info("释放制作: orderNo={}, itemName={}, operator={}",
+                order.getOrderNo(), item.getDishName(), userId);
+    }
+
+    /**
      * 菜品级出餐：标记单个订单明细为已出餐
      * <p>
      * 当该订单所有正常明细均 served=1 时，自动把订单状态推进到「已出餐(READY)」。
@@ -338,13 +421,137 @@ public class OrderService {
         if (current == OrderStatus.COMPLETED || current == OrderStatus.CANCELLED) {
             throw new BusinessException(400, "订单当前状态为「" + current.getName() + "」，无法出餐");
         }
+        // 出餐前置条件：订单必须先接单（后厨确认接单后才开始制作）
+        // 避免「顾客刚下单、门店还没确认」就被标记出餐，导致制作流程与状态机脱节
+        if (current == OrderStatus.PENDING) {
+            throw new BusinessException(400, "订单尚未接单，请先接单后再出餐");
+        }
 
         item.setServed(1);
         orderItemRepository.save(item);
         logger.info("菜品出餐: orderNo={}, itemName={}, quantity={}",
                 order.getOrderNo(), item.getDishName(), item.getQuantity());
 
-        // 依据菜品出餐情况同步推进订单状态（未接单直接出餐也能流转到可结算状态）
+        // 依据菜品出餐情况同步推进订单状态
+        List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
+        if (syncOrderStatusByItems(order, allItems)) {
+            orderDataRepository.save(order);
+        }
+        order.setItems(allItems);
+        return order;
+    }
+
+    /**
+     * 后厨待制作队列（KDS：Kitchen Display System）
+     * <p>
+     * 返回<b>已接单且未出餐</b>的单个菜品扁平列表，按菜品下单时间
+     * （{@code OrderItem.createTime}）升序排序——先下单先做，FIFO。
+     * <p>
+     * 采用「菜品维度」而非「订单分组」展示：
+     * <ul>
+     *   <li>顾客加菜时，新加的菜品有自己的 createTime，会自然排到队列后面，
+     *       不会和原订单菜品混在一起造成遗漏</li>
+     *   <li>后厨只关注「下一道要做的菜」，按订单分组反而割裂视线</li>
+     *   <li>每条记录自带所属订单信息（订单号、桌号、类型、备注、手机号）</li>
+     * </ul>
+     * 业界 KDS 实践：
+     * <ul>
+     *   <li>未接单（PENDING）订单不进入后厨，避免顾客刚下单后厨就开工后又被拒单</li>
+     *   <li>已完成/已取消订单不进入队列</li>
+     *   <li>退菜明细（status=1）不进入队列</li>
+     *   <li>只取 status=0(served=0) 的正常未出餐菜品</li>
+     * </ul>
+     * <p>
+     * 等待时长以菜品 createTime 起算（接单后加的菜品等待从加菜时刻开始计）。
+     *
+     * @param storeId 门店ID
+     * @return 扁平菜品列表，每条含菜品与所属订单信息
+     */
+    public List<Map<String, Object>> kitchenQueue(Long storeId, Long userId) {
+        List<OrderData> orders = orderDataRepository.findKitchenOrders(storeId);
+        fillOrderItems(orders);
+        long now = System.currentTimeMillis();
+        List<Map<String, Object>> queue = new ArrayList<>();
+        for (OrderData order : orders) {
+            List<OrderItem> pending = order.getItems() == null
+                    ? List.of()
+                    : order.getItems().stream()
+                    .filter(i -> i.getStatus() != null && i.getStatus() == OrderItem.STATUS_NORMAL)
+                    .filter(i -> i.getServed() == null || i.getServed() == 0)
+                    // 过滤掉被其他人认领的菜品：只展示无人认领或自己认领的
+                    .filter(i -> i.getPreparingBy() == null || i.getPreparingBy().equals(userId))
+                    .toList();
+            if (pending.isEmpty()) {
+                continue;
+            }
+            for (OrderItem i : pending) {
+                Map<String, Object> vo = new LinkedHashMap<>();
+                // 菜品信息
+                vo.put("itemId", i.getId());
+                vo.put("dishName", i.getDishName());
+                vo.put("specNames", i.getSpecNames());
+                vo.put("quantity", i.getQuantity());
+                vo.put("topImage", i.getTopImage());
+                vo.put("addedLater", i.getAddedLater());
+                vo.put("itemCreateTime", i.getCreateTime());
+                // 菜品已等待时长：以菜品 createTime 起算
+                vo.put("waitedMinutes", (now - i.getCreateTime()) / 60_000);
+                // 制作状态：null=待制作(无人认领), 非null=制作中(已认领)
+                vo.put("preparingBy", i.getPreparingBy());
+                vo.put("preparingTime", i.getPreparingTime());
+                vo.put("isMine", i.getPreparingBy() != null && i.getPreparingBy().equals(userId));
+                // 所属订单信息（供后厨联系服务员/顾客）
+                vo.put("orderId", order.getId());
+                vo.put("orderNo", order.getOrderNo());
+                vo.put("orderType", order.getOrderType());
+                vo.put("tableNumber", order.getTableNumber());
+                vo.put("remark", order.getRemark());
+                vo.put("contactPhone", order.getContactPhone());
+                vo.put("status", order.getStatus());
+                queue.add(vo);
+            }
+        }
+        // 排序：我认领的排前面（制作中优先展示），其余按 createTime 升序
+        queue.sort(Comparator
+                .<Map<String, Object>, Boolean>comparing(m -> !(Boolean) m.get("isMine"))
+                .thenComparing(m -> (Long) m.get("itemCreateTime")));
+        return queue;
+    }
+
+    /**
+     * 整单出餐：一次性把该订单所有未出餐的正常明细标记为已出餐（后厨批量完成）
+     * <p>
+     * 内部复用单个菜品出餐逻辑，保证状态推进与库存/餐桌处理一致。
+     *
+     * @return 更新后的订单详情
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public OrderData serveAllOrderItems(Long orderId, Long storeId) {
+        OrderData order = orderDataRepository.findById(orderId)
+                .orElseThrow(() -> new BusinessException(404, "订单不存在"));
+        if (!order.getStoreId().equals(storeId)) {
+            throw new BusinessException(403, "订单不属于该门店");
+        }
+        OrderStatus current = OrderStatus.fromCode(order.getStatus());
+        if (current == OrderStatus.COMPLETED || current == OrderStatus.CANCELLED) {
+            throw new BusinessException(400, "订单当前状态为「" + current.getName() + "」，无法出餐");
+        }
+        if (current == OrderStatus.PENDING) {
+            throw new BusinessException(400, "订单尚未接单，请先接单后再出餐");
+        }
+        List<OrderItem> pending = orderItemRepository.findByOrderId(order.getId()).stream()
+                .filter(i -> i.getStatus() != null && i.getStatus() == OrderItem.STATUS_NORMAL)
+                .filter(i -> i.getServed() == null || i.getServed() == 0)
+                .toList();
+        if (pending.isEmpty()) {
+            throw new BusinessException(400, "该订单没有待出餐的菜品");
+        }
+        for (OrderItem item : pending) {
+            item.setServed(1);
+        }
+        orderItemRepository.saveAll(pending);
+        logger.info("整单出餐: orderNo={}, items={}", order.getOrderNo(), pending.size());
+
         List<OrderItem> allItems = orderItemRepository.findByOrderId(order.getId());
         if (syncOrderStatusByItems(order, allItems)) {
             orderDataRepository.save(order);

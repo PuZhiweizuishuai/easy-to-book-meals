@@ -127,6 +127,16 @@ public class OrderItem {
     private Integer addedLater = 0;
 
     /**
+     * 开始制作的操作人ID（null 表示尚无人认领）
+     */
+    private Long preparingBy;
+
+    /**
+     * 开始制作的时间戳
+     */
+    private Long preparingTime;
+
+    /**
      * 明细创建时间（用于加菜批次排序展示）
      */
     @Column(nullable = false, updatable = false)

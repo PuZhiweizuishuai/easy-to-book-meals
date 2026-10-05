@@ -309,14 +309,22 @@
           <div v-else class="text-sm text-base-content/60">
             订单类型：<span class="badge badge-info badge-sm">线上订单</span>
           </div>
-          <!-- 手机号：仅扫码堂食展示；首次下单填写用于关联会员积分，已有订单且已关联时只展示 -->
-          <div v-if="cart.isDineInScan" class="form-control">
+          <!-- 会员信息同步：所有订单类型均展示。
+               登录用户自动从账号档案带出手机号并查询本店会员；
+               扫码堂食免登录用户从本地缓存回填，可手填。
+               已关联会员时展示昵称/积分/用餐次数，便于顾客确认。 -->
+          <div class="form-control">
             <label class="label">
-              <span class="label-text">手机号{{ needPhone ? '' : '（已关联）' }}</span>
-              <span v-if="!needPhone" class="label-text-alt text-success">已关联会员</span>
+              <span class="label-text">手机号{{ membershipInfo ? '（已关联会员）' : '' }}</span>
+              <span v-if="membershipInfo" class="label-text-alt text-success">本店会员</span>
             </label>
+            <!-- 已关联会员或档案手机号已带出且不可改：只读展示 -->
+            <div v-if="lockedPhoneDisplay" class="input input-bordered w-full flex items-center font-mono text-base-content/70">
+              {{ lockedPhoneDisplay }}
+            </div>
+            <!-- 可编辑（扫码堂食首次填写 / 登录用户档案无手机号） -->
             <input
-              v-if="needPhone"
+              v-else
               v-model.trim="guestPhone"
               type="tel"
               inputmode="numeric"
@@ -324,12 +332,17 @@
               class="input input-bordered w-full font-mono"
               placeholder="选填，填写后结算可累积会员积分"
             />
-            <div v-else class="input input-bordered w-full flex items-center font-mono text-base-content/70">
-              {{ maskedOrderPhone }}
+            <!-- 会员信息卡片 -->
+            <div v-if="membershipInfo" class="mt-2 bg-primary/5 border border-primary/20 rounded-lg p-2 text-xs">
+              <div class="flex items-center justify-between">
+                <span class="font-medium">{{ membershipInfo.nickname || '会员' }}</span>
+                <span class="badge badge-primary badge-sm">{{ membershipInfo.num ?? 0 }} 积分</span>
+              </div>
+              <div class="text-base-content/50 mt-0.5">本店消费 {{ membershipInfo.count ?? 0 }} 次</div>
             </div>
             <label class="label">
               <span class="label-text-alt text-base-content/40">
-                {{ needPhone ? '选填，仅用于本店会员积分，结算后生效' : '如需修改请联系店家' }}
+                {{ membershipInfo ? '如需修改请联系店家' : '选填，仅用于本店会员积分，结算后生效' }}
               </span>
             </label>
           </div>
@@ -420,8 +433,66 @@ const maskedOrderPhone = computed(() => {
   return p.length === 11 ? `${p.slice(0, 3)}****${p.slice(7)}` : p
 })
 
+/**
+ * 当前登录用户在本店的会员信息（顾客端自动同步）
+ * <p>
+ * - 登录用户打开结算弹窗时自动调用 /user/me/membership 查询
+ * - 返回 { phone, maskedPhone, membership: { nickname, num, count } | null }
+ * - membership 为 null 表示该手机号在本店尚无会员记录，下单结算后会自动建档
+ */
+const membershipInfo = ref(null)
+/** 后端返回的脱敏手机号（登录用户档案手机号，已脱敏） */
+const membershipMaskedPhone = ref('')
+/** 会员信息查询中 */
+const membershipLoading = ref(false)
+
+/**
+ * 结算弹窗中"手机号"字段的只读展示值：
+ * - 已关联订单手机号（加菜场景）→ 用订单手机号脱敏
+ * - 登录用户档案有手机号 → 用后端返回的脱敏手机号
+ * - 否则返回空串，走可编辑 input 分支
+ */
+const lockedPhoneDisplay = computed(() => {
+  if (orderPhone.value) return maskedOrderPhone.value
+  if (membershipMaskedPhone.value) return membershipMaskedPhone.value
+  return ''
+})
+
 /** 手机号格式校验（中国大陆 11 位） */
 const isValidPhone = (phone) => /^1[3-9]\d{9}$/.test(phone)
+
+/**
+ * 查询当前登录用户在本店的会员信息（自动同步）
+ * <p>
+ * 仅登录用户调用；扫码堂食免登录用户跳过（走 localStorage 缓存回填）。
+ * 查询失败（如未登录）静默处理，不阻塞结算流程。
+ */
+const fetchMyMembership = async () => {
+  if (!authStore.isLoggedIn) {
+    membershipInfo.value = null
+    membershipMaskedPhone.value = ''
+    return
+  }
+  membershipLoading.value = true
+  try {
+    const res = await httpGet(`/user/me/membership?storeId=${storeId}`)
+    if (isSuccess(res) && res.data) {
+      membershipInfo.value = res.data.membership || null
+      membershipMaskedPhone.value = res.data.maskedPhone || ''
+      // 登录用户档案手机号自动回填到 guestPhone，下单时直接带上
+      if (res.data.phone && !guestPhone.value) {
+        guestPhone.value = res.data.phone
+      }
+    }
+  } catch (e) {
+    // 查询失败不阻塞结算，按非会员处理
+    if (e?.type === 'UNAUTHORIZED') return
+    membershipInfo.value = null
+    membershipMaskedPhone.value = ''
+  } finally {
+    membershipLoading.value = false
+  }
+}
 
 /** 分类列表（全部 + 菜品实际出现的分类） */
 const categories = computed(() => {
@@ -587,13 +658,17 @@ const handleSkuConfirm = ({ sku, quantity = 1, dealPrice, specNamesText }) => {
 }
 
 /** 打开结算（扫码堂食免登录，其它场景需登录） */
-const openCheckout = () => {
+const openCheckout = async () => {
   if (cart.isDineInScan) {
     // 扫码点餐无需登录；首次下单回填本地缓存手机号，减少重复输入
     if (needPhone.value && !guestPhone.value) {
       guestPhone.value = localStorage.getItem(phoneStorageKey) || ''
     }
     showCheckout.value = true
+    // 扫码场景若已登录也顺便查会员（可能账号档案有手机号）
+    if (authStore.isLoggedIn) {
+      fetchMyMembership()
+    }
     return
   }
   if (!authStore.isLoggedIn) {
@@ -601,6 +676,9 @@ const openCheckout = () => {
     router.push({ path: '/login', query: { redirect: route.fullPath } })
     return
   }
+  // 登录用户线上/外送下单：打开结算前自动同步会员信息
+  // 后端会返回档案手机号（脱敏）+ 本店会员记录，自动回填到 guestPhone
+  await fetchMyMembership()
   showCheckout.value = true
 }
 
@@ -620,18 +698,23 @@ const submitOrder = async () => {
   try {
     const items = cart.toOrderItems()
     const isGuest = cart.isDineInScan
-    // 只有尚未关联手机号时才提交（已关联的订单不允许被覆盖）
-    const phoneToSubmit = isGuest && needPhone.value && phone ? phone : null
+    // 手机号提交规则：
+    // - 扫码堂食：仅首次下单（needPhone）且填了才提交，已关联的不覆盖
+    // - 登录用户线上/外送：填了就带（后端 createOrder 会用手机号关联会员、识别回头客）
+    const phone = guestPhone.value.trim()
+    const phoneToSubmit = phone || null
+    // 扫码堂食已关联手机号时不允许覆盖
+    const guestPhoneToSubmit = isGuest && needPhone.value && phone ? phone : null
 
     // 扫码且本桌已有未结算订单 → 自动走加菜
     if (isGuest && currentTableOrder.value) {
       const url = `/order/guest-add-items/${currentTableOrder.value.id}?qrCodeKey=${encodeURIComponent(cart.tableQrCodeKey)}`
-      const res = await httpPost(url, { items, contactPhone: phoneToSubmit || undefined })
+      const res = await httpPost(url, { items, contactPhone: guestPhoneToSubmit || undefined })
       if (isSuccess(res)) {
         showCheckout.value = false
         cart.clear()
         toast.success('加菜成功，等待店家处理')
-        if (phoneToSubmit) localStorage.setItem(phoneStorageKey, phoneToSubmit)
+        if (guestPhoneToSubmit) localStorage.setItem(phoneStorageKey, guestPhoneToSubmit)
         await fetchGuestCurrentOrder()
       } else {
         toast.error(res?.message || '加菜失败')
@@ -644,19 +727,27 @@ const submitOrder = async () => {
       remark: remark.value || null,
       items
     }
-    // 扫码堂食：提交二维码标识 + 手机号，走免登录端点
     if (isGuest) {
+      // 扫码堂食：提交二维码标识 + 手机号，走免登录端点
       payload.qrCodeKey = cart.tableQrCodeKey
       payload.orderType = 0 // 堂食
-      if (phoneToSubmit) payload.contactPhone = phoneToSubmit
+      if (guestPhoneToSubmit) payload.contactPhone = guestPhoneToSubmit
+    } else if (phoneToSubmit) {
+      // 登录用户线上/外送：带手机号关联会员积分
+      payload.contactPhone = phoneToSubmit
     }
     const url = isGuest ? '/order/guest-create' : '/order/create'
     const res = await httpPost(url, payload)
     if (isSuccess(res)) {
+      // 积分预估需在清空购物车前计算（1 元 = 1 积分）
+      const pointsEstimate = Math.floor(cart.totalPrice)
       showCheckout.value = false
       cart.clear()
-      toast.success('下单成功，等待店家接单')
-      if (phoneToSubmit) localStorage.setItem(phoneStorageKey, phoneToSubmit)
+      const tip = membershipInfo.value && pointsEstimate > 0
+        ? `下单成功，结算后可累积 ${pointsEstimate} 会员积分`
+        : '下单成功，等待店家接单'
+      toast.success(tip)
+      if (isGuest && guestPhoneToSubmit) localStorage.setItem(phoneStorageKey, guestPhoneToSubmit)
       // 免登录顾客：加载本桌订单展示，便于继续加菜；登录用户跳订单列表
       if (isGuest) {
         await fetchGuestCurrentOrder()

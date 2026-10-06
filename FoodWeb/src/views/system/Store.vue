@@ -94,6 +94,12 @@
                     <button v-if="store.status === 0 || store.status === 1" class="btn btn-warning btn-xs join-item" :disabled="acting" @click="audit(store, 2, '停业该门店')">停业</button>
                     <!-- 已停业：恢复营业 -->
                     <button v-if="store.status === 2" class="btn btn-success btn-xs join-item" :disabled="acting" @click="audit(store, 0, '恢复营业')">恢复营业</button>
+                    <!-- 超管从店铺管理进入指定门店的经营管理端 -->
+                    <button
+                      v-if="authStore.isSuperAdmin"
+                      class="btn btn-outline btn-xs join-item"
+                      @click="enterManage(store)"
+                    >进入管理</button>
                     <button class="btn btn-ghost btn-xs join-item text-error" :disabled="acting" @click="handleDelete(store)">删除</button>
                   </div>
                 </td>
@@ -130,11 +136,17 @@
 
 <script setup>
 import { ref, onMounted } from 'vue'
+import { useRouter } from 'vue-router'
 import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
+import { useAuthStore } from '@/stores/auth'
+import { useStoreContext } from '@/stores/storeContext'
 import toast from '@/utils/toast'
 import Pagination from '@/components/common/Pagination.vue'
 import { useConfirm } from '@/composables/useConfirm'
 
+const router = useRouter()
+const authStore = useAuthStore()
+const storeContext = useStoreContext()
 const { confirm } = useConfirm()
 
 const loading = ref(false)
@@ -219,6 +231,16 @@ const changePage = (p) => {
   if (p < 1 || p > totalPages.value) return
   page.value = p
   fetchStores()
+}
+
+/**
+ * 超管进入指定门店的经营管理端
+ * 通过 enterStore 建立手动门店上下文（不被门店列表加载覆盖），
+ * 超管在前后端均自动拥有门店权限
+ */
+const enterManage = (store) => {
+  storeContext.enterStore(store)
+  router.push('/admin/dashboard')
 }
 
 /**

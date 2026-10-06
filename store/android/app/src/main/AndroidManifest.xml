@@ -1,6 +1,20 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- 联网：与后端服务通信 -->
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- 震动/通知：新订单、新菜品提醒 -->
+    <uses-permission android:name="android.permission.VIBRATE"/>
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- 扫码：核销优惠券 -->
+    <uses-permission android:name="android.permission.CAMERA"/>
+    <uses-feature
+        android:name="android.hardware.camera"
+        android:required="false"/>
+    <uses-feature
+        android:name="android.hardware.camera.autofocus"
+        android:required="false"/>
+
     <application
-        android:label="store"
+        android:label="店家工作台"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity

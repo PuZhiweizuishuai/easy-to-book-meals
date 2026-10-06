@@ -5,7 +5,30 @@
 - 前端：Vue 3 + Pinia + DaisyUI（`FoodWeb/`），构建产物部署到 `food/src/main/resources/static/`
 - 前端源码在 `FoodWeb/src`，非 `food/src/main/resources/static`（后者是编译产物）
 
+## 移动端店家版 App（`store/`，Flutter）
+- 代码结构：`lib/core`（网络/存储/主题/工具/tts+通知服务）、`lib/data`（models + api）、
+  `lib/shared/widgets`（通用组件）、`lib/providers`、`lib/features`
+- 移动端需先配置后端地址（无法用 `/api` 代理）：`ServerAddress.normalize/apiBase` + `preferences.apiBaseUrl`，
+  Dio baseUrl 由 [serverConfigVersionProvider] 自增触发重建
+- **图标库统一用 `material_symbols_icons`（`Symbols.xxx`），已废弃 material_design_icons_flutter**
+- riverpod 3 无 `StateProvider` / `StateNotifierProvider`，统一用 `Notifier` + `NotifierProvider`
+- json 反序列化：所有 double 字段全部用 `(json[x] as num?)?.toDouble()` 兼容后端返回的整型金额；bool 需 `@JsonKey(defaultValue:)`
+- 分页兼容：后端 Spring `Page` 序列化可能平铺（`number` 顶层）或嵌套（`page` 对象），`PageResult.fromJson` 都收；
+  后端 page 参数是 1 基，`PageResult` 对外也是 1 基（内部 +1 换算）
+- 提醒机制：无 WebSocket，`AlertProvider` 轮询 /order/manage/list(status=0) 与 /order/manage/kitchen/queue，
+  首次只建基线，后续 diff 才触发提示音（audioplayers AssetSource）+ 本地通知
+- 优惠券扫码核销：`CouponCodeExtractor` 支持纯码 / 带横线 UUID / URL `?code=`、`coupon:` 前缀，
+  校验走 GET `/api/coupon/check`(storeId,code,amount)，核销在 POST `/order/manage/complete/{id}` 带 couponCode + manualDiscount
+
 ## 编译验证方式
+
+### Flutter（`store/`）
+- 沙箱禁止创建子进程（`flutter`、`mvn`、build_runner 均报 CreateFile failed 231 / 管道范例都在使用中），
+  所以用 `dart --packages=.dart_tool/package_config.json tool/analyze.dart <dir> [--info]`（package:analyzer 进程内分析）替代 `flutter analyze`
+- 因此 `.g.dart` 全部手写；`flutter test` / `flutter build apk` 需在有外网的正常机器上自跑一次
+- 测试用例在 `store/test`（core/utils、data/models、features/orders/extractor、providers/settings、widget/smoke）
+
+### 后端 / Web
 - 后端：`mvn -DskipTests compile`（Maven 在 /e/Maven/apache-maven-3.9.12/bin/mvn）
 - 后端无 Maven 环境时，可用 javac + Lombok processorpath 验证：
   ```

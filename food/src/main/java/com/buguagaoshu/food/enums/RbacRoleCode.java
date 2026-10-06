@@ -15,7 +15,7 @@ public enum RbacRoleCode {
     STORE_WAITER("STORE_WAITER", "服务员", RoleDomainEnum.STORE, "管理餐桌、查看订单和菜品", 13),
     STORE_INVENTORY("STORE_INVENTORY", "库存管理员", RoleDomainEnum.STORE, "管理菜品和库存", 14),
 
-    CUSTOMER("CUSTOMER", "顾客", RoleDomainEnum.GLOBAL, "普通消费者，可浏览菜品、下单、评价等", 20);
+    CUSTOMER("CUSTOMER", "顾客", RoleDomainEnum.GLOBAL, "普通消费者，可浏览菜品、下单、评价，可申请创建门店，审核通过后自动获得店铺老板角色", 20);
 
     private final String code;
     private final String name;

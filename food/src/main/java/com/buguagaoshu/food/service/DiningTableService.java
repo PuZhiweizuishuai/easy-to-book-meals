@@ -54,8 +54,8 @@ public class DiningTableService {
         table.setCapacity(dto.getCapacity());
         table.setStatus(dto.getStatus() != null ? dto.getStatus() : TableStatus.FREE.getCode());
         table.setArea(dto.getArea());
-        table.setQrCodeKey(dto.getQrCodeKey() != null && !dto.getQrCodeKey().isBlank()
-                ? dto.getQrCodeKey() : generateQrCodeKey());
+        String customQrCodeKey = dto.getQrCodeKey() != null ? dto.getQrCodeKey().trim() : "";
+        table.setQrCodeKey(!customQrCodeKey.isEmpty() ? customQrCodeKey : generateQrCodeKey());
         table.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
         table.setRemark(dto.getRemark());
         table.setCreatUser(StpUtil.getLoginIdAsLong());
@@ -88,7 +88,11 @@ public class DiningTableService {
             table.setArea(dto.getArea());
         }
         if (dto.getQrCodeKey() != null) {
-            table.setQrCodeKey(dto.getQrCodeKey());
+            // 空白串不写入：qrCodeKey 是唯一列，MySQL 中多个 '' 会触发 1062 唯一键冲突
+            String qrCodeKey = dto.getQrCodeKey().trim();
+            if (!qrCodeKey.isEmpty()) {
+                table.setQrCodeKey(qrCodeKey);
+            }
         }
         if (dto.getSortOrder() != null) {
             table.setSortOrder(dto.getSortOrder());

@@ -16,6 +16,7 @@ import com.buguagaoshu.food.valid.ListValue;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.Size;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
@@ -203,5 +204,21 @@ public class UserSysController {
         UserData user = userDataService.updateStatus(userId, status);
         user.setPassword(null);
         return ResponseDetails.ok().put("data", user);
+    }
+
+    /**
+     * 管理员重置指定用户的登录密码（无需原密码）
+     * <p>
+     * 走专用接口仅更新密码字段，不会清空该用户的昵称、头像、手机号、邮箱等资料。
+     */
+    @SaCheckPermission("user:manage")
+    @PostMapping("/password/reset")
+    @Validated
+    public ResponseDetails resetPassword(@RequestParam Long userId,
+                                         @RequestParam
+                                         @Size(min = 6, max = 32, message = "新密码长度需在 6-32 位之间")
+                                         String newPassword) {
+        userDataService.adminResetPassword(userId, newPassword);
+        return ResponseDetails.ok("密码重置成功");
     }
 }

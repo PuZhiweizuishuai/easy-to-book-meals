@@ -15,6 +15,7 @@ public enum RbacPermissionCode {
     ROLE_GLOBAL_MANAGE("role:global:manage", "全局角色管理", "role", RoleDomainEnum.GLOBAL, "创建、修改、删除全局角色，分配全局角色给用户", 8),
     ROLE_GLOBAL_VIEW("role:global:view", "查看全局角色", "role", RoleDomainEnum.GLOBAL, "查看全局角色列表和详情", 9),
     PERMISSION_VIEW("permission:view", "查看权限", "permission", RoleDomainEnum.GLOBAL, "查看权限列表和详情", 10),
+    STORE_CREATE("store:create", "创建门店", "store", RoleDomainEnum.GLOBAL, "申请创建新门店，审核通过后自动获得店铺老板角色", 11),
 
     STORE_MANAGE("store:manage", "店面管理", "store", RoleDomainEnum.STORE, "管理自己店面的基本信息", 1),
     STORE_VIEW("store:view", "查看店面", "store", RoleDomainEnum.STORE, "查看店面详细信息（门店级）", 2),

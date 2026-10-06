@@ -122,4 +122,11 @@ public class Store {
      */
     @Transient
     private List<StoreTag> tags;
+
+    /**
+     * 当前用户是否在本店拥有门店域角色（仅“我管理的门店”查询时填充）
+     * 待审核门店的创建者尚无店主角色，此标记为 false，前端据此隐藏“进入管理”入口
+     */
+    @Transient
+    private Boolean hasManageRole;
 }

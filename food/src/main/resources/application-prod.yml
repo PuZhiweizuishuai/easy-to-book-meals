@@ -1,0 +1,82 @@
+# ============================================================
+# 生产环境（服务器）配置：MySQL + Redis
+# 本地开发继续使用 application.yml（H2），本文件互不影响。
+#
+# 激活方式（二选一）：
+#   1) 启动参数：java -jar food.jar --spring.profiles.active=prod
+#   2) 环境变量：SPRING_PROFILES_ACTIVE=prod
+#
+# 敏感信息（数据库/Redis 密码等）一律通过环境变量注入，
+# 不要把真实密码写进本文件并提交到代码仓库。
+#
+# 说明：本文件只覆盖与本地开发不同的配置；
+# sa-token、food.sms、food.verify-code 等业务配置继续继承 application.yml。
+# ============================================================
+
+server:
+  port: ${SERVER_PORT:8081}
+  http2:
+    enabled: true
+
+spring:
+  # ---------- MySQL 数据源（HikariCP 连接池） ----------
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: "jdbc:mysql://${MYSQL_HOST:127.0.0.1}:${MYSQL_PORT:3306}/${MYSQL_DATABASE:food}?useUnicode=true&characterEncoding=UTF-8&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=Asia/Shanghai&rewriteBatchedStatements=true"
+    username: ${MYSQL_USERNAME:food}
+    password: ${MYSQL_PASSWORD:}
+    hikari:
+      pool-name: FoodHikariPool
+      minimum-idle: 5
+      maximum-pool-size: 20
+      # 空闲连接存活时间（毫秒），5 分钟
+      idle-timeout: 300000
+      # 连接最大生命周期（毫秒），20 分钟，需小于 MySQL 的 wait_timeout
+      max-lifetime: 1200000
+      # 获取连接超时（毫秒），30 秒
+      connection-timeout: 30000
+
+  # ---------- 生产环境关闭 H2 控制台 ----------
+  h2:
+    console:
+      enabled: false
+
+  # ---------- JPA / Hibernate ----------
+  jpa:
+    hibernate:
+      # 首次上线可沿用 update 自动建表/补字段；
+      # 表结构稳定后建议改为 validate，结构变更走手工 SQL 或迁移脚本（Flyway/Liquibase）
+      ddl-auto: update
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+        jdbc:
+          time_zone: Asia/Shanghai
+
+  # ---------- Redis（Lettuce + commons-pool2 连接池） ----------
+  data:
+    redis:
+      host: ${REDIS_HOST:127.0.0.1}
+      port: ${REDIS_PORT:6379}
+      database: ${REDIS_DATABASE:0}
+      # 无密码的 Redis 保持环境变量为空即可；生产建议务必设置密码
+      password: ${REDIS_PASSWORD:}
+      timeout: 3s
+      lettuce:
+        shutdown-timeout: 100ms
+        pool:
+          enabled: true
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+          # 从连接池获取连接的最大等待时间
+          max-wait: 2s
+
+logging:
+  level:
+    root: info
+    com.buguagaoshu.food: info
+    org.hibernate.SQL: warn
+    org.hibernate.type.descriptor.sql.BasicBinder: warn

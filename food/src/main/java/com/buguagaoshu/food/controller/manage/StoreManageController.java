@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.controller.manage;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.dto.ResponseDetails;
@@ -38,11 +39,11 @@ public class StoreManageController {
     }
 
     /**
-     * 创建店面
-     * 登录用户即可创建，创建者自动记录为店主(createUser)
-     * 创建后需由超级管理员审核通过才能对外展示
+     * 创建店面（申请开店）
+     * 需具备 store:create 权限（顾客注册即拥有），创建者记录为 createUser，
+     * 审核通过前不授予店主角色；同一用户存在待审核门店时禁止重复创建
      */
-    @SaCheckLogin
+    @SaCheckPermission("store:create")
     @PostMapping("/add")
     public ResponseDetails addStore(@Valid @RequestBody Store store) {
         return ResponseDetails.ok().put("data", storeService.saveStore(store));
@@ -70,8 +71,9 @@ public class StoreManageController {
     }
 
     /**
-     * 店主端分页查询自己管理的店面列表
-     * 依据当前用户的门店角色确定管理范围（含待审核），超级管理员可见所有店面
+     * 分页查询与当前用户相关的店面列表
+     * 范围 = 拥有门店角色的店面 ∪ 自己创建的店面（含待审核）；
+     * 超级管理员查看全部门店请使用 /api/sys/store/list
      */
     @SaCheckLogin
     @GetMapping("/list")
@@ -86,8 +88,7 @@ public class StoreManageController {
                                         @RequestParam(value = "key", required = false)
                                         String key) {
         Long userId = StpUtil.getLoginIdAsLong();
-        boolean isSuperAdmin = storeAuthHelper.isSuperAdmin(userId);
         return ResponseDetails.ok().put("data",
-                storeService.findMyStores(userId, page, size, key, isSuperAdmin));
+                storeService.findMyStores(userId, page, size, key));
     }
 }

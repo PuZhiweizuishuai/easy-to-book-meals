@@ -23,6 +23,7 @@ public class RbacDefinition {
         map.put(RbacRoleCode.SUPER_ADMIN, List.of(
                 RbacPermissionCode.USER_MANAGE, RbacPermissionCode.USER_VIEW,
                 RbacPermissionCode.STORE_AUDIT, RbacPermissionCode.STORE_VIEW_GLOBAL,
+                RbacPermissionCode.STORE_CREATE,
                 RbacPermissionCode.SYSTEM_CONFIG,
                 RbacPermissionCode.STATS_PLATFORM,
                 RbacPermissionCode.REVIEW_AUDIT,
@@ -79,7 +80,10 @@ public class RbacDefinition {
                 RbacPermissionCode.DISH_MANAGE, RbacPermissionCode.DISH_VIEW,
                 RbacPermissionCode.INVENTORY_MANAGE, RbacPermissionCode.INVENTORY_VIEW
         ));
-        map.put(RbacRoleCode.CUSTOMER, List.of());
+        // 顾客默认可申请开店，门店审核通过后才获得 STORE_OWNER 店主角色
+        map.put(RbacRoleCode.CUSTOMER, List.of(
+                RbacPermissionCode.STORE_CREATE
+        ));
         return map;
     }
 }

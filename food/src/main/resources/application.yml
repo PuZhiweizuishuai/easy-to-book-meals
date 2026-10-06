@@ -38,3 +38,19 @@ sa-token:
   token-style: uuid
   # 是否输出操作日志
   is-log: true
+
+# 业务自定义配置
+food:
+  sms:
+    # 短信发送通道：
+    #   log     = 打印到后端日志（当前测试用，默认）
+    #   aliyun  = 后续接入阿里云短信（新增 AliyunSmsSender 后切换为该值）
+    #   tencent = 后续接入腾讯云短信
+    provider: log
+  verify-code:
+    # 验证码有效期（秒），默认 5 分钟
+    expire-seconds: 300
+    # 同一手机号同一场景最短重发间隔（秒）
+    resend-interval-seconds: 60
+    # 验证码位数
+    length: 6

@@ -4,11 +4,22 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.data.Membership;
 import com.buguagaoshu.food.data.UserData;
+import com.buguagaoshu.food.dto.ChangePasswordDto;
+import com.buguagaoshu.food.dto.ChangePhoneDto;
 import com.buguagaoshu.food.dto.ResponseDetails;
+import com.buguagaoshu.food.dto.RegisterDto;
+import com.buguagaoshu.food.dto.SendRegisterCodeDto;
+import com.buguagaoshu.food.dto.SendVerifyCodeDto;
+import com.buguagaoshu.food.dto.UpdateProfileDto;
+import com.buguagaoshu.food.enums.VerificationCodeScene;
+import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.service.MembershipService;
 import com.buguagaoshu.food.service.OrderService;
+import com.buguagaoshu.food.service.SystemSettingsService;
 import com.buguagaoshu.food.service.UserDataService;
+import com.buguagaoshu.food.service.VerificationCodeService;
 import jakarta.validation.Valid;
+import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
@@ -29,25 +40,77 @@ public class UserController {
     private final UserDataService userDataService;
     private final MembershipService membershipService;
     private final OrderService orderService;
+    private final VerificationCodeService verificationCodeService;
+    private final SystemSettingsService systemSettingsService;
 
     public UserController(UserDataService userDataService,
                           MembershipService membershipService,
-                          OrderService orderService) {
+                          OrderService orderService,
+                          VerificationCodeService verificationCodeService,
+                          SystemSettingsService systemSettingsService) {
         this.userDataService = userDataService;
         this.membershipService = membershipService;
         this.orderService = orderService;
+        this.verificationCodeService = verificationCodeService;
+        this.systemSettingsService = systemSettingsService;
     }
 
     /**
      * 用户注册
+     * <p>
+     * 受「系统设置 - 是否开放注册」开关控制：关闭时匿名注册一律拒绝。
+     * 但平台管理员（已登录且拥有 {@code user:manage} 权限）通过超级后台「新增用户」
+     * 复用本接口时不受开关限制，关闭注册期间仍可建号。
      * 注册成功后自动分配默认角色"顾客"(CUSTOMER)
      */
     @Valid
     @PostMapping("/register")
     public ResponseDetails register(@RequestBody UserData userData) {
+        // 平台管理员新增用户放行；其余情况（匿名注册等）仍受注册开关控制
+        boolean isAdminCreate = StpUtil.isLogin() && StpUtil.hasPermission("user:manage");
+        if (!isAdminCreate && !systemSettingsService.isRegistrationEnabled()) {
+            throw new BusinessException(400, "注册功能暂未开放");
+        }
         UserData savedUser = userDataService.register(userData);
         savedUser.setPassword(null);
         return ResponseDetails.ok().put("data", savedUser);
+    }
+
+    /**
+     * 发送注册验证码（公开接口，无需登录）
+     * <p>
+     * 普通用户在注册页输入手机号或邮箱后调用：先校验目标格式合法且未被注册，
+     * 再下发验证码。目标为邮箱走邮件通道，为手机号走短信通道。
+     * 受注册开关控制：关闭注册时不允许发送。
+     */
+    @PostMapping("/register/verify-code/send")
+    public ResponseDetails sendRegisterCode(@Valid @RequestBody SendRegisterCodeDto dto) {
+        if (!systemSettingsService.isRegistrationEnabled()) {
+            throw new BusinessException(400, "注册功能暂未开放");
+        }
+        String target = userDataService.validateRegisterTarget(dto.getTarget());
+        verificationCodeService.sendCode(target, VerificationCodeScene.REGISTER);
+        return ResponseDetails.ok("验证码已发送，请注意查收");
+    }
+
+    /**
+     * 普通用户自助注册（公开接口，无需登录）
+     * <p>
+     * 与管理员建号接口 {@link #register(UserData)} 区分：本接口必须携带手机号/邮箱验证码，
+     * 校验通过后才建号，保证联系方式真实可达。受注册开关控制。
+     */
+    @PostMapping("/register/self")
+    public ResponseDetails selfRegister(@Valid @RequestBody RegisterDto dto) {
+        if (!systemSettingsService.isRegistrationEnabled()) {
+            throw new BusinessException(400, "注册功能暂未开放");
+        }
+        String target = userDataService.validateRegisterTarget(dto.getTarget());
+        // 校验验证码（仅校验，暂不作废）
+        verificationCodeService.verifyCode(target, dto.getCode(), VerificationCodeScene.REGISTER);
+        UserData savedUser = userDataService.registerByTarget(target, dto.getPassword(), dto.getNickname());
+        // 注册成功后作废验证码，保证一次性使用
+        verificationCodeService.consumeCode(target, VerificationCodeScene.REGISTER);
+        return ResponseDetails.ok("注册成功").put("data", savedUser);
     }
 
     /**
@@ -126,6 +189,103 @@ public class UserController {
             result.put("membership", null);
         }
         return ResponseDetails.ok().put("data", result);
+    }
+
+    // ==================== 当前用户账户自助管理 ====================
+
+    /**
+     * 修改（重置）自己的登录密码
+     * <p>
+     * 需登录并校验原密码，用户身份取自登录会话，不接受前端传入 userId。
+     */
+    @SaCheckLogin
+    @PostMapping("/account/password")
+    public ResponseDetails changePassword(@Valid @RequestBody ChangePasswordDto dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        userDataService.changePassword(userId, dto.getOldPassword(), dto.getNewPassword());
+        return ResponseDetails.ok("密码修改成功");
+    }
+
+    /**
+     * 修改自己的头像、昵称
+     */
+    @SaCheckLogin
+    @PostMapping("/account/profile")
+    public ResponseDetails updateProfile(@Valid @RequestBody UpdateProfileDto dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        UserData user = userDataService.updateProfile(userId, dto.getNickname(), dto.getAvatarUrl());
+        return ResponseDetails.ok().put("data", user);
+    }
+
+    /**
+     * 发送手机验证码
+     * <p>
+     * 场景为「校验原手机号」时，验证码只能发往当前账号已绑定的手机号（忽略前端传值）；
+     * 场景为「校验新手机号」时，需通过格式 / 占用校验后才发送。
+     */
+    @SaCheckLogin
+    @PostMapping("/verify-code/send")
+    public ResponseDetails sendVerifyCode(@Valid @RequestBody SendVerifyCodeDto dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        VerificationCodeScene scene = VerificationCodeScene.fromCode(dto.getScene());
+
+        String targetPhone;
+        if (scene == VerificationCodeScene.CHANGE_PHONE_OLD) {
+            UserData current = userDataService.findById(userId)
+                    .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+            if (!StringUtils.hasText(current.getPhone())) {
+                throw new BusinessException(400, "当前账号未绑定手机号，无需校验原手机号");
+            }
+            targetPhone = current.getPhone();
+        } else {
+            targetPhone = userDataService.validateNewPhoneAvailable(userId, dto.getPhone());
+        }
+
+        verificationCodeService.sendCode(targetPhone, scene);
+        return ResponseDetails.ok("验证码已发送，请注意查收");
+    }
+
+    /**
+     * 修改（绑定）手机号
+     * <p>
+     * 当前账号已绑定手机号：需同时校验原手机验证码与新手机验证码；
+     * 当前账号未绑定手机号（如邮箱注册）：仅校验新手机验证码，属于首次绑定。
+     * 采用「先全部校验通过、再作废验证码、最后落库」的顺序，
+     * 避免其中一个验证码被提前作废而另一个校验失败。
+     */
+    @SaCheckLogin
+    @PostMapping("/account/phone")
+    public ResponseDetails changePhone(@Valid @RequestBody ChangePhoneDto dto) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        UserData current = userDataService.findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+
+        // 新手机号可用性校验（格式 / 与当前不同 / 未被占用）
+        String newPhone = userDataService.validateNewPhoneAvailable(userId, dto.getNewPhone());
+
+        if (StringUtils.hasText(current.getPhone())) {
+            if (!StringUtils.hasText(dto.getOldCode())) {
+                throw new BusinessException(400, "请输入原手机号验证码");
+            }
+            // 校验两个验证码（仅校验，暂不作废）
+            verificationCodeService.verifyCode(current.getPhone(), dto.getOldCode(),
+                    VerificationCodeScene.CHANGE_PHONE_OLD);
+            verificationCodeService.verifyCode(newPhone, dto.getNewCode(),
+                    VerificationCodeScene.CHANGE_PHONE_NEW);
+            // 全部通过后落库
+            userDataService.changePhone(userId, newPhone);
+            // 作废两个验证码，保证一次性使用
+            verificationCodeService.consumeCode(current.getPhone(), VerificationCodeScene.CHANGE_PHONE_OLD);
+            verificationCodeService.consumeCode(newPhone, VerificationCodeScene.CHANGE_PHONE_NEW);
+        } else {
+            // 首次绑定：仅校验新手机号验证码
+            verificationCodeService.verifyCode(newPhone, dto.getNewCode(),
+                    VerificationCodeScene.CHANGE_PHONE_NEW);
+            userDataService.changePhone(userId, newPhone);
+            verificationCodeService.consumeCode(newPhone, VerificationCodeScene.CHANGE_PHONE_NEW);
+        }
+
+        return ResponseDetails.ok(StringUtils.hasText(current.getPhone()) ? "手机号修改成功" : "手机号绑定成功");
     }
 
     /** 手机号脱敏：138****8888，长度非 11 位则原样返回 */

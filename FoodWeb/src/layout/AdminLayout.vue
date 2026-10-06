@@ -44,15 +44,21 @@
 
       <header class="navbar bg-base-100 shadow-sm z-10 px-6">
         <div class="flex-1 flex items-center gap-3">
-          <!-- 门店切换器：多门店用户可切换当前管理门店 -->
-          <div v-if="storeContext.hasStore" class="flex items-center gap-2">
+          <!-- 超管从系统后台进入指定门店时的返回入口 -->
+          <button
+            v-if="storeContext.adminEntered"
+            class="btn btn-ghost btn-sm"
+            @click="backToSystem"
+          >← 系统后台</button>
+          <!-- 门店切换器：只列出自己有门店角色、可实际管理的门店 -->
+          <div v-if="switcherStores.length > 0" class="flex items-center gap-2">
             <span class="text-sm text-base-content/60 font-medium hidden sm:inline">当前门店</span>
             <select
               class="select select-bordered select-sm"
               :value="storeContext.currentStoreId"
               @change="handleStoreChange"
             >
-              <option v-for="s in storeContext.stores" :key="s.id" :value="s.id">
+              <option v-for="s in switcherStores" :key="s.id" :value="s.id">
                 {{ s.storeName }}{{ s.status === -1 ? '（待审核）' : '' }}
               </option>
             </select>
@@ -62,9 +68,15 @@
         <div class="flex-none gap-4">
           <NotificationBell />
           <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-circle avatar">
-              <div class="bg-neutral text-neutral-content w-8 rounded-full">
-                <img alt="User Avatar" :src="authStore.userInfo?.avatarUrl || 'https://api.dicebear.com/7.x/notionists/svg?seed=Admin'" />
+            <div tabindex="0" role="button" class="btn btn-ghost btn-circle">
+              <!-- 用户头像：有 avatarUrl 显示真实头像，否则显示昵称首字 -->
+              <div class="avatar placeholder">
+                <div class="bg-neutral text-neutral-content w-8 rounded-full">
+                  <img v-if="authStore.userInfo?.avatarUrl"
+                       :src="authStore.userInfo.avatarUrl" alt="用户头像"
+                       class="w-full h-full object-cover" />
+                  <span v-else class="text-xs">{{ (authStore.nickname || 'U')[0] }}</span>
+                </div>
               </div>
             </div>
             <ul tabindex="0" class="mt-3 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-52 border border-base-200">
@@ -76,7 +88,13 @@
                 <router-link to="/">前台首页</router-link>
               </li>
               <li>
+                <router-link to="/my/stores">我的门店</router-link>
+              </li>
+              <li>
                 <router-link to="/my/notifications">消息通知</router-link>
+              </li>
+              <li>
+                <router-link to="/my/account">账号设置</router-link>
               </li>
               <li>
                 <a class="text-error hover:bg-error/10" @click.prevent="handleLogout">退出登录</a>
@@ -91,9 +109,9 @@
         <div class="card bg-base-100 shadow-md">
           <div class="card-body items-center text-center">
             <h3 class="text-xl font-bold">暂无管理的门店</h3>
-            <p class="text-base-content/60">您还没有任何门店的管理权限，请先联系店主分配门店角色，或创建属于自己的门店。</p>
+            <p class="text-base-content/60">您还没有任何门店的管理权限，可前往「我的门店」申请创建属于自己的门店，或联系店主分配门店角色。</p>
             <div class="card-actions justify-center mt-2">
-              <button class="btn btn-primary" @click="showCreateStoreModal = true">创建门店</button>
+              <router-link to="/my/stores" class="btn btn-primary">创建门店</router-link>
             </div>
           </div>
         </div>
@@ -108,85 +126,15 @@
       </main>
 
     </div>
-
-    <!-- 创建门店弹窗 -->
-    <div class="modal" :class="{ 'modal-open': showCreateStoreModal }">
-      <div class="modal-box max-w-lg">
-        <h3 class="font-bold text-lg mb-4">创建门店</h3>
-        <form @submit.prevent="handleCreateStore" class="space-y-3">
-          <!-- 店铺 Logo 上传 -->
-          <div class="form-control">
-            <label class="label"><span class="label-text">店铺 Logo</span></label>
-            <div class="flex items-center gap-4">
-              <figure class="w-24 h-24 rounded-xl bg-base-200 overflow-hidden flex-shrink-0 border border-base-300">
-                <img v-if="storeForm.logoUrl" :src="storeForm.logoUrl" alt="店铺Logo" class="w-full h-full object-cover" />
-                <div v-else class="w-full h-full flex items-center justify-center text-4xl text-base-content/30">🏪</div>
-              </figure>
-              <div class="flex flex-col gap-2">
-                <button type="button" class="btn btn-outline btn-sm" @click="showLogoModal = true">
-                  {{ storeForm.logoUrl ? '更换图片' : '上传图片' }}
-                </button>
-                <button v-if="storeForm.logoUrl" type="button" class="btn btn-ghost btn-xs text-error" @click="storeForm.logoUrl = ''">移除</button>
-              </div>
-            </div>
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text">门店名称 *</span></label>
-            <input v-model.trim="storeForm.storeName" type="text" class="input input-bordered w-full" required maxlength="50" />
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text">门店地址 *</span></label>
-            <input v-model.trim="storeForm.address" type="text" class="input input-bordered w-full" required maxlength="200" />
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text">联系电话 *</span></label>
-            <input v-model.trim="storeForm.phone" type="text" class="input input-bordered w-full" required maxlength="20" />
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text">营业时间</span></label>
-            <input v-model.trim="storeForm.businessHours" type="text" class="input input-bordered w-full" placeholder="09:00-21:00" maxlength="50" />
-          </div>
-          <div class="form-control">
-            <label class="label"><span class="label-text">门店简介</span></label>
-            <textarea v-model.trim="storeForm.description" class="textarea textarea-bordered w-full" rows="3"></textarea>
-          </div>
-          <p class="text-xs text-base-content/50">门店创建后需等待平台管理员审核通过后对外展示。</p>
-          <div class="modal-action">
-            <button type="button" class="btn btn-ghost" @click="showCreateStoreModal = false">取消</button>
-            <button type="submit" class="btn btn-primary" :disabled="storeCreating">
-              <span v-if="storeCreating" class="loading loading-spinner loading-sm"></span>
-              {{ storeCreating ? '创建中...' : '创建门店' }}
-            </button>
-          </div>
-        </form>
-      </div>
-      <div class="modal-backdrop" @click="showCreateStoreModal = false"></div>
-    </div>
-
-    <!-- Logo 上传弹窗 -->
-    <Teleport to="body">
-      <dialog :class="['modal modal-middle', { 'modal-open': showLogoModal }]">
-        <div class="modal-box w-11/12 max-w-2xl">
-          <h3 class="font-bold text-lg mb-4">上传店铺 Logo</h3>
-          <ImageUpload :allow-multiple="false" @upload-success="handleLogoUploadSuccess" />
-          <div class="modal-action">
-            <button class="btn btn-ghost" @click="showLogoModal = false">完成</button>
-          </div>
-        </div>
-        <div class="modal-backdrop" @click="showLogoModal = false"></div>
-      </dialog>
-    </Teleport>
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, nextTick } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { httpPost, isSuccess } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import { useStoreContext } from '@/stores/storeContext'
 import toast from '@/utils/toast'
-import ImageUpload from '@/components/upload/ImageUpload.vue'
 import NotificationBell from '@/components/common/NotificationBell.vue'
 
 const router = useRouter()
@@ -195,17 +143,6 @@ const storeContext = useStoreContext()
 
 // 控制左侧抽屉状态：false 为展开，true 为收起
 const isCollapsed = ref(false)
-const showCreateStoreModal = ref(false)
-const showLogoModal = ref(false)
-const storeCreating = ref(false)
-const storeForm = ref({
-  storeName: '',
-  address: '',
-  phone: '',
-  logoUrl: '',
-  businessHours: '',
-  description: ''
-})
 
 const toggleDrawer = () => {
   isCollapsed.value = !isCollapsed.value
@@ -215,6 +152,26 @@ onMounted(() => {
   // 进入管理端布局时加载门店上下文
   storeContext.loadMyStores()
 })
+
+/**
+ * 门店切换列表：只展示有门店角色的门店
+ * 待审核门店的创建者尚无店主角色，由「我的门店」页跟进审核进度；
+ * 超级管理员拥有全部门店权限（含从系统后台进入的门店），不做过滤
+ */
+const switcherStores = computed(() => {
+  if (authStore.isSuperAdmin) {
+    return storeContext.stores
+  }
+  return storeContext.stores.filter(s => s.hasManageRole)
+})
+
+/**
+ * 从系统后台直管模式返回店铺管理列表
+ */
+const backToSystem = () => {
+  storeContext.exitAdminEnter()
+  router.push('/system/store')
+}
 
 /**
  * 切换当前管理门店
@@ -234,45 +191,6 @@ const handleLogout = async () => {
   storeContext.clear()
   toast.success('已退出登录')
   router.push('/login')
-}
-
-/** Logo 上传成功回调 */
-const handleLogoUploadSuccess = (response) => {
-  if (!response?.data?.[0]) return
-  storeForm.value.logoUrl = response.data[0].fileUrl
-  nextTick(() => {
-    showLogoModal.value = false
-  })
-}
-
-/**
- * 创建门店
- */
-const handleCreateStore = async () => {
-  if (!storeForm.value.storeName || !storeForm.value.address || !storeForm.value.phone) {
-    toast.error('请填写门店名称、地址和联系电话')
-    return
-  }
-  storeCreating.value = true
-  try {
-    const res = await httpPost('/store/manage/add', storeForm.value)
-    if (isSuccess(res)) {
-      toast.success('门店创建成功，等待平台审核')
-      showCreateStoreModal.value = false
-      storeForm.value = { storeName: '', address: '', phone: '', logoUrl: '', businessHours: '', description: '' }
-      await storeContext.loadMyStores()
-      if (storeContext.currentStoreId) {
-        storeContext.selectStore(storeContext.currentStoreId)
-        router.go(0)
-      }
-    } else {
-      toast.error(res?.message || '创建失败')
-    }
-  } catch (e) {
-    toast.error('创建失败，请稍后重试')
-  } finally {
-    storeCreating.value = false
-  }
 }
 
 /**

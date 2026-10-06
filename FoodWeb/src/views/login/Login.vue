@@ -1,5 +1,17 @@
 <template>
   <div class="min-h-screen flex bg-base-100">
+    <!-- 返回首页（移动端落白底用深色，桌面端落彩色区用白色） -->
+    <button
+      class="btn btn-ghost btn-circle fixed top-4 left-4 z-50 bg-base-100/70 text-base-content border border-base-300 backdrop-blur hover:bg-base-200 lg:bg-base-100/20 lg:text-white lg:border-white/30 lg:hover:bg-white/30"
+      title="返回首页"
+      aria-label="返回首页"
+      @click="goHome"
+    >
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+      </svg>
+    </button>
+
     <!-- 左侧装饰区域（桌面端显示） -->
     <div class="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-primary via-primary/90 to-secondary relative overflow-hidden">
       <!-- 装饰性背景图案 -->
@@ -125,14 +137,22 @@
           </button>
         </form>
 
+        <!-- 注册入口 -->
+        <div class="mt-6 text-center text-sm text-base-content/60">
+          还没有账号？
+          <a href="javascript:void(0)" class="link link-primary link-hover font-medium" @click="goRegister">
+            立即注册
+          </a>
+        </div>
+
         <!-- 开发环境提示 -->
-        <div class="mt-8 bg-base-200/60 rounded-xl p-4">
+        <!-- <div class="mt-8 bg-base-200/60 rounded-xl p-4">
           <div class="text-xs text-base-content/50 mb-2 font-medium">开发环境提示</div>
           <div class="text-xs text-base-content/70 space-y-1">
             <p>管理员手机号：<code class="bg-base-300 px-1.5 py-0.5 rounded text-[11px]">13800000000</code></p>
             <p>默认密码：<code class="bg-base-300 px-1.5 py-0.5 rounded text-[11px]">123456</code></p>
           </div>
-        </div>
+        </div> -->
       </div>
     </div>
   </div>
@@ -156,6 +176,14 @@ const formData = ref({
   username: '',
   password: ''
 })
+
+const goRegister = () => {
+  router.push({ name: 'register' })
+}
+
+const goHome = () => {
+  router.push('/')
+}
 
 /**
  * 处理登录

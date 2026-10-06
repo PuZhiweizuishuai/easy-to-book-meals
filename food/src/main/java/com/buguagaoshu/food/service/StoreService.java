@@ -3,11 +3,13 @@ package com.buguagaoshu.food.service;
 import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.config.WebConstant;
+import com.buguagaoshu.food.data.RoleData;
 import com.buguagaoshu.food.data.Store;
 import com.buguagaoshu.food.data.StoreTag;
 import com.buguagaoshu.food.data.StoreWithTag;
 import com.buguagaoshu.food.data.UserRoleData;
 import com.buguagaoshu.food.enums.RbacRoleCode;
+import com.buguagaoshu.food.enums.ReturnCodeEnum;
 import com.buguagaoshu.food.enums.StoreStatus;
 import com.buguagaoshu.food.exception.BusinessException;
 import com.buguagaoshu.food.repository.StoreRepository;
@@ -19,8 +21,10 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -43,12 +47,32 @@ public class StoreService {
     }
 
     /**
-     * 创建店面
+     * 创建店面（申请开店）
      * 新增店面时不对标签关联做任何修改，标签由超级管理员独立管理
+     * <p>
+     * 角色授予规则：创建时不授予店主角色，门店审核通过（auditStore 置为营业中）后
+     * 才为创建者绑定 STORE_OWNER 角色
      * */
     @Transactional(rollbackFor = Exception.class)
     public Store saveStore(Store store) {
-        store.setCreateUser(StpUtil.getLoginIdAsLong());
+        String storeName = requireText(store.getStoreName(), "店面名称不能为空");
+        requireText(store.getAddress(), "店面地址不能为空");
+        requireText(store.getPhone(), "联系电话不能为空");
+        // storeName 是唯一列，MySQL 中空串 '' 会因唯一键冲突触发 1062，须先归一化并查重
+        store.setStoreName(storeName);
+        if (storeRepository.findByStoreNameAndIsDeleted(storeName, WebConstant.UNDELETED).isPresent()) {
+            throw new BusinessException(ReturnCodeEnum.PARAM_ERROR.getCode(), "店面名称已存在: " + storeName);
+        }
+
+        long userId = StpUtil.getLoginIdAsLong();
+        // 同一用户名下存在待审核门店时，须等审核结束（通过/拒绝）后才能再次创建
+        if (storeRepository.existsByCreateUserAndStatusAndIsDeleted(
+                userId, StoreStatus.PENDING_REVIEW.getCode(), WebConstant.UNDELETED)) {
+            throw new BusinessException(ReturnCodeEnum.PARAM_ERROR.getCode(),
+                    "您有待审核的门店，需审核通过后才能创建新门店");
+        }
+
+        store.setCreateUser(userId);
         long time = System.currentTimeMillis();
         store.setCreateTime(time);
         store.setUpdateTime(time);
@@ -59,12 +83,6 @@ public class StoreService {
 
         Store savedStore = storeRepository.save(store);
         savedStore.setTags(new ArrayList<>());
-        // 写入角色权限关联
-        UserRoleData ownerRole = new UserRoleData();
-        ownerRole.setUserId(store.getCreateUser());
-        ownerRole.setRoleId(RolePermissionCache.ROLE_CODE_MAP.get(RbacRoleCode.STORE_OWNER.getCode()).getId());
-        ownerRole.setStoreId(savedStore.getId());
-        userRoleDataService.save(ownerRole);
         return savedStore;
     }
 
@@ -80,8 +98,17 @@ public class StoreService {
     public Store updateStore(Store updateData) {
         Store existingStore = getStore(updateData.getId());
 
+        String storeName = requireText(updateData.getStoreName(), "店面名称不能为空");
+        requireText(updateData.getAddress(), "店面地址不能为空");
+        requireText(updateData.getPhone(), "联系电话不能为空");
+        // 改名时排除自身查重，避免空串或重名写入唯一列触发 1062
+        if (!storeName.equals(existingStore.getStoreName())
+                && storeRepository.findByStoreNameAndIsDeletedAndIdNot(storeName, WebConstant.UNDELETED, existingStore.getId()).isPresent()) {
+            throw new BusinessException(ReturnCodeEnum.PARAM_ERROR.getCode(), "店面名称已存在: " + storeName);
+        }
+
         // 复制用户可修改的属性
-        existingStore.setStoreName(updateData.getStoreName());
+        existingStore.setStoreName(storeName);
         existingStore.setAddress(updateData.getAddress());
         existingStore.setPhone(updateData.getPhone());
         existingStore.setLogoUrl(updateData.getLogoUrl());
@@ -120,13 +147,49 @@ public class StoreService {
     /**
      * 审核店面（超管专用，允许任意合法状态流转，包括 PENDING_REVIEW → OPEN）
      * 与 updateStore 的状态保护逻辑区分开
+     * <p>
+     * 审核通过（置为营业中）时，为门店创建者授予 STORE_OWNER 店主角色（幂等）
      * */
     @Transactional(rollbackFor = Exception.class)
     public Store auditStore(Long id, Integer status) {
         Store store = getStore(id);
         store.setStatus(status);
         store.setUpdateTime(System.currentTimeMillis());
-        return storeRepository.save(store);
+        Store savedStore = storeRepository.save(store);
+
+        if (StoreStatus.OPEN.getCode() == status) {
+            grantOwnerRoleIfNeeded(savedStore);
+        }
+        return savedStore;
+    }
+
+    /**
+     * 为门店创建者绑定 STORE_OWNER 角色（已绑定时跳过）
+     * 恢复营业等重复审核场景下幂等执行
+     * */
+    private void grantOwnerRoleIfNeeded(Store store) {
+        RoleData ownerRole = RolePermissionCache.ROLE_CODE_MAP.get(RbacRoleCode.STORE_OWNER.getCode());
+        if (ownerRole == null || store.getCreateUser() == null) {
+            return;
+        }
+        if (userRoleDataService.existsByUserIdAndRoleIdAndStoreId(store.getCreateUser(), ownerRole.getId(), store.getId())) {
+            return;
+        }
+        UserRoleData ownerRoleBinding = new UserRoleData();
+        ownerRoleBinding.setUserId(store.getCreateUser());
+        ownerRoleBinding.setRoleId(ownerRole.getId());
+        ownerRoleBinding.setStoreId(store.getId());
+        userRoleDataService.save(ownerRoleBinding);
+    }
+
+    /**
+     * 校验必填文本非空白，返回去除首尾空白后的值
+     */
+    private String requireText(String value, String message) {
+        if (!StringUtils.hasText(value)) {
+            throw new BusinessException(ReturnCodeEnum.PARAM_ERROR.getCode(), message);
+        }
+        return value.trim();
     }
 
     /**
@@ -209,37 +272,42 @@ public class StoreService {
     }
 
     /**
-     * 查询当前用户管理的店面列表（店主/店员端）
-     * 依据用户拥有的门店角色（UserRoleData.storeId）确定管理范围：
-     * - 普通用户：返回自己拥有门店角色的店面（含待审核）
-     * - 超级管理员：返回所有未删除店面
+     * 查询与当前用户相关的店面列表（店主/店员端）
+     * 范围 = 拥有门店角色的店面 ∪ 自己创建的店面（含待审核：
+     * 店主角色在审核通过后才授予，待审核门店靠创建人身份纳入）
+     * <p>
+     * 结果中 hasManageRole 标记用户是否在该店拥有门店角色，
+     * 前端据此决定是否展示“进入管理”入口；
+     * 超级管理员查看所有门店请走 /api/sys/store/list（店铺管理）
      * */
-    public Page<Store> findMyStores(Long userId, Integer page, Integer size, String key, boolean isSuperAdmin) {
+    public Page<Store> findMyStores(Long userId, Integer page, Integer size, String key) {
         PageRequest pageRequest = PageRequest.of(page - 1, size, Sort.by(Sort.Order.desc("createTime")));
 
-        // 超级管理员管理所有店面
-        if (isSuperAdmin) {
-            return findStoresForAdmin(page, size, key);
-        }
-
-        // 收集用户拥有门店角色的店面 ID
+        // 拥有门店角色的店面 ID（可实际管理）
         List<UserRoleData> storeRoles = userRoleDataService.findStoreRolesByUserId(userId);
-        if (storeRoles.isEmpty()) {
+        Set<Long> managedStoreIds = storeRoles.stream()
+                .map(UserRoleData::getStoreId)
+                .collect(Collectors.toSet());
+
+        // 并入自己创建的店面（待审核门店此时还没有店主角色）
+        Set<Long> storeIds = new HashSet<>(managedStoreIds);
+        storeRepository.findByCreateUserAndIsDeleted(userId, WebConstant.UNDELETED)
+                .forEach(s -> storeIds.add(s.getId()));
+
+        if (storeIds.isEmpty()) {
             return Page.empty(pageRequest);
         }
-        List<Long> storeIds = storeRoles.stream()
-                .map(UserRoleData::getStoreId)
-                .distinct()
-                .collect(Collectors.toList());
+        List<Long> idList = new ArrayList<>(storeIds);
 
         Page<Store> stores;
         if (StringUtils.hasLength(key)) {
             stores = storeRepository.findByIdInAndStoreNameLikeAndIsDeleted(
-                    storeIds, "%" + key + "%", WebConstant.UNDELETED, pageRequest);
+                    idList, "%" + key + "%", WebConstant.UNDELETED, pageRequest);
         } else {
-            stores = storeRepository.findByIdInAndIsDeleted(storeIds, WebConstant.UNDELETED, pageRequest);
+            stores = storeRepository.findByIdInAndIsDeleted(idList, WebConstant.UNDELETED, pageRequest);
         }
 
+        stores.forEach(s -> s.setHasManageRole(managedStoreIds.contains(s.getId())));
         return fillStoreTags(stores);
     }
 

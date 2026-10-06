@@ -17,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
 import java.util.*;
+import java.util.regex.Pattern;
 
 /**
  * 用户服务（RBAC-D 域感知）
@@ -31,6 +32,12 @@ import java.util.*;
  */
 @Service
 public class UserDataService {
+
+    /** 中国大陆手机号校验规则 */
+    private static final Pattern PHONE_PATTERN = Pattern.compile("1[3-9]\\d{9}");
+
+    /** 邮箱校验规则 */
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
 
     private final UserDataRepository userDataRepository;
     private final UserRoleDataService userRoleDataService;
@@ -52,6 +59,10 @@ public class UserDataService {
 
     @Transactional(rollbackFor = Exception.class)
     public UserData register(UserData userData) {
+        // 未填写的唯一字段统一归一化为 null：
+        // MySQL 唯一索引中空字符串 '' 会参与唯一性比较（多个 '' 冲突，多个 NULL 可共存），
+        // 开发环境 H2 会把 '' 当作 NULL，故该问题只在 MySQL 部署时暴露。
+        normalizeUniqueFields(userData);
         validateRegistration(userData);
 
         if (StringUtils.hasLength(userData.getPassword())) {
@@ -76,8 +87,9 @@ public class UserDataService {
 
         existing.setNickname(updateData.getNickname());
         existing.setAvatarUrl(updateData.getAvatarUrl());
-        existing.setPhone(updateData.getPhone());
-        existing.setEmail(updateData.getEmail());
+        // 手机/邮箱为可空唯一字段，未填写（空白串）时落 NULL，避免 MySQL 唯一索引冲突
+        existing.setPhone(blankToNull(updateData.getPhone()));
+        existing.setEmail(blankToNull(updateData.getEmail()));
         existing.setGender(updateData.getGender());
         existing.setAddress(updateData.getAddress());
         existing.setUpdateTime(System.currentTimeMillis());
@@ -99,6 +111,195 @@ public class UserDataService {
             u.setUpdateTime(System.currentTimeMillis());
             userDataRepository.save(u);
         });
+    }
+
+    /**
+     * 修改（重置）当前登录用户自己的密码
+     * <p>
+     * 用户身份来自登录会话（userId），不信任前端传参；需校验原密码。
+     *
+     * @param userId   当前登录用户ID
+     * @param oldRaw   原密码明文
+     * @param newRaw   新密码明文
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void changePassword(Long userId, String oldRaw, String newRaw) {
+        UserData user = getExistingUser(userId);
+        if (!PasswordUtil.matches(oldRaw, user.getPassword())) {
+            throw new BusinessException(400, "原密码错误");
+        }
+        if (PasswordUtil.matches(newRaw, user.getPassword())) {
+            throw new BusinessException(400, "新密码不能与原密码相同");
+        }
+        user.setPassword(PasswordUtil.encode(newRaw));
+        user.setUpdateTime(System.currentTimeMillis());
+        userDataRepository.save(user);
+    }
+
+    /**
+     * 更新当前登录用户的头像与昵称
+     * <p>
+     * 仅更新非 null 字段，避免误清空其它信息。
+     *
+     * @param userId    当前登录用户ID
+     * @param nickname  昵称（为 null 表示不修改）
+     * @param avatarUrl 头像URL（为 null 表示不修改）
+     * @return 已脱敏的最新用户信息
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public UserData updateProfile(Long userId, String nickname, String avatarUrl) {
+        UserData user = getExistingUser(userId);
+        if (nickname != null) {
+            String trimmed = nickname.trim();
+            if (trimmed.isEmpty()) {
+                throw new BusinessException(400, "昵称不能为空");
+            }
+            user.setNickname(trimmed);
+        }
+        if (avatarUrl != null) {
+            String trimmed = avatarUrl.trim();
+            user.setAvatarUrl(trimmed.isEmpty() ? null : trimmed);
+        }
+        user.setUpdateTime(System.currentTimeMillis());
+        UserData saved = userDataRepository.save(user);
+        saved.setPassword(null);
+        return saved;
+    }
+
+    /**
+     * 校验「新手机号」是否可用于绑定/更换
+     * <p>
+     * 规则：格式正确 → 不与当前手机号相同 → 未被其它账号占用。
+     * 在发送新手机验证码、以及最终提交修改时各调用一次（后者为并发兜底）。
+     *
+     * @param userId 当前登录用户ID
+     * @param phone  待校验的新手机号
+     * @return 校验通过的手机号
+     */
+    public String validateNewPhoneAvailable(Long userId, String phone) {
+        if (phone == null || !PHONE_PATTERN.matcher(phone.trim()).matches()) {
+            throw new BusinessException(400, "请输入正确的 11 位手机号");
+        }
+        String normalized = phone.trim();
+        UserData current = getExistingUser(userId);
+        if (normalized.equals(current.getPhone())) {
+            throw new BusinessException(400, "新手机号不能与当前手机号相同");
+        }
+        userDataRepository.findByPhone(normalized).ifPresent(u -> {
+            throw new BusinessException(400, "该手机号已被其他账号绑定");
+        });
+        return normalized;
+    }
+
+    /**
+     * 校验注册目标（手机号或邮箱）格式合法且尚未被注册
+     * <p>
+     * 在「发送注册验证码」时调用：防止向已注册的手机号/邮箱下发验证码。
+     *
+     * @param target 手机号或邮箱
+     * @return 归一化（去空白）后的目标
+     */
+    public String validateRegisterTarget(String target) {
+        if (target == null || target.isBlank()) {
+            throw new BusinessException(400, "请输入手机号或邮箱");
+        }
+        String normalized = target.trim();
+        if (normalized.contains("@")) {
+            if (!EMAIL_PATTERN.matcher(normalized).matches()) {
+                throw new BusinessException(400, "请输入正确的邮箱地址");
+            }
+            userDataRepository.findByEmail(normalized).ifPresent(u -> {
+                throw new BusinessException(400, "该邮箱已注册");
+            });
+        } else {
+            if (!PHONE_PATTERN.matcher(normalized).matches()) {
+                throw new BusinessException(400, "请输入正确的 11 位手机号");
+            }
+            userDataRepository.findByPhone(normalized).ifPresent(u -> {
+                throw new BusinessException(400, "该手机号已注册");
+            });
+        }
+        return normalized;
+    }
+
+    /**
+     * 普通用户自助注册
+     * <p>
+     * 验证码已由 Controller 层通过 VerificationCodeService 校验通过，此处按目标类型
+     * 回填 phone/email 后复用 {@link #register(UserData)} 完成建号与默认角色分配。
+     *
+     * @param target 已校验的手机号或邮箱
+     * @param password 登录密码明文
+     * @param nickname 昵称（可空）
+     * @return 已脱敏的新用户
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public UserData registerByTarget(String target, String password, String nickname) {
+        String normalized = validateRegisterTarget(target);
+        UserData userData = new UserData();
+        if (normalized.contains("@")) {
+            userData.setEmail(normalized);
+        } else {
+            userData.setPhone(normalized);
+        }
+        userData.setPassword(password);
+        if (StringUtils.hasText(nickname)) {
+            String name = nickname.trim();
+            if (!name.isEmpty()) {
+                userData.setNickname(name);
+            }
+        }
+        UserData saved = register(userData);
+        saved.setPassword(null);
+        return saved;
+    }
+
+    /**
+     * 更换当前登录用户的手机号
+     * <p>
+     * 新旧手机号验证码已在 Controller 层通过 VerificationCodeService 校验通过，
+     * 此处再次确认新号码未被占用后落库（数据库唯一约束为最终兜底）。
+     *
+     * @param userId   当前登录用户ID
+     * @param newPhone 已校验可用的新手机号
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void changePhone(Long userId, String newPhone) {
+        UserData user = getExistingUser(userId);
+        userDataRepository.findByPhone(newPhone).ifPresent(u -> {
+            if (!u.getId().equals(userId)) {
+                throw new BusinessException(400, "该手机号已被其他账号绑定");
+            }
+        });
+        user.setPhone(newPhone);
+        user.setUpdateTime(System.currentTimeMillis());
+        userDataRepository.save(user);
+    }
+
+    /**
+     * 管理员重置指定用户密码（无需原密码）
+     * <p>
+     * 仅更新密码字段，不触碰昵称、头像、手机号、邮箱等其它资料，
+     * 从根本上避免「重置密码却把用户资料清空」的问题。
+     *
+     * @param userId 被重置密码的目标用户ID
+     * @param newRaw 新密码明文
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void adminResetPassword(Long userId, String newRaw) {
+        if (newRaw == null || newRaw.length() < 6 || newRaw.length() > 32) {
+            throw new BusinessException(400, "新密码长度需在 6-32 位之间");
+        }
+        UserData user = getExistingUser(userId);
+        user.setPassword(PasswordUtil.encode(newRaw));
+        user.setUpdateTime(System.currentTimeMillis());
+        userDataRepository.save(user);
+    }
+
+    /** 按ID加载用户，不存在抛 404 */
+    private UserData getExistingUser(Long userId) {
+        return findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
     }
 
     public Optional<UserData> findById(Long id) {
@@ -516,6 +717,26 @@ public class UserDataService {
         userRoleData.setStoreId(null);
         userRoleData.setCreateUser(null);
         userRoleDataService.save(userRoleData);
+    }
+
+    /**
+     * 将用户记录中「可空唯一字段」的空白值归一化为 null。
+     * <p>
+     * phone/email 及三方 openid 均允许不填，但在 MySQL 中唯一索引把空字符串 ''
+     * 视为一个普通值（只允许出现一次），第二条未填写记录就会报
+     * 1062 Duplicate entry ''；NULL 在唯一索引中可重复出现，因此统一落 NULL。
+     */
+    private void normalizeUniqueFields(UserData userData) {
+        userData.setPhone(blankToNull(userData.getPhone()));
+        userData.setEmail(blankToNull(userData.getEmail()));
+        userData.setWxOpenid(blankToNull(userData.getWxOpenid()));
+        userData.setZfbOpenid(blankToNull(userData.getZfbOpenid()));
+        userData.setDyOpenid(blankToNull(userData.getDyOpenid()));
+    }
+
+    /** 空白字符串（含纯空白）转为 null，其余值原样返回 */
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 
     private void validateRegistration(UserData userData) {

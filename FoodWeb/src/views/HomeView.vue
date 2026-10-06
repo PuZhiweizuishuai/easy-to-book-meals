@@ -23,6 +23,8 @@
         <template v-if="authStore.isLoggedIn">
           <NotificationBell />
           <router-link to="/my/orders" class="btn btn-ghost btn-sm">我的订单</router-link>
+          <!-- 所有登录用户均可开店/管理自己创建的门店 -->
+          <router-link to="/my/stores" class="btn btn-ghost btn-sm">我的门店</router-link>
           <!-- 有门店角色的用户显示管理入口 -->
           <router-link
             v-if="canManageStore"
@@ -31,14 +33,20 @@
           >门店管理</router-link>
           <div class="dropdown dropdown-end">
             <div tabindex="0" role="button" class="btn btn-ghost btn-sm avatar">
-              <div class="w-7 rounded-full bg-neutral text-neutral-content">
-                <span class="text-xs flex items-center justify-center h-full">{{ (authStore.nickname || '客')[0] }}</span>
+              <div class="w-7 rounded-full bg-neutral text-neutral-content overflow-hidden">
+                <!-- 用户头像：有 avatarUrl 显示真实头像，否则显示昵称首字 -->
+                <img v-if="authStore.userInfo?.avatarUrl"
+                     :src="authStore.userInfo.avatarUrl" alt="用户头像"
+                     class="w-full h-full object-cover" />
+                <span v-else class="text-xs flex items-center justify-center h-full">{{ (authStore.nickname || '客')[0] }}</span>
               </div>
             </div>
             <ul tabindex="0" class="mt-2 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-44 border border-base-200">
               <li class="px-3 py-1.5 text-xs text-base-content/50">{{ authStore.nickname || '未设置昵称' }}</li>
               <li><router-link to="/my/orders">我的订单</router-link></li>
+              <li><router-link to="/my/stores">我的门店</router-link></li>
               <li><router-link to="/my/notifications">消息通知</router-link></li>
+              <li><router-link to="/my/account">账号设置</router-link></li>
               <li v-if="canManageStore"><router-link to="/admin">门店管理</router-link></li>
               <li><a class="text-error" @click.prevent="handleLogout">退出登录</a></li>
             </ul>

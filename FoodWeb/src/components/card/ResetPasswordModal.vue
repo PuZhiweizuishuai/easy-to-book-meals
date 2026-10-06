@@ -86,10 +86,10 @@ const handleSubmit = async () => {
 
   submitting.value = true
   try {
-    const res = await httpPost('/user/update', {
-      id: props.user.id,
-      password: newPassword.value
-    })
+    // 走管理员专用重置接口：仅更新密码，不清空该用户昵称/手机号/邮箱等资料
+    const res = await httpPost(
+      `/sys/user/password/reset?userId=${props.user.id}&newPassword=${encodeURIComponent(newPassword.value)}`
+    )
     if (isSuccess(res)) {
       toast.success('密码重置成功')
       emit('submit')
@@ -98,6 +98,7 @@ const handleSubmit = async () => {
       toast.error(res?.message || '密码重置失败')
     }
   } catch (e) {
+    if (e?.type === 'UNAUTHORIZED') return
     toast.error('密码重置失败')
   } finally {
     submitting.value = false

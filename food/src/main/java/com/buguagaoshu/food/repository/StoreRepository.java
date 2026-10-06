@@ -8,6 +8,7 @@ import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
  * @author Pu Zhiwei {@literal puzhiweipuzhiwei@foxmail.com}
@@ -21,6 +22,16 @@ public interface StoreRepository
      * 按店名模糊查询（分页）
      */
     Page<Store> findByStoreNameLike(String storeName, Pageable pageable);
+
+    /**
+     * 按精确店名查询未删除门店（用于建店/改名时的重名校验）
+     */
+    Optional<Store> findByStoreNameAndIsDeleted(String storeName, Integer isDeleted);
+
+    /**
+     * 按精确店名查询未删除且 ID 不等于指定值的门店（改名时排除自身）
+     */
+    Optional<Store> findByStoreNameAndIsDeletedAndIdNot(String storeName, Integer isDeleted, Long id);
 
     /**
      * 按店名模糊查询，排除指定状态（分页）
@@ -72,4 +83,15 @@ public interface StoreRepository
      * 按店名模糊查询 + 状态 + 排除已删除（分页，管理端审核筛选）
      */
     Page<Store> findByStoreNameLikeAndStatusAndIsDeleted(String storeName, Integer status, Integer isDeleted, Pageable pageable);
+
+    /**
+     * 判断用户名下是否存在指定状态的未删除门店
+     * 用于建店校验：有待审核门店时禁止再次创建
+     */
+    boolean existsByCreateUserAndStatusAndIsDeleted(Long createUser, Integer status, Integer isDeleted);
+
+    /**
+     * 查询用户创建的所有未删除门店（含待审核，数量小，不分页）
+     */
+    List<Store> findByCreateUserAndIsDeleted(Long createUser, Integer isDeleted);
 }

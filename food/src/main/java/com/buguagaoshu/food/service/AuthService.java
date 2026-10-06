@@ -10,6 +10,7 @@ import org.springframework.util.StringUtils;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * 认证服务
@@ -21,37 +22,58 @@ import java.util.Map;
 @Service
 public class AuthService {
     private final UserDataService userDataService;
+    private final LoginRateLimiter loginRateLimiter;
 
-    public AuthService(UserDataService userDataService) {
+    public AuthService(UserDataService userDataService, LoginRateLimiter loginRateLimiter) {
         this.userDataService = userDataService;
+        this.loginRateLimiter = loginRateLimiter;
     }
 
     /**
      * 通用登录：手机号或邮箱+密码
+     * <p>
+     * 登录失败限流（账号 + IP 双维度，阈值与锁定时长由超级后台系统设置配置）：
+     * <ol>
+     *   <li>先检查账号 / IP 是否处于锁定中，锁定则直接拒绝；</li>
+     *   <li>账号不存在只计入 IP 失败；密码错误账号、IP 各计一次；</li>
+     *   <li>登录成功清除失败计数。</li>
+     * </ol>
      *
      * @param username 手机号或邮箱
      * @param password 密码
+     * @param clientIp 客户端 IP
      * @return 登录结果 {token, user}
      */
-    public Map<String, Object> login(String username, String password) {
+    public Map<String, Object> login(String username, String password, String clientIp) {
         if (!StringUtils.hasLength(username) || !StringUtils.hasLength(password)) {
             throw new BusinessException(400, "用户名和密码不能为空");
         }
 
-        UserData user;
+        // 锁定中的账号 / IP 直接拒绝，不做密码校验
+        loginRateLimiter.assertLoginAllowed(username, clientIp);
+
+        Optional<UserData> userOptional;
         if (username.contains("@")) {
-            user = userDataService.findByEmail(username)
-                    .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+            userOptional = userDataService.findByEmail(username);
         } else {
-            user = userDataService.findByPhone(username)
-                    .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+            userOptional = userDataService.findByPhone(username);
         }
+
+        // 账号不存在：只计 IP 失败（防止用登录接口枚举 / 撞库大量用户名）
+        if (userOptional.isEmpty()) {
+            loginRateLimiter.recordLoginFailure(username, clientIp, false);
+            throw new BusinessException(404, "用户不存在");
+        }
+
+        UserData user = userOptional.get();
 
         if (user.getStatus() != WebConstant.DISABLE) {
             throw new BusinessException(403, "账号已被禁用");
         }
 
         if (!PasswordUtil.matches(password, user.getPassword())) {
+            // 密码错误：账号、IP 双维度各计一次
+            loginRateLimiter.recordLoginFailure(username, clientIp, true);
             throw new BusinessException(400, "密码错误");
         }
 
@@ -63,6 +85,9 @@ public class AuthService {
         StpUtil.login(user.getId());
         userDataService.fillUserRolesAndPermissions(user);
         user.setPassword(null);
+
+        // 登录成功：清除该账号与 IP 的失败计数
+        loginRateLimiter.recordLoginSuccess(username, clientIp);
 
         Map<String, Object> result = new HashMap<>();
         result.put("token", StpUtil.getTokenValue());

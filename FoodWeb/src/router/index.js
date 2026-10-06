@@ -37,6 +37,15 @@ const router = createRouter({
       component: () => import('@/views/customer/MyOrders.vue'),
       meta: { requiresAuth: true },
     },
+    // 我的门店（登录即可访问：查看自己创建/参与的门店、申请开店）
+    // 顾客默认持有 store:create 权限，开店申请独立于 /admin 门店管理端，
+    // 待审核门店的创建者尚无门店角色，挂在 /admin 下会被路由守卫拦下
+    {
+      path: '/my/stores',
+      name: 'myStores',
+      component: () => import('@/views/customer/MyStores.vue'),
+      meta: { requiresAuth: true },
+    },
     // 消息通知（仅需登录，不限角色）
     // 被邀请的员工在确认前还没有任何门店角色，若挂在 /admin 下会被路由守卫挡在外面，
     // 导致永远看不到邀请、无法确认，因此独立成登录即可访问的页面。
@@ -44,6 +53,13 @@ const router = createRouter({
       path: '/my/notifications',
       name: 'myNotifications',
       component: () => import('@/views/customer/NotificationsView.vue'),
+      meta: { requiresAuth: true },
+    },
+    // 账号设置（登录即可访问：改头像昵称、改密码、换绑手机号）
+    {
+      path: '/my/account',
+      name: 'accountSettings',
+      component: () => import('@/views/customer/AccountSettings.vue'),
       meta: { requiresAuth: true },
     },
     {
@@ -57,6 +73,13 @@ const router = createRouter({
       path: '/login',
       name: 'login',
       component: () => import('@/views/login/Login.vue'),
+      meta: { guest: true },
+    },
+    // 用户注册页（普通用户手机号/邮箱注册，公开）
+    {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/login/Register.vue'),
       meta: { guest: true },
     },
     // 店面管理路由（店主、店员等门店角色可访问）
@@ -220,6 +243,15 @@ const router = createRouter({
           meta: {
             requiresAuth: true,
             permissions: ['store:audit', 'store:view'],
+          },
+        },
+        {
+          path: 'settings',
+          name: 'SystemSettings',
+          component: () => import('@/views/system/Settings.vue'),
+          meta: {
+            requiresAuth: true,
+            permissions: ['system:config'],
           },
         },
       ],

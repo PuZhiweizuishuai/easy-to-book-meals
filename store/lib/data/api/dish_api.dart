@@ -37,6 +37,17 @@ class DishApi {
         parser: (raw) => raw is Map<String, dynamic> ? Dish.fromJson(raw) : null,
       );
 
+  /// 菜品详情（含规格组与已关联图片，用于编辑回填）
+  ///
+  /// 该接口是公开的（顾客端也要用），拿不到时返回 null 由调用方降级。
+  Future<CreateDishesResultWrapper?> detail({required int dishId}) =>
+      _client.get<CreateDishesResultWrapper>(
+        '/dishes/$dishId',
+        parser: (raw) => raw is Map<String, dynamic>
+            ? CreateDishesResultWrapper.fromJson(raw)
+            : null,
+      );
+
   /// 更新菜品基础信息（含分类绑定）
   Future<Dish?> update(UpdateDishPayload payload) async {
     final result = await _client.post<CreateDishesResultWrapper>(
@@ -48,20 +59,77 @@ class DishApi {
     );
     return result?.food;
   }
+
+  /// 调整菜品规格组（新增 / 改名 / 删除，后端会同步重建 SKU）
+  ///
+  /// `/dishes/update` 明确忽略 specGroups，规格变更必须走 `/sku/adjust`。
+  Future<void> adjustSpecGroups({
+    required int dishId,
+    required List<SpecGroupInput> specGroups,
+  }) =>
+      _client.post<void>(
+        '/sku/adjust',
+        body: {
+          'dishesId': dishId,
+          'specGroups': specGroups.map((group) => group.toJson()).toList(),
+        },
+        parser: (raw) => raw,
+      );
 }
 
-/// `/dishes/update` 的返回体：`{ food, skuList, specGroups, fileDataList }`
+/// `/dishes/{id}` 与 `/dishes/update` 的返回体：`{ food, skuList, specGroups, fileDataList }`
 class CreateDishesResultWrapper {
-  const CreateDishesResultWrapper({this.food});
+  const CreateDishesResultWrapper({
+    this.food,
+    this.specGroups = const [],
+    this.fileDataList = const [],
+    this.skuList = const [],
+  });
 
   factory CreateDishesResultWrapper.fromJson(Map<String, dynamic> json) =>
       CreateDishesResultWrapper(
         food: json['food'] is Map<String, dynamic>
             ? Dish.fromJson(json['food'] as Map<String, dynamic>)
             : null,
+        specGroups: _parseSpecGroups(json['specGroups']),
+        fileDataList: _parseFiles(json['fileDataList']),
+        skuList: _parseSkus(json['skuList']),
       );
 
   final Dish? food;
+
+  /// 菜品已有的规格组（编辑时回填表单）
+  final List<SpecGroupInput> specGroups;
+
+  /// 菜品已关联的图片文件（编辑时回填表单）
+  final List<UploadedFile> fileDataList;
+
+  /// 菜品已有的 SKU 列表（按规格组合生成，编辑时可单独改价 / 库存 / 折扣）
+  final List<ProductSku> skuList;
+
+  static List<SpecGroupInput> _parseSpecGroups(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(SpecGroupInput.fromJson)
+        .toList(growable: false);
+  }
+
+  static List<UploadedFile> _parseFiles(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(UploadedFile.fromJson)
+        .toList(growable: false);
+  }
+
+  static List<ProductSku> _parseSkus(Object? raw) {
+    if (raw is! List) return const [];
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map(ProductSku.fromJson)
+        .toList(growable: false);
+  }
 }
 
 /// 菜品分类（标签）接口

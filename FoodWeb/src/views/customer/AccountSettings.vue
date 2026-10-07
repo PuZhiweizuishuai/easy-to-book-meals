@@ -1,22 +1,7 @@
 <template>
   <div class="min-h-screen bg-base-200">
-    <!-- 顶部导航：返回上一页 + Logo + 页面名 -->
-    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4">
-      <div class="flex-1 flex items-center gap-2">
-        <button class="btn btn-ghost btn-circle btn-sm" title="返回上一页" @click="goBack">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </button>
-        <router-link to="/" class="flex items-center gap-2">
-          <span class="text-2xl">🍔</span>
-          <span class="font-bold text-xl text-primary hidden sm:inline">餐易订</span>
-        </router-link>
-      </div>
-      <div class="flex-none">
-        <span class="text-sm font-medium text-base-content/70">账号设置</span>
-      </div>
-    </header>
+    <!-- 顶部导航（通用组件） -->
+    <AppHeader title="账号设置" show-back />
 
     <div class="container mx-auto px-4 py-6 max-w-5xl">
       <div class="mb-6">
@@ -180,24 +165,14 @@
 
 <script setup>
 import { ref, computed } from 'vue'
-import { useRouter } from 'vue-router'
 import { httpPost, isSuccess } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
+import AppHeader from '@/components/common/AppHeader.vue'
 import ImageUpload from '@/components/upload/ImageUpload.vue'
 import VerifyCodeButton from '@/components/common/VerifyCodeButton.vue'
 
-const router = useRouter()
 const authStore = useAuthStore()
-
-/** 返回上一页；若没有可回退的历史记录（如直接打开链接）则回首页 */
-const goBack = () => {
-  if (window.history.state?.back) {
-    router.back()
-  } else {
-    router.push('/')
-  }
-}
 
 const showAvatarModal = ref(false)
 const savingProfile = ref(false)

@@ -6,12 +6,14 @@
       :class="isCollapsed ? 'w-20' : 'w-64'"
     >
       <div class="h-16 flex items-center justify-between px-4 border-b border-base-200">
-        <div 
-          v-if="!isCollapsed" 
-          class="font-bold text-xl text-primary whitespace-nowrap overflow-hidden transition-opacity"
+        <router-link
+          v-if="!isCollapsed"
+          to="/"
+          title="返回前台首页"
+          class="font-bold text-xl text-primary whitespace-nowrap overflow-hidden transition-opacity hover:opacity-80"
         >
           🍔 超级后台
-        </div>
+        </router-link>
         <button 
           @click="toggleDrawer" 
           class="btn btn-square btn-ghost btn-sm" 

@@ -7,6 +7,7 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/money_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
+import '../../providers/refresh_bus.dart';
 import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -183,6 +184,8 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
             manualDiscount: _manualDiscount > 0 ? _manualDiscount : null,
           );
       if (!mounted) return;
+      // 结算完成后看板「今日营业额」必须同步，通知常驻数据页重新拉取
+      ref.read(dataRefreshProvider.notifier).bump();
       AppToast.success(context, '结算完成');
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {

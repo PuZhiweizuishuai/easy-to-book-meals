@@ -19,9 +19,13 @@ class AppTheme {
   /// 页面统一水平内边距
   static const double pagePadding = 14;
 
+  /// 全局字体族（需与 pubspec.yaml 中 flutter.fonts.family 一致）
+  static const String fontFamily = 'Siyuan';
+
   static ThemeData light() {
     final base = ThemeData(
       useMaterial3: true,
+      fontFamily: fontFamily,
       colorScheme: ColorScheme.fromSeed(
         seedColor: AppColors.primary,
         primary: AppColors.primary,
@@ -42,6 +46,7 @@ class AppTheme {
         scrolledUnderElevation: 1,
         centerTitle: true,
         titleTextStyle: const TextStyle(
+          fontFamily: fontFamily,
           color: AppColors.textPrimary,
           fontSize: 17,
           fontWeight: FontWeight.w600,
@@ -63,7 +68,11 @@ class AppTheme {
         fillColor: const Color(0xFFF7F8FA),
         contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         isDense: true,
-        hintStyle: const TextStyle(color: AppColors.textHint, fontSize: 14),
+        hintStyle: const TextStyle(
+          fontFamily: fontFamily,
+          color: AppColors.textHint,
+          fontSize: 14,
+        ),
         border: _inputBorder(AppColors.divider),
         enabledBorder: _inputBorder(AppColors.divider),
         focusedBorder: _inputBorder(AppColors.primary),
@@ -78,7 +87,11 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMd),
           ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       outlinedButtonTheme: OutlinedButtonThemeData(
@@ -89,13 +102,21 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(radiusMd),
           ),
-          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 15,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           foregroundColor: AppColors.primary,
-          textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+          textStyle: const TextStyle(
+            fontFamily: fontFamily,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
         ),
       ),
       chipTheme: base.chipTheme.copyWith(
@@ -103,7 +124,11 @@ class AppTheme {
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(8),
         ),
-        labelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+        labelStyle: const TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       ),
       dividerTheme: const DividerThemeData(
@@ -115,8 +140,13 @@ class AppTheme {
         labelColor: AppColors.primary,
         unselectedLabelColor: AppColors.textSecondary,
         indicatorSize: TabBarIndicatorSize.label,
-        labelStyle: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+        labelStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        ),
         unselectedLabelStyle: TextStyle(
+          fontFamily: fontFamily,
           fontSize: 14,
           fontWeight: FontWeight.w500,
         ),
@@ -132,7 +162,11 @@ class AppTheme {
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
         backgroundColor: const Color(0xFF2B3038),
-        contentTextStyle: const TextStyle(color: Colors.white, fontSize: 14),
+        contentTextStyle: const TextStyle(
+          fontFamily: fontFamily,
+          color: Colors.white,
+          fontSize: 14,
+        ),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       bottomSheetTheme: const BottomSheetThemeData(

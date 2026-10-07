@@ -19,6 +19,18 @@
   首次只建基线，后续 diff 才触发提示音（audioplayers AssetSource）+ 本地通知
 - 优惠券扫码核销：`CouponCodeExtractor` 支持纯码 / 带横线 UUID / URL `?code=`、`coupon:` 前缀，
   校验走 GET `/api/coupon/check`(storeId,code,amount)，核销在 POST `/order/manage/complete/{id}` 带 couponCode + manualDiscount
+- **数据新鲜度**：主框架五个 Tab 用 IndexedStack 常驻，页面不销毁、FutureProvider 只加载一次。
+  写操作（结算/出餐/上下架/保存菜品）与「切回看板 Tab」「App 回前台」都要
+  `ref.read(dataRefreshProvider.notifier).bump()`，数据页 provider 需 `ref.watch(dataRefreshProvider)`
+- 图片上传：POST `/api/files/upload`，multipart 字段名 `files[]`；返回的 `fileUrl` 是 `/files/yyyy/MM/dd/xxx.jpg`，
+  实际可访问路径是 `/api/files/...`（`AppUrlResolver.resolve` 已自动补 `/api`）
+- 菜品规格：新增随 `/dishes/add` 的 `specGroups` 提交；编辑必须单独调 `POST /sku/adjust`
+  （`/dishes/update` 后端明确忽略 specGroups）。`/dishes/update` 的 `fileDataList` 是差量更新，
+  缺失会**删除已关联图片（含物理文件）**，编辑前必须先 `GET /dishes/{id}` 拿回现有文件
+- 菜品 SKU：`/dishes/update` 的 `skuList` 按 id 更新 description/unitPrice/unit/stock/discount/
+  discountEndTime/status（`status==2` 锁定行会被跳过）。规格变更会重建 SKU，所以
+  「规格有改动」时先 `/sku/adjust` 再 `/dishes/update`，且不要提交旧的 skuList
+- `SpecGroupEditor` 的规格值必须带上 `id`（`_valueIds`），否则 SKU 筛选与规格名展示拿不到 ID
 
 ## 编译验证方式
 
@@ -72,6 +84,13 @@
   顾客端会在 loaded 回调里合并数据替换引用，watch 对象会造成无限请求循环
 - `components/order/OrderDetailModal.vue`：订单详情（props: order, editable, busy；emits: close/serve/remove/adjust/add）
 - `components/common/QrCode.vue`：基于 qrcode 包生成二维码
+
+## Flutter 可复用组件（store）
+- `shared/widgets/app_filter_chip.dart`（`AppFilterChip`）：**不要用 Material `FilterChip`**——
+  M3 默认配色下未选中态文字与背景几乎同色看不清。该组件显式指定未选中（浅灰底 `#F2F4F8` +
+  `#E3E6EC` 描边 + `textPrimary` 文字）与选中（主色 12% 底 + 主色描边/文字 + 对勾）两套配色
+- `shared/widgets/image_upload_tile.dart`（`ImageUploadTile`）：图片选择区，上传逻辑由外部 onPick 完成
+- `shared/widgets/spec_group_editor.dart`（`SpecGroupEditor`）：规格组编辑器，内部持有控制器，通过 onChanged 回传
 
 ## 订单类型（OrderType）
 - 0=堂食(扫码点餐，绑定餐桌) / 1=外送 / 2=线上(到店自取)

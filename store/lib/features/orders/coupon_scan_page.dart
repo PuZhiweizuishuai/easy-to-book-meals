@@ -262,6 +262,7 @@ class _CouponScanPageState extends ConsumerState<CouponScanPage>
               icon: Icons.keyboard_outlined,
               color: Colors.white,
               height: 42,
+              expand: true,
               onPressed: _manualInput,
             ),
           ],

@@ -13,6 +13,8 @@ import '../../shared/widgets/paged_list_view.dart';
 import '../../shared/widgets/search_field.dart';
 import '../../shared/widgets/state_views.dart';
 import 'order_ui.dart';
+import 'order_add_items_page.dart';
+import 'order_create_page.dart';
 import 'order_detail_page.dart';
 import 'widgets/order_card.dart';
 
@@ -188,9 +190,27 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
   /// 底部操作按钮
   List<Widget> _actionsFor(OrderData order) {
     final busy = _busyOrderId == order.id;
+    // 与 Web 端 canManage 一致：未完成订单（status < 4）展示加菜入口
+    final canAddItems = order.statusEnum != OrderStatus.completed &&
+        order.statusEnum != OrderStatus.cancelled &&
+        (ref.read(currentUserProvider)?.hasAnyPermission(
+                const ['order:manage']) ??
+            false);
+    final addItemsAction = canAddItems
+        ? Padding(
+            padding: const EdgeInsets.only(right: 10),
+            child: _TextAction(
+              label: '加菜',
+              color: AppColors.info,
+              busy: false,
+              onPressed: () => _openAddItems(order),
+            ),
+          )
+        : const SizedBox.shrink();
     switch (order.statusEnum) {
       case OrderStatus.pending:
         return [
+          addItemsAction,
           _TextAction(
             label: '拒单',
             color: AppColors.danger,
@@ -206,14 +226,18 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
         ];
       case OrderStatus.confirmed:
         return [
+          addItemsAction,
           _FilledAction(
             label: '开始制作',
             busy: busy,
             onPressed: () => _cooking(order),
           ),
         ];
+      case OrderStatus.cooking:
+        return [addItemsAction];
       case OrderStatus.ready:
         return [
+          addItemsAction,
           _FilledAction(
             label: '结算',
             busy: busy,
@@ -241,16 +265,49 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
     if (changed == true) _listController.refresh();
   }
 
+  /// 打开协助下单页，下单成功后刷新列表
+  Future<void> _openStaffCreate() async {
+    final created = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(builder: (_) => const StaffOrderCreatePage()),
+    );
+    if (created == true) _listController.refresh();
+  }
+
+  /// 打开加菜页，加菜成功后刷新列表
+  Future<void> _openAddItems(OrderData order) async {
+    final storeId = _storeId;
+    if (storeId == null || order.id == null) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) =>
+            OrderAddItemsPage(orderId: order.id!, storeId: storeId),
+      ),
+    );
+    if (changed == true) _listController.refresh();
+  }
+
   @override
   Widget build(BuildContext context) {
     final storeId = ref.watch(currentStoreIdProvider);
+    // 与 Web 端 canManage 一致：仅拥有 order:manage 权限时展示协助下单入口
+    final canStaffCreate =
+        ref.watch(currentUserProvider)?.hasAnyPermission(
+                const ['order:manage']) ??
+            false;
 
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
         title: const Text('订单管理'),
         actions: [
+          if (canStaffCreate)
+            IconButton(
+              tooltip: '协助下单',
+              icon: const Icon(Icons.post_add, size: 24),
+              onPressed: _openStaffCreate,
+            ),
           IconButton(
+            tooltip: '刷新',
             icon: const Icon(Icons.refresh_rounded, size: 22),
             onPressed: () => _listController.refresh(),
           ),
@@ -385,6 +442,9 @@ class _TextAction extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: color,
           side: BorderSide(color: color.withValues(alpha: 0.5)),
+          // 覆盖主题里的 Size.fromHeight(46)（宽度为 infinity），
+          // 否则放进 Row 时会被迫无限宽导致布局崩溃
+          minimumSize: const Size(0, 34),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         ),
@@ -420,6 +480,9 @@ class _FilledAction extends StatelessWidget {
       child: FilledButton(
         style: FilledButton.styleFrom(
           backgroundColor: AppColors.primary,
+          // 覆盖主题里的 Size.fromHeight(46)（宽度为 infinity），
+          // 否则放进 Row 时会被迫无限宽导致布局崩溃
+          minimumSize: const Size(0, 34),
           padding: const EdgeInsets.symmetric(horizontal: 16),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(9)),
         ),

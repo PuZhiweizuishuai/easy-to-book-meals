@@ -294,3 +294,91 @@ class StoreStats {
 
   Map<String, dynamic> toJson() => _$StoreStatsToJson(this);
 }
+
+/// 店员协助下单请求体（POST /order/manage/staff-create）
+///
+/// 对应后端 StaffCreateOrderDto（继承顾客下单 CreateOrderDto）：
+/// 堂食需携带 [tableId]，外送必填 [contactPhone] 与 [deliveryAddress]。
+class StaffCreateOrderPayload {
+  StaffCreateOrderPayload({
+    required this.storeId,
+    required this.orderType,
+    this.tableId,
+    this.customerName,
+    this.customerPhone,
+    this.contactPhone,
+    this.deliveryAddress,
+    this.remark,
+    required this.items,
+  });
+
+  final int storeId;
+
+  /// 订单类型：0-堂食 1-外送 2-线上
+  final int orderType;
+
+  /// 堂食绑定的餐桌 ID
+  final int? tableId;
+
+  /// 顾客称呼（快照展示用）
+  final String? customerName;
+
+  /// 顾客手机号（展示 / 关联会员用）
+  final String? customerPhone;
+
+  /// 联系电话（外送时用于配送，任意类型均可提交以关联会员积分）
+  final String? contactPhone;
+
+  /// 收货地址（外送必填）
+  final String? deliveryAddress;
+
+  final String? remark;
+
+  final List<CreateOrderItemPayload> items;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'storeId': storeId,
+        'orderType': orderType,
+        if (tableId != null) 'tableId': tableId,
+        if (customerName != null) 'customerName': customerName,
+        if (customerPhone != null) 'customerPhone': customerPhone,
+        if (contactPhone != null) 'contactPhone': contactPhone,
+        if (deliveryAddress != null) 'deliveryAddress': deliveryAddress,
+        if (remark != null) 'remark': remark,
+        'items': items.map((item) => item.toJson()).toList(),
+      };
+}
+
+/// 下单 / 加菜明细项（对应后端 CreateOrderDto.Item）
+class CreateOrderItemPayload {
+  const CreateOrderItemPayload({
+    required this.skuId,
+    required this.quantity,
+  });
+
+  final int skuId;
+  final int quantity;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'skuId': skuId,
+        'quantity': quantity,
+      };
+}
+
+/// 订单加菜请求体（POST /order/manage/add-items/{id}）
+///
+/// 后端 AddOrderItemsDto：订单未完成（status < 4）时可追加菜品，
+/// 成功后返回更新后的订单详情，新菜品未出餐时状态自动回退「制作中」。
+class AddOrderItemsPayload {
+  AddOrderItemsPayload({required this.items, this.contactPhone});
+
+  final List<CreateOrderItemPayload> items;
+
+  /// 扫码点餐首单未填手机号时，可在加菜时补填以关联会员（店员端通常不传）
+  final String? contactPhone;
+
+  Map<String, dynamic> toJson() => <String, dynamic>{
+        'items': items.map((item) => item.toJson()).toList(),
+        if (contactPhone != null) 'contactPhone': contactPhone,
+      };
+}

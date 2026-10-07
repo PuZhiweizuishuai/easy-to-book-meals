@@ -1,19 +1,11 @@
 <template>
   <div class="min-h-screen bg-base-200">
-    <!-- 顶部导航 -->
-    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4">
-      <div class="flex-1">
-        <router-link to="/" class="btn btn-ghost btn-sm btn-square">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </router-link>
-        <span class="font-bold text-lg ml-1">我的订单</span>
-      </div>
-      <div class="flex-none">
+    <!-- 顶部导航（通用组件） -->
+    <AppHeader title="我的订单" show-back>
+      <template #actions>
         <router-link to="/" class="btn btn-ghost btn-sm">继续点餐</router-link>
-      </div>
-    </header>
+      </template>
+    </AppHeader>
 
     <main class="container mx-auto px-4 py-5 max-w-3xl">
       <!-- 状态页签 -->
@@ -162,8 +154,8 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
-import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
+import AppHeader from '@/components/common/AppHeader.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import AddItemsDialog from '@/components/order/AddItemsDialog.vue'
 import { useAddItems } from '@/composables/useAddItems'
@@ -176,7 +168,6 @@ import {
   orderTypeBadge
 } from '@/utils/order'
 
-const authStore = useAuthStore()
 const { confirm } = useConfirm()
 
 const loading = ref(false)

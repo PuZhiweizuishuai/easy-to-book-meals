@@ -8,7 +8,7 @@ import '../table_page.dart';
 /// 餐桌卡片（可复用）
 ///
 /// 状态色块 + 桌号 + 座位数 + 区域；点击改状态，长按复制扫码标识，
-/// 右上角弹出菜单提供编辑与删除。
+/// 右下角二维码图标或右上角菜单可查看扫码点餐二维码，菜单另提供编辑与删除。
 class TableTile extends StatelessWidget {
   const TableTile({
     super.key,
@@ -16,6 +16,7 @@ class TableTile extends StatelessWidget {
     this.busy = false,
     this.onTap,
     this.onLongPress,
+    this.onViewQr,
     this.onEdit,
     this.onDelete,
   });
@@ -24,6 +25,7 @@ class TableTile extends StatelessWidget {
   final bool busy;
   final VoidCallback? onTap;
   final VoidCallback? onLongPress;
+  final VoidCallback? onViewQr;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
 
@@ -118,10 +120,15 @@ class TableTile extends StatelessWidget {
                   icon: const Icon(Icons.more_vert,
                       size: 16, color: AppColors.textHint),
                   onSelected: (value) {
+                    if (value == 'qr') onViewQr?.call();
                     if (value == 'edit') onEdit?.call();
                     if (value == 'delete') onDelete?.call();
                   },
                   itemBuilder: (context) => const [
+                    PopupMenuItem<String>(
+                      value: 'qr',
+                      child: Text('查看二维码'),
+                    ),
                     PopupMenuItem<String>(value: 'edit', child: Text('编辑')),
                     PopupMenuItem<String>(
                       value: 'delete',
@@ -145,12 +152,19 @@ class TableTile extends StatelessWidget {
                 ),
               if (table.qrCodeKey?.isNotEmpty == true)
                 Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Icon(
-                    Symbols.qr_code,
-                    size: 14,
-                    color: color.withValues(alpha: 0.7),
+                  bottom: 0,
+                  right: 0,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: (busy || onViewQr == null) ? null : onViewQr,
+                    child: Padding(
+                      padding: const EdgeInsets.all(6),
+                      child: Icon(
+                        Symbols.qr_code,
+                        size: 16,
+                        color: color.withValues(alpha: 0.85),
+                      ),
+                    ),
                   ),
                 ),
             ],

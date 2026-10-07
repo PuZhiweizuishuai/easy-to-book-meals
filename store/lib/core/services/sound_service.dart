@@ -5,7 +5,7 @@ import 'app_logger.dart';
 /// 提醒音类型
 enum AlertTone {
   /// 新订单
-  newOrder('sounds/new_order.wav'),
+  newOrder('sounds/new_order.mp3'),
 
   /// 后厨新增待制作菜品
   newItem('sounds/new_item.wav');

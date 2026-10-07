@@ -13,12 +13,14 @@ import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/state_views.dart';
+import 'widgets/table_qr_sheet.dart';
 import 'widgets/table_tile.dart';
 
 /// 餐桌管理页
 ///
 /// 网格展示本店餐桌，颜色代表状态；支持新增、编辑、删除与状态切换，
-/// 卡片长按可复制该桌的扫码点餐标识（qrCodeKey）。
+/// 点击卡片右下角二维码图标或菜单「查看二维码」可查看扫码点餐二维码，
+/// 长按卡片可复制该桌的扫码点餐标识（qrCodeKey）。
 class TablePage extends ConsumerStatefulWidget {
   const TablePage({super.key});
 
@@ -284,6 +286,40 @@ class _TablePageState extends ConsumerState<TablePage> {
     AppToast.success(context, '已复制扫码标识');
   }
 
+  /// 查看该桌的扫码点餐二维码
+  ///
+  /// 链接格式与顾客端 Web 保持一致：
+  /// `{服务器地址}/store/{门店ID}?table={qrCodeKey}`
+  void _showQr(DiningTable table) {
+    final serverAddress = ref.read(preferencesProvider).serverAddress;
+    final key = table.qrCodeKey;
+    final storeId = table.storefrontId ?? _storeId;
+
+    String? scanUrl;
+    if (key != null &&
+        key.isNotEmpty &&
+        storeId != null &&
+        serverAddress.isNotEmpty) {
+      final base = serverAddress.endsWith('/')
+          ? serverAddress.substring(0, serverAddress.length - 1)
+          : serverAddress;
+      scanUrl = '$base/store/$storeId?table=$key';
+    }
+
+    final subtitle = <String>[
+      if ((table.capacity ?? 0) > 0) '${table.capacity} 人桌',
+      if (table.area?.isNotEmpty == true) table.area!,
+    ].join(' · ');
+
+    TableQrSheet.show(
+      context,
+      tableNumber: table.tableNumber ?? '-',
+      scanUrl: scanUrl,
+      subtitle: subtitle.isEmpty ? null : subtitle,
+      qrCodeKey: key,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final visible = _statusFilter == null
@@ -374,6 +410,7 @@ class _TablePageState extends ConsumerState<TablePage> {
                 busy: _busy.contains(table.id),
                 onTap: () => _showStatusMenu(table),
                 onLongPress: () => _copyQrKey(table),
+                onViewQr: () => _showQr(table),
                 onEdit: () => _showEditor(table: table),
                 onDelete: () => _delete(table),
               );

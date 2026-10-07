@@ -1,36 +1,7 @@
 <template>
   <div class="min-h-screen bg-base-200">
-    <!-- 顶部导航 -->
-    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4">
-      <div class="flex-1">
-        <router-link to="/" class="flex items-center gap-2">
-          <span class="text-2xl">🏪</span>
-          <span class="font-bold text-xl text-primary">我的门店</span>
-        </router-link>
-      </div>
-      <div class="flex-none gap-2">
-        <NotificationBell v-if="authStore.isLoggedIn" />
-        <div class="dropdown dropdown-end" v-if="authStore.isLoggedIn">
-          <div tabindex="0" role="button" class="btn btn-ghost btn-sm avatar">
-            <div class="w-7 rounded-full bg-neutral text-neutral-content overflow-hidden">
-              <img v-if="authStore.userInfo?.avatarUrl"
-                   :src="authStore.userInfo.avatarUrl" alt="用户头像"
-                   class="w-full h-full object-cover" />
-              <span v-else class="text-xs flex items-center justify-center h-full">{{ (authStore.nickname || '客')[0] }}</span>
-            </div>
-          </div>
-          <ul tabindex="0" class="mt-2 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-44 border border-base-200">
-            <li class="px-3 py-1.5 text-xs text-base-content/50">{{ authStore.nickname || '未设置昵称' }}</li>
-            <li><router-link to="/">前台首页</router-link></li>
-            <li><router-link to="/my/orders">我的订单</router-link></li>
-            <li v-if="canManageStore"><router-link to="/admin">门店管理</router-link></li>
-            <li><router-link to="/my/account">账号设置</router-link></li>
-            <li><a class="text-error" @click.prevent="handleLogout">退出登录</a></li>
-          </ul>
-        </div>
-        <router-link v-else to="/login" class="btn btn-primary btn-sm">登录 / 注册</router-link>
-      </div>
-    </header>
+    <!-- 顶部导航（通用组件） -->
+    <AppHeader title="我的门店" show-back />
 
     <main class="container mx-auto px-4 py-6 max-w-6xl">
       <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -202,18 +173,13 @@ import { useAuthStore } from '@/stores/auth'
 import { useStoreContext } from '@/stores/storeContext'
 import toast from '@/utils/toast'
 import ImageUpload from '@/components/upload/ImageUpload.vue'
-import NotificationBell from '@/components/common/NotificationBell.vue'
+import AppHeader from '@/components/common/AppHeader.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
 const storeContext = useStoreContext()
 
 const stores = computed(() => storeContext.stores)
-
-/** 是否有任意门店角色（控制「门店管理」入口展示） */
-const canManageStore = computed(() =>
-  authStore.hasAnyRole(['STORE_OWNER', 'STORE_CASHIER', 'STORE_KITCHEN', 'STORE_WAITER', 'STORE_INVENTORY'])
-)
 
 /** 是否存在待审核的门店（后端限制：需审核结束后才能再次创建） */
 const hasPendingStore = computed(() => stores.value.some(s => s.status === -1))
@@ -279,13 +245,6 @@ const handleLogoUploadSuccess = (response) => {
   nextTick(() => {
     showLogoModal.value = false
   })
-}
-
-const handleLogout = async () => {
-  await authStore.logout()
-  storeContext.clear()
-  toast.success('已退出登录')
-  router.push('/login')
 }
 
 /** 状态展示（与后端 StoreStatus 对应） */

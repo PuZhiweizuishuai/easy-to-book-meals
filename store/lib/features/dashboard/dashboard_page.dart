@@ -8,11 +8,14 @@ import '../../core/utils/money_format.dart';
 import '../../core/utils/time_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/alert_provider.dart';
+import '../../providers/refresh_bus.dart';
+import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_network_image.dart';
 import '../../shared/widgets/simple_bar_chart.dart';
 import '../../shared/widgets/state_views.dart';
+import '../orders/order_create_page.dart';
 import 'dashboard_provider.dart';
 
 /// 首页数据看板
@@ -26,14 +29,31 @@ class DashboardPage extends ConsumerStatefulWidget {
   ConsumerState<DashboardPage> createState() => _DashboardPageState();
 }
 
-class _DashboardPageState extends ConsumerState<DashboardPage> {
+class _DashboardPageState extends ConsumerState<DashboardPage>
+    with WidgetsBindingObserver {
   @override
   void initState() {
     super.initState();
+    // App 从后台回到前台时自动刷新：店员多半是「结算完订单回到看板看营业额」，
+    // 页面常驻在 IndexedStack 里不会重建，不刷新的话一直显示进入时的旧数据。
+    WidgetsBinding.instance.addObserver(this);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       // 进入首页也算看过提醒，清除订单角标
       ref.read(alertProvider.notifier).clearBadge(AlertKind.newOrder);
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(dataRefreshProvider.notifier).bump();
+    }
   }
 
   @override
@@ -155,6 +175,9 @@ class _DashboardBody extends StatelessWidget {
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
       children: [
+        // 店员协助下单快捷入口（需 order:manage 权限）
+        const _StaffOrderBanner(),
+        const SizedBox(height: 14),
         // 今日核心指标
         Row(
           children: [
@@ -163,7 +186,7 @@ class _DashboardBody extends StatelessWidget {
                 icon: Symbols.payments,
                 color: AppColors.primary,
                 label: '今日营业额',
-                value: MoneyFormat.yuan(stats.todayRevenue ?? 0),
+                value: MoneyFormat.yuan(data.todayRevenue),
                 alignRight: false,
               ),
             ),
@@ -173,7 +196,7 @@ class _DashboardBody extends StatelessWidget {
                 icon: Symbols.receipt_long,
                 color: AppColors.chartAccent,
                 label: '今日订单',
-                value: '${stats.todayOrderCount ?? 0}',
+                value: '${data.todayOrderCount}',
                 unit: '单',
               ),
             ),
@@ -204,6 +227,10 @@ class _DashboardBody extends StatelessWidget {
             ),
           ],
         ),
+        if (data.reportError != null) ...[
+          const SizedBox(height: 10),
+          _ReportErrorHint(message: data.reportError!),
+        ],
         const SizedBox(height: 14),
 
         // 当日经营概览
@@ -341,7 +368,128 @@ class _DashboardBody extends StatelessWidget {
               ],
             ),
           ),
+        const SizedBox(height: 12),
+        Center(
+          child: Text(
+            '数据更新于 ${TimeFormat.time(data.updatedAt.millisecondsSinceEpoch)} · 下拉可刷新',
+            style: const TextStyle(fontSize: 11.5, color: AppColors.textHint),
+          ),
+        ),
       ],
+    );
+  }
+}
+
+/// 看板顶部的「协助下单」快捷入口
+///
+/// 仅拥有 order:manage 权限的店员可见；下单成功后协助下单页会 bump
+/// 刷新总线，看板指标自动重拉。
+class _StaffOrderBanner extends ConsumerWidget {
+  const _StaffOrderBanner();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final canStaffCreate = ref
+            .watch(currentUserProvider)
+            ?.hasAnyPermission(const ['order:manage']) ??
+        false;
+    if (!canStaffCreate) return const SizedBox.shrink();
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute<bool>(
+            builder: (_) => const StaffOrderCreatePage(),
+          ),
+        ),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 14),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [AppColors.primary, AppColors.primaryDark],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Symbols.post_add,
+                  size: 23,
+                  color: Colors.white,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '协助下单',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      '店员代客下单：选菜品 → 填信息 → 提交',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white70,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const Icon(Icons.chevron_right_rounded,
+                  size: 22, color: Colors.white),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 报表接口不可用时的提示（多为缺少 stats:store 权限）
+class _ReportErrorHint extends StatelessWidget {
+  const _ReportErrorHint({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.info_outline, size: 15, color: AppColors.warning),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              '经营概览数据未加载：$message',
+              style: const TextStyle(fontSize: 12, color: Color(0xFF8A5A00)),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

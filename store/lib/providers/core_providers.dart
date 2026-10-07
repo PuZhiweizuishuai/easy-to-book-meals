@@ -10,6 +10,7 @@ import '../core/services/url_resolver.dart';
 import '../data/api/auth_api.dart';
 import '../data/api/coupon_api.dart';
 import '../data/api/dish_api.dart';
+import '../data/api/file_api.dart';
 import '../data/api/membership_api.dart';
 import '../data/api/order_api.dart';
 import '../data/api/report_api.dart';
@@ -86,6 +87,10 @@ final orderApiProvider = Provider<OrderApi>(
 
 final dishApiProvider = Provider<DishApi>(
   (ref) => DishApi(ref.watch(apiClientProvider)),
+);
+
+final fileApiProvider = Provider<FileApi>(
+  (ref) => FileApi(ref.watch(apiClientProvider)),
 );
 
 final categoryApiProvider = Provider<CategoryApi>(

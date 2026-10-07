@@ -47,9 +47,9 @@ extension StoreStatusText on StoreSummary {
 
 /// 门店状态码 → 文案
 String storeStatusName(int? status) => switch (status) {
-      0 => '待审核',
-      1 => '营业中',
-      2 => '休息中',
-      3 => '已停业',
+      -1 => '待审核',
+      0 => '营业中',
+      1 => '休息中',
+      2 => '已停业',
       _ => '未知',
     };

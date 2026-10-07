@@ -7,6 +7,7 @@ import '../../core/utils/money_format.dart';
 import '../../core/utils/time_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
+import '../../providers/refresh_bus.dart';
 import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
@@ -14,6 +15,7 @@ import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_network_image.dart';
 import '../../shared/widgets/state_views.dart';
 import 'checkout_sheet.dart';
+import 'order_add_items_page.dart';
 import 'order_ui.dart';
 
 /// 订单详情页
@@ -108,6 +110,8 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       }
       // 数据有变化，返回列表时刷新
       _changed = true;
+      // 订单状态变化会影响看板营业额 / 待接单数，通知常驻数据页重新拉取
+      ref.read(dataRefreshProvider.notifier).bump();
       if (successText != null) AppToast.success(context, successText);
     } on ApiException catch (e) {
       if (!mounted) return;
@@ -243,6 +247,24 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
     }
   }
 
+  /// 打开加菜页，成功后刷新详情并通知列表刷新
+  Future<void> _openAddItems() async {
+    final order = _order;
+    if (order == null || order.id == null) return;
+    final changed = await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => OrderAddItemsPage(
+          orderId: order.id!,
+          storeId: widget.storeId,
+        ),
+      ),
+    );
+    if (changed == true && mounted) {
+      _changed = true;
+      await _load();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final order = _order;
@@ -256,6 +278,18 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
         appBar: AppBar(
           title: const Text('订单详情'),
           actions: [
+            // 与 Web 端一致：未完成 / 未取消订单，且有 order:manage 权限可加菜
+            if (order != null &&
+                order.statusEnum != OrderStatus.completed &&
+                order.statusEnum != OrderStatus.cancelled &&
+                (ref.watch(currentUserProvider)?.hasAnyPermission(
+                        const ['order:manage']) ??
+                    false))
+              IconButton(
+                tooltip: '加菜',
+                icon: const Icon(Icons.post_add, size: 23),
+                onPressed: _openAddItems,
+              ),
             IconButton(
               icon: const Icon(Icons.refresh_rounded, size: 22),
               onPressed: _load,
@@ -750,6 +784,8 @@ class _MiniAction extends StatelessWidget {
           ? FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: color,
+                // 覆盖主题的 Size.fromHeight(46)（宽度 infinity），Row 内会崩
+                minimumSize: const Size(0, 30),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
@@ -770,6 +806,8 @@ class _MiniAction extends StatelessWidget {
           : OutlinedButton(
               style: OutlinedButton.styleFrom(
                 foregroundColor: color,
+                // 覆盖主题的 Size.fromHeight(46)（宽度 infinity），Row 内会崩
+                minimumSize: const Size(0, 30),
                 padding: const EdgeInsets.symmetric(horizontal: 12),
                 side: BorderSide(color: color.withValues(alpha: 0.5)),
                 shape: RoundedRectangleBorder(

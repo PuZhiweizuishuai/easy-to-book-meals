@@ -1,19 +1,11 @@
 <template>
   <div class="min-h-screen bg-base-200">
-    <!-- 顶部导航 -->
-    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4">
-      <div class="flex-1">
-        <router-link to="/" class="btn btn-ghost btn-sm btn-square">
-          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-          </svg>
-        </router-link>
-        <span class="font-bold text-lg ml-1">消息通知</span>
-      </div>
-      <div class="flex-none">
+    <!-- 顶部导航（通用组件） -->
+    <AppHeader title="消息通知" show-back>
+      <template #actions>
         <button class="btn btn-ghost btn-sm" :disabled="!hasUnread" @click="handleReadAll">全部已读</button>
-      </div>
-    </header>
+      </template>
+    </AppHeader>
 
     <main class="container mx-auto px-4 py-5 max-w-3xl">
       <!-- 待处理邀请置顶提示 -->
@@ -102,6 +94,7 @@ import { httpGet, httpPost, isSuccess, parsePage } from '@/utils/fetch'
 import { useAuthStore } from '@/stores/auth'
 import { useNotificationStore } from '@/stores/notification'
 import { useConfirm } from '@/composables/useConfirm'
+import AppHeader from '@/components/common/AppHeader.vue'
 import toast from '@/utils/toast'
 
 const authStore = useAuthStore()

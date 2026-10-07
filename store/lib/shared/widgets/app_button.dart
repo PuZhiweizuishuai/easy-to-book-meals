@@ -133,6 +133,10 @@ class SecondaryButton extends StatelessWidget {
         style: OutlinedButton.styleFrom(
           foregroundColor: effectiveColor,
           side: BorderSide(color: effectiveColor.withValues(alpha: 0.6)),
+          // 主题默认 minimumSize 为 Size.fromHeight(46)（宽度 infinity），
+          // 会让 expand=false 也变成满宽、放进 Row 时直接布局崩溃。
+          // 这里按 expand 决定宽度：满宽时用 infinity，否则收敛为内容宽度。
+          minimumSize: Size(expand ? double.infinity : 0, height),
           padding: const EdgeInsets.symmetric(horizontal: 14),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(AppThemeRadius.md),

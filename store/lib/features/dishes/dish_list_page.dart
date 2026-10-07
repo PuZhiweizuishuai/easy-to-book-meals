@@ -41,7 +41,7 @@ class _DishListPageState extends ConsumerState<DishListPage> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('菜品管理'),
+        title: const Text('菜品管理（推荐使用网页端进行管理）'),
         actions: [
           IconButton(
             tooltip: '新增菜品',
@@ -328,6 +328,9 @@ Future<void> toggleDishStatus(
   final storeId = ref.read(currentStoreIdProvider);
   if (storeId == null || dish.id == null) return;
   try {
+    // /dishes/update 按 fileDataList 做差量更新，缺失会导致已关联图片被删除，
+    // 所以先取一次详情把现有文件带回去。
+    final detail = await ref.read(dishApiProvider).detail(dishId: dish.id!);
     await ref.read(dishApiProvider).update(
           UpdateDishPayload(
             id: dish.id!,
@@ -340,6 +343,8 @@ Future<void> toggleDishStatus(
             categoryIds: dish.categoryIds,
             stock: dish.stock,
             status: onSale ? 1 : 0,
+            imageList: dish.imageUrls,
+            fileDataList: detail?.fileDataList,
           ),
         );
     if (!context.mounted) return;

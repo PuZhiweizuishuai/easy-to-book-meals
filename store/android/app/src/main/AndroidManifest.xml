@@ -6,6 +6,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     <!-- 扫码：核销优惠券 -->
     <uses-permission android:name="android.permission.CAMERA"/>
+    <!-- 菜品图片上传：从相册选择图片（Android 13+ 走系统照片选择器，低版本需要读存储） -->
+    <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
+    <uses-permission
+        android:name="android.permission.READ_EXTERNAL_STORAGE"
+        android:maxSdkVersion="32"/>
     <uses-feature
         android:name="android.hardware.camera"
         android:required="false"/>

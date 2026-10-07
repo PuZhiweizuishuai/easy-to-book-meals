@@ -100,6 +100,44 @@ class ApiClient {
     return parseResponse<T>(response, parser).data;
   }
 
+  /// 文件上传（multipart/form-data）
+  ///
+  /// [filePaths] 为本地文件绝对路径，统一放到 [field] 字段中
+  /// （后端 `/files/upload` 要求字段名为 `files[]`）。
+  Future<T?> upload<T>(
+    String path, {
+    required List<String> filePaths,
+    String field = 'files[]',
+    Map<String, dynamic>? queryParameters,
+    required T? Function(Object? raw) parser,
+  }) async {
+    final formData = FormData();
+    for (final filePath in filePaths) {
+      formData.files.add(
+        MapEntry(
+          field,
+          await MultipartFile.fromFile(
+            filePath,
+            filename: filePath.split(RegExp(r'[\\/]')).last,
+          ),
+        ),
+      );
+    }
+    final response = await _safe(
+      () => _dio.post<dynamic>(
+        path,
+        data: formData,
+        queryParameters: cleanParams(queryParameters),
+        options: Options(
+          // 上传大图较久，单独放宽发送/接收超时
+          sendTimeout: AppConfig.uploadTimeout,
+          receiveTimeout: AppConfig.uploadTimeout,
+        ),
+      ),
+    );
+    return parseResponse<T>(response, parser).data;
+  }
+
   /// DELETE 请求
   Future<T?> delete<T>(
     String path, {

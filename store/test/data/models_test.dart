@@ -307,4 +307,58 @@ void main() {
       expect(overview.avg, 0);
     });
   });
+
+  group('菜品 SKU', () {
+    test('解析后端 SKU（specs / specNames 为 JSON 字符串）', () {
+      final sku = ProductSku.fromJson({
+        'id': 11,
+        'dishId': 3,
+        'description': '推荐',
+        'unitPrice': 38,
+        'unit': '份',
+        'stock': -1,
+        'discount': 0.8,
+        'discountEndTime': 0,
+        'specs': '[2,7]',
+        'specNames': '["微辣","大份"]',
+        'status': 1,
+      });
+      expect(sku.specIds, <int>[2, 7]);
+      expect(sku.unitPrice, 38.0);
+      expect(sku.discount, 0.8);
+      expect(sku.onSale, true);
+      expect(sku.locked, false);
+    });
+
+    test('status=2 视为已失效（只读）', () {
+      final sku = ProductSku.fromJson({'id': 12, 'status': 2, 'specs': '[]'});
+      expect(sku.locked, true);
+      expect(SkuStatus.name(sku.status), '已失效');
+    });
+
+    test('specs 非法 JSON 时降级为空数组', () {
+      final sku = ProductSku.fromJson({'id': 13, 'specs': 'not-json'});
+      expect(sku.specIds, isEmpty);
+    });
+
+    test('SkuInput 提交的字段与后端一致', () {
+      final input = ProductSku.fromJson({
+        'id': 11,
+        'unitPrice': 38,
+        'stock': 5,
+        'discount': 0.9,
+        'discountEndTime': 0,
+        'status': 1,
+        'specs': '[2,7]',
+      }).toInput();
+      final json = input.copyWith(stock: 3, discount: 0.75).toJson();
+      expect(json['id'], 11);
+      expect(json['stock'], 3);
+      expect(json['discount'], 0.75);
+      expect(json['discountEndTime'], 0);
+      expect(json['status'], 1);
+      // 提交体不含 specIds（后端按 id 更新，规格由 /sku/adjust 维护）
+      expect(json.containsKey('specIds'), false);
+    });
+  });
 }

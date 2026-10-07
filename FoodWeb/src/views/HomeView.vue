@@ -1,62 +1,19 @@
 <template>
   <div class="min-h-screen bg-base-200">
-    <!-- 顶部导航 -->
-    <header class="navbar bg-base-100 shadow-sm sticky top-0 z-30 px-4">
-      <div class="flex-1">
-        <router-link to="/" class="flex items-center gap-2">
-          <span class="text-2xl">🍔</span>
-          <span class="font-bold text-xl text-primary">餐易订</span>
-        </router-link>
-      </div>
-
+    <!-- 顶部导航（通用组件） -->
+    <AppHeader>
       <!-- 搜索框 -->
-      <div class="flex-none hidden sm:block mr-4">
-        <label class="input input-bordered input-sm flex items-center gap-2 w-64">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
-            <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
-          </svg>
-          <input v-model="searchKey" type="text" placeholder="搜索门店..." class="grow" @keyup.enter="handleSearch" />
-        </label>
-      </div>
-
-      <div class="flex-none gap-2">
-        <template v-if="authStore.isLoggedIn">
-          <NotificationBell />
-          <router-link to="/my/orders" class="btn btn-ghost btn-sm">我的订单</router-link>
-          <!-- 所有登录用户均可开店/管理自己创建的门店 -->
-          <router-link to="/my/stores" class="btn btn-ghost btn-sm">我的门店</router-link>
-          <!-- 有门店角色的用户显示管理入口 -->
-          <router-link
-            v-if="canManageStore"
-            to="/admin"
-            class="btn btn-primary btn-sm"
-          >门店管理</router-link>
-          <div class="dropdown dropdown-end">
-            <div tabindex="0" role="button" class="btn btn-ghost btn-sm avatar">
-              <div class="w-7 rounded-full bg-neutral text-neutral-content overflow-hidden">
-                <!-- 用户头像：有 avatarUrl 显示真实头像，否则显示昵称首字 -->
-                <img v-if="authStore.userInfo?.avatarUrl"
-                     :src="authStore.userInfo.avatarUrl" alt="用户头像"
-                     class="w-full h-full object-cover" />
-                <span v-else class="text-xs flex items-center justify-center h-full">{{ (authStore.nickname || '客')[0] }}</span>
-              </div>
-            </div>
-            <ul tabindex="0" class="mt-2 z-[1] p-2 shadow-lg menu menu-sm dropdown-content bg-base-100 rounded-box w-44 border border-base-200">
-              <li class="px-3 py-1.5 text-xs text-base-content/50">{{ authStore.nickname || '未设置昵称' }}</li>
-              <li><router-link to="/my/orders">我的订单</router-link></li>
-              <li><router-link to="/my/stores">我的门店</router-link></li>
-              <li><router-link to="/my/notifications">消息通知</router-link></li>
-              <li><router-link to="/my/account">账号设置</router-link></li>
-              <li v-if="canManageStore"><router-link to="/admin">门店管理</router-link></li>
-              <li><a class="text-error" @click.prevent="handleLogout">退出登录</a></li>
-            </ul>
-          </div>
-        </template>
-        <template v-else>
-          <router-link to="/login" class="btn btn-primary btn-sm">登录 / 注册</router-link>
-        </template>
-      </div>
-    </header>
+      <template #middle>
+        <div class="flex-none hidden sm:block mr-4">
+          <label class="input input-bordered input-sm flex items-center gap-2 w-64">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="w-4 h-4 opacity-70">
+              <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
+            </svg>
+            <input v-model="searchKey" type="text" placeholder="搜索门店..." class="grow" @keyup.enter="handleSearch" />
+          </label>
+        </div>
+      </template>
+    </AppHeader>
 
     <main class="container mx-auto px-4 py-6 max-w-6xl">
       <!-- 移动端搜索 -->
@@ -134,16 +91,11 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, onMounted } from 'vue'
 import { httpGet, isSuccess, parsePage } from '@/utils/fetch'
-import { useAuthStore } from '@/stores/auth'
 import toast from '@/utils/toast'
 import Pagination from '@/components/common/Pagination.vue'
-import NotificationBell from '@/components/common/NotificationBell.vue'
-
-const router = useRouter()
-const authStore = useAuthStore()
+import AppHeader from '@/components/common/AppHeader.vue'
 
 const loading = ref(false)
 const stores = ref([])
@@ -151,11 +103,6 @@ const page = ref(1)
 const size = 12
 const totalPages = ref(1)
 const searchKey = ref('')
-
-/** 是否显示门店管理入口（拥有任意门店角色） */
-const canManageStore = computed(() =>
-  authStore.hasAnyRole(['STORE_OWNER', 'STORE_CASHIER', 'STORE_KITCHEN', 'STORE_WAITER', 'STORE_INVENTORY'])
-)
 
 onMounted(() => {
   fetchStores()
@@ -197,11 +144,6 @@ const changePage = (p) => {
 const shortAddress = (addr) => {
   if (!addr) return ''
   return addr.length > 24 ? addr.slice(0, 24) + '...' : addr
-}
-
-const handleLogout = async () => {
-  await authStore.logout()
-  toast.success('已退出登录')
 }
 </script>
 

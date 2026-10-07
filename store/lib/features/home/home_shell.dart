@@ -5,6 +5,7 @@ import 'package:material_symbols_icons/material_symbols_icons.dart';
 import '../../core/routing/app_navigator.dart';
 import '../../core/theme/app_colors.dart';
 import '../../providers/alert_provider.dart';
+import '../../providers/refresh_bus.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../dashboard/dashboard_page.dart';
@@ -73,6 +74,11 @@ class _HomeShellState extends ConsumerState<HomeShell> {
       ref.read(alertProvider.notifier).clearBadge(AlertKind.newOrder);
     } else if (index == AppTabIndex.kitchen) {
       ref.read(alertProvider.notifier).clearBadge(AlertKind.newKitchenItem);
+    }
+    // 看板页常驻 IndexedStack 不会被重建，切回时主动刷新一次，
+    // 否则看到的还是首次进入时的营业额 / 订单数。
+    if (index == AppTabIndex.dashboard) {
+      ref.read(dataRefreshProvider.notifier).bump();
     }
   }
 

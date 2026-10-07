@@ -60,6 +60,9 @@ class StoreContextState {
 class StoreContextController extends Notifier<StoreContextState> {
   bool _loaded = false;
 
+  /// 是否有一次 load 正在进行，避免监听回调与冷启动补加载重复请求
+  bool _loading = false;
+
   @override
   StoreContextState build() {
     ref.listen<SessionState>(sessionProvider, (previous, next) {
@@ -70,6 +73,13 @@ class StoreContextController extends Notifier<StoreContextState> {
         state = StoreContextState.initial();
       }
     });
+    // 冷启动时本地已缓存登录态：session 在本 Provider 被创建（HomeShell 首帧）
+    // 之前就已 authenticated，上面的「状态跃迁」监听不会再触发，导致门店列表
+    // 永不加载、currentStoreId 恒为 null，进而所有依赖门店的接口都不发请求。
+    // 这里主动补一次加载，覆盖「重启后自动登录」的场景。
+    if (ref.read(sessionProvider).isAuthenticated) {
+      Future.microtask(load);
+    }
     return StoreContextState.initial();
   }
 
@@ -77,6 +87,8 @@ class StoreContextController extends Notifier<StoreContextState> {
 
   /// 加载门店列表
   Future<List<StoreSummary>> load() async {
+    if (_loading) return const [];
+    _loading = true;
     state = state.copyWith(loading: true, clearError: true);
     try {
       final page = await _authApi.myStores();
@@ -105,6 +117,8 @@ class StoreContextController extends Notifier<StoreContextState> {
       AppLogger.e('加载门店列表失败', error: e, stackTrace: s);
       state = state.copyWith(loading: false, error: '加载门店失败，请稍后重试');
       return const [];
+    } finally {
+      _loading = false;
     }
   }
 

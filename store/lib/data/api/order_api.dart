@@ -58,6 +58,35 @@ class OrderApi {
         const StoreStats(),
       );
 
+  // ==================== 店员协助下单 ====================
+
+  /// 店员代客下单（堂食 / 外送 / 线上）
+  ///
+  /// 需要 order:manage 权限；成功后返回创建的订单。
+  Future<OrderData?> staffCreate(StaffCreateOrderPayload payload) =>
+      _client.post<OrderData?>(
+        '/order/manage/staff-create',
+        body: payload.toJson(),
+        parser: (raw) =>
+            raw is Map<String, dynamic> ? OrderData.fromJson(raw) : null,
+      );
+
+  /// 为已有订单加菜（待接单 / 已接单 / 制作中 / 已出餐 均可）
+  ///
+  /// 需要 order:manage 权限；成功后返回更新后的订单详情。
+  Future<OrderData?> addItems({
+    required int orderId,
+    required int storeId,
+    required AddOrderItemsPayload payload,
+  }) =>
+      _client.post<OrderData?>(
+        '/order/manage/add-items/$orderId',
+        queryParameters: {'storeId': storeId},
+        body: payload.toJson(),
+        parser: (raw) =>
+            raw is Map<String, dynamic> ? OrderData.fromJson(raw) : null,
+      );
+
   // ==================== 订单状态流转 ====================
 
   /// 接单

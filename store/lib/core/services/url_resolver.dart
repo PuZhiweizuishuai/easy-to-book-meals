@@ -43,7 +43,10 @@ class AppUrlResolver {
     // 本地 scheme（blob:/file:）不是可加载的网络地址
     if (value.contains(':') && !value.startsWith('/')) return null;
     if (_baseUrl.isEmpty) return null;
-    final path = value.startsWith('/') ? value : '/$value';
+    // 上传接口返回的 fileUrl 形如 `/files/2026/10/07/xxx.jpg`，
+    // 但真正能取到文件的是 FileController 映射的 `/api/files/...`，这里补齐前缀
+    final normalized = value.startsWith('/files/') ? '/api$value' : value;
+    final path = normalized.startsWith('/') ? normalized : '/$normalized';
     return '$_baseUrl$path';
   }
 }

@@ -15,6 +15,7 @@ import '../data/api/membership_api.dart';
 import '../data/api/order_api.dart';
 import '../data/api/report_api.dart';
 import '../data/api/table_api.dart';
+import '../data/api/table_reservation_api.dart';
 
 /// 在 main 中通过 override 注入的 SharedPreferences 实例
 final sharedPreferencesProvider =
@@ -99,6 +100,10 @@ final categoryApiProvider = Provider<CategoryApi>(
 
 final tableApiProvider = Provider<TableApi>(
   (ref) => TableApi(ref.watch(apiClientProvider)),
+);
+
+final tableReservationApiProvider = Provider<TableReservationApi>(
+  (ref) => TableReservationApi(ref.watch(apiClientProvider)),
 );
 
 final membershipApiProvider = Provider<MembershipApi>(

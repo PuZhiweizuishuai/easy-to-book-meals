@@ -18,9 +18,11 @@ void main() {
       expect(MoneyFormat.quantity(1.234), '1.234');
     });
 
-    test('大额紧凑展示：超过一万折算成「万」', () {
-      expect(MoneyFormat.compact(15000), '1.5万');
-      expect(MoneyFormat.compact(999), '999.00');
+    test('图表标签：取整带千分位，超过一万折算成「万」', () {
+      expect(MoneyFormat.chartLabel(0), '0');
+      expect(MoneyFormat.chartLabel(999), '999');
+      expect(MoneyFormat.chartLabel(1234.56), '1,235');
+      expect(MoneyFormat.chartLabel(15000), '1.5万');
     });
   });
 

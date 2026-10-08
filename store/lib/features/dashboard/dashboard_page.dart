@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:material_symbols_icons/material_symbols_icons.dart';
 
 import '../../core/config/app_config.dart';
+import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/utils/money_format.dart';
 import '../../core/utils/time_format.dart';
@@ -12,6 +13,7 @@ import '../../providers/refresh_bus.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_filter_chip.dart';
 import '../../shared/widgets/app_network_image.dart';
 import '../../shared/widgets/simple_bar_chart.dart';
 import '../../shared/widgets/state_views.dart';
@@ -20,8 +22,9 @@ import 'dashboard_provider.dart';
 
 /// 首页数据看板
 ///
-/// 展示今日核心指标、近 7 天营收走势与当日畅销榜，
-/// 顶部提供门店切换；右下角固定「立即刷新」按钮便于店员手动拉取最新数据。
+/// 展示今日核心指标、近 7 天营收走势（柱顶标注金额）与畅销榜
+/// （今日 / 本月 / 历史三档切换），顶部提供门店切换；
+/// 右下角固定「立即刷新」按钮便于店员手动拉取最新数据。
 class DashboardPage extends ConsumerStatefulWidget {
   const DashboardPage({super.key});
 
@@ -56,6 +59,17 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
     }
   }
 
+  /// 手动刷新：看板主体 + 畅销榜各区间
+  ///
+  /// 畅销榜是独立的 family provider，下拉/点刷新时一并失效，
+  /// 否则会出现「营收是新的、榜单还是旧的」。
+  Future<void> _reload() {
+    for (final range in TopDishRange.values) {
+      ref.invalidate(topDishesProvider(range));
+    }
+    return ref.refresh(dashboardProvider.future);
+  }
+
   @override
   Widget build(BuildContext context) {
     final dashboard = ref.watch(dashboardProvider);
@@ -69,13 +83,13 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
           IconButton(
             tooltip: '刷新',
             icon: const Icon(Icons.refresh_rounded, size: 22),
-            onPressed: () => ref.refresh(dashboardProvider),
+            onPressed: _reload,
           ),
         ],
       ),
       body: RefreshIndicator(
         color: AppColors.primary,
-        onRefresh: () async => ref.refresh(dashboardProvider.future),
+        onRefresh: _reload,
         child: dashboard.when(
           loading: () => ListView(
             children: const [SizedBox(height: 80), LoadingView()],
@@ -85,7 +99,7 @@ class _DashboardPageState extends ConsumerState<DashboardPage>
               const SizedBox(height: 60),
               ErrorView(
                 message: error.toString(),
-                onRetry: () => ref.refresh(dashboardProvider),
+                onRetry: _reload,
               ),
             ],
           ),
@@ -170,7 +184,6 @@ class _DashboardBody extends StatelessWidget {
     final stats = data.stats;
     final overview = data.overview;
     final trend = data.trend;
-    final dishes = data.topDishes.dishes;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 24),
@@ -331,49 +344,119 @@ class _DashboardBody extends StatelessWidget {
               SimpleBarChart(
                 points: [
                   for (final point in trend.points)
-                    BarPoint(
-                      label: point.label ?? '',
-                      value: point.amount,
-                      valueText:
-                          MoneyFormat.compact(point.amount),
-                    ),
+                    BarPoint(label: point.label ?? '', value: point.amount),
                 ],
-                height: 120,
+                height: 148,
+                // 每根柱子顶部标注金额，不用手点就能读出销售额
+                showAllValues: true,
+                valueFormatter: MoneyFormat.chartLabel,
               ),
             ],
           ),
         ),
         const SizedBox(height: 14),
 
-        // 畅销榜
-        const SectionTitle(
-          title: '今日畅销榜',
-          padding: EdgeInsets.fromLTRB(0, 0, 0, 8),
-        ),
-        if (dishes.isEmpty)
-          AppCard(
-            child: EmptyView(
-              title: '今日暂无售出菜品',
-              compact: true,
-              icon: Symbols.lunch_dining,
-            ),
-          )
-        else
-          AppCard(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Column(
-              children: [
-                for (var i = 0; i < dishes.length; i++)
-                  _TopDishTile(index: i, dish: dishes[i]),
-              ],
-            ),
-          ),
+        // 畅销榜（今日 / 本月 / 历史）
+        const _TopDishSection(),
         const SizedBox(height: 12),
         Center(
           child: Text(
             '数据更新于 ${TimeFormat.time(data.updatedAt.millisecondsSinceEpoch)} · 下拉可刷新',
             style: const TextStyle(fontSize: 11.5, color: AppColors.textHint),
           ),
+        ),
+      ],
+    );
+  }
+}
+
+/// 畅销榜区块：今日 / 本月 / 历史三档切换
+///
+/// 与 Web 端数据报表的畅销菜品 Tab 一致；榜单走独立的 [topDishesProvider]，
+/// 切 Tab 只重发畅销榜这一个请求。
+class _TopDishSection extends ConsumerStatefulWidget {
+  const _TopDishSection();
+
+  @override
+  ConsumerState<_TopDishSection> createState() => _TopDishSectionState();
+}
+
+class _TopDishSectionState extends ConsumerState<_TopDishSection> {
+  TopDishRange _range = TopDishRange.day;
+
+  @override
+  Widget build(BuildContext context) {
+    final topDishes = ref.watch(topDishesProvider(_range));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SectionTitle(
+          title: '畅销榜',
+          subtitle: _range.hint,
+          padding: const EdgeInsets.fromLTRB(0, 0, 0, 8),
+        ),
+        Row(
+          children: [
+            for (final range in TopDishRange.values) ...[
+              if (range != TopDishRange.values.first)
+                const SizedBox(width: 8),
+              AppFilterChip(
+                label: range.tabLabel,
+                selected: range == _range,
+                showCheck: false,
+                height: 30,
+                onTap: () => setState(() => _range = range),
+              ),
+            ],
+          ],
+        ),
+        const SizedBox(height: 10),
+        topDishes.when(
+          loading: () => const AppCard(child: LoadingView(height: 90)),
+          error: (error, _) => AppCard(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.error_outline,
+                  size: 16,
+                  color: AppColors.danger,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    error is ApiException ? error.message : '畅销榜加载失败',
+                    style: const TextStyle(
+                      fontSize: 12.5,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => ref.invalidate(topDishesProvider(_range)),
+                  child: const Text('重试', style: TextStyle(fontSize: 12.5)),
+                ),
+              ],
+            ),
+          ),
+          data: (result) => result.dishes.isEmpty
+              ? AppCard(
+                  child: EmptyView(
+                    title: _range.emptyTitle,
+                    compact: true,
+                    icon: Symbols.lunch_dining,
+                  ),
+                )
+              : AppCard(
+                  padding: const EdgeInsets.symmetric(vertical: 6),
+                  child: Column(
+                    children: [
+                      for (var i = 0; i < result.dishes.length; i++)
+                        _TopDishTile(index: i, dish: result.dishes[i]),
+                    ],
+                  ),
+                ),
         ),
       ],
     );

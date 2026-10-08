@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:store/core/theme/app_colors.dart';
 import 'package:store/core/theme/app_theme.dart';
+import 'package:store/core/utils/money_format.dart';
 import 'package:store/shared/widgets/app_button.dart';
 import 'package:store/shared/widgets/app_card.dart';
 import 'package:store/shared/widgets/app_feedback.dart';
@@ -10,11 +11,11 @@ import 'package:store/shared/widgets/state_views.dart';
 import 'package:store/shared/widgets/status_chip.dart';
 
 /// 把被测组件包进 MaterialApp + Scaffold，模拟真实页面的渲染环境。
-Widget _host(Widget child) => MaterialApp(
+Widget _host(Widget child, {double width = 400}) => MaterialApp(
       theme: AppTheme.light(),
       home: Scaffold(
         body: SizedBox(
-          width: 400,
+          width: width,
           child: SingleChildScrollView(child: child),
         ),
       ),
@@ -43,12 +44,16 @@ void main() {
     );
 
     expect(find.text('接单'), findsOneWidget);
-    expect(find.text('结算中'), findsOneWidget);
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
     expect(find.text('拒单'), findsOneWidget);
 
-    final elevated = tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
-    expect(elevated.enabled, isTrue);
+    // busy 态用转圈替换文案，同时按钮自动禁用
+    expect(find.text('结算中'), findsNothing);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
+
+    final enabled = tester.widget<ElevatedButton>(find.byType(ElevatedButton).first);
+    expect(enabled.enabled, isTrue);
+    final busy = tester.widget<ElevatedButton>(find.byType(ElevatedButton).last);
+    expect(busy.enabled, isFalse);
   });
 
   testWidgets('卡片与分区标题渲染', (WidgetTester tester) async {
@@ -123,7 +128,7 @@ void main() {
     expect(find.text('网络异常，点击重试'), findsOneWidget);
   });
 
-  testWidgets('柱状图：空数据、渲染与选中回调', (WidgetTester tester) async {
+  testWidgets('柱状图：空数据、渲染、选中回调与数值标注', (WidgetTester tester) async {
     // 1、空数据占位
     await tester.pumpWidget(_host(const SimpleBarChart(points: [])));
     expect(find.text('暂无趋势数据'), findsOneWidget);
@@ -159,5 +164,25 @@ void main() {
     );
     // 选中柱子顶部会显示数值
     expect(find.text('1500'), findsOneWidget);
+
+    // 4、showAllValues：近 7 天每根柱子顶部都标注金额
+    Widget sevenDays() => SimpleBarChart(
+          points: [
+            for (var i = 1; i <= 7; i++)
+              BarPoint(label: '10-0$i', value: i * 1111.0),
+          ],
+          height: 148,
+          showAllValues: true,
+          valueFormatter: MoneyFormat.chartLabel,
+        );
+
+    await tester.pumpWidget(_host(sevenDays()));
+    expect(find.text('1,111'), findsOneWidget);
+    expect(find.text('4,444'), findsOneWidget);
+    expect(find.text('7,777'), findsOneWidget);
+
+    // 5、窄屏也放得下柱顶金额（放不下会抛 RenderFlex 溢出）
+    await tester.pumpWidget(_host(sevenDays(), width: 300));
+    expect(find.text('7,777'), findsOneWidget);
   });
 }

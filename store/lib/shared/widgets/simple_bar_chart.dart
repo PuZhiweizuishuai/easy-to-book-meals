@@ -16,6 +16,7 @@ class SimpleBarChart extends StatelessWidget {
     this.selectedIndex,
     this.onSelect,
     this.valueFormatter,
+    this.showAllValues = false,
   });
 
   /// 数据点（label + amount）
@@ -34,6 +35,9 @@ class SimpleBarChart extends StatelessWidget {
 
   /// 数值展示格式化
   final String Function(double value)? valueFormatter;
+
+  /// 是否在每根柱子顶部标注数值（默认只在高亮项上显示）
+  final bool showAllValues;
 
   @override
   Widget build(BuildContext context) {
@@ -72,7 +76,7 @@ class SimpleBarChart extends StatelessWidget {
                         color: selectedIndex == i
                             ? (selectedColor ?? AppColors.chartAccent)
                             : barColor,
-                        showValue: selectedIndex == i,
+                        showValue: showAllValues || selectedIndex == i,
                         valueText: valueFormatter?.call(points[i].value),
                       ),
                     ),
@@ -127,21 +131,22 @@ class _Bar extends StatelessWidget {
         builder: (context, constraints) {
           final total = constraints.hasBoundedHeight ? constraints.maxHeight : 100.0;
           const valueHeight = 15.0;
-          final available = showValue
+          final label = valueText ?? point.valueText;
+          final showLabel = showValue && label.isNotEmpty;
+          final available = showLabel
               ? (total - valueHeight).clamp(4.0, total)
               : total;
           return Column(
             mainAxisAlignment: MainAxisAlignment.end,
             children: [
-              if (showValue &&
-                  (valueText ?? point.valueText).isNotEmpty)
+              if (showLabel)
                 SizedBox(
                   height: valueHeight,
                   child: Center(
                     child: Text(
-                      valueText ?? point.valueText,
+                      label,
                       style: TextStyle(
-                        fontSize: 9.5,
+                        fontSize: 10,
                         fontWeight: FontWeight.w600,
                         color: color,
                       ),
@@ -150,14 +155,18 @@ class _Bar extends StatelessWidget {
                     ),
                   ),
                 ),
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 320),
-                curve: Curves.easeOutCubic,
-                width: double.infinity,
-                height: (available * ratio).clamp(3.0, available),
-                decoration: BoxDecoration(
-                  color: color,
-                  borderRadius: BorderRadius.circular(4),
+              Flexible(
+                // 数值标注出现/消失时 available 会突变，而柱子高度是动画过渡的，
+                // 过渡帧里的旧高度可能比新的可用空间更高，不包一层会溢出 15px。
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 320),
+                  curve: Curves.easeOutCubic,
+                  width: double.infinity,
+                  height: (available * ratio).clamp(3.0, available),
+                  decoration: BoxDecoration(
+                    color: color,
+                    borderRadius: BorderRadius.circular(4),
+                  ),
                 ),
               ),
             ],

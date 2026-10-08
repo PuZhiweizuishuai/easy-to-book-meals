@@ -13,4 +13,5 @@ export 'report_model.dart';
 export 'sku_model.dart';
 export 'store_model.dart';
 export 'table_model.dart';
+export 'table_reservation_model.dart';
 export 'user_model.dart';

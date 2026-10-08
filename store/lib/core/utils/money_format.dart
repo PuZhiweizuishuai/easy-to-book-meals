@@ -31,11 +31,11 @@ class MoneyFormat {
     return NumberFormat('0.###').format(value);
   }
 
-  /// 大额数字紧凑展示（看板用），如 1.2万
-  static String compact(double value) {
+  /// 图表柱顶标签：省略小数，宽度可控（柱子越窄越需要短文案）
+  static String chartLabel(double value) {
     if (value >= 10000) {
       return '${NumberFormat('0.0#').format(value / 10000)}万';
     }
-    return plain(value);
+    return NumberFormat('#,##0').format(value);
   }
 }

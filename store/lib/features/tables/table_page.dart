@@ -7,12 +7,16 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
+import '../../providers/refresh_bus.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/state_views.dart';
+import 'table_detail_page.dart';
+import 'widgets/reservation_sheet.dart';
+import 'widgets/reservation_timeline_section.dart';
 import 'widgets/table_qr_sheet.dart';
 import 'widgets/table_tile.dart';
 
@@ -237,6 +241,36 @@ class _TablePageState extends ConsumerState<TablePage> {
     }
   }
 
+  /// 打开餐桌详情页（当前状态 / 关联订单 / 本桌预约）
+  Future<void> _openDetail(DiningTable table) async {
+    if (table.id == null) return;
+    await Navigator.of(context).push<bool>(
+      MaterialPageRoute<bool>(
+        builder: (_) => TableDetailPage(
+          tableId: table.id!,
+          storeId: _storeId!,
+          tableNumber: table.tableNumber,
+        ),
+      ),
+    );
+    // 详情页内可能改状态 / 预约，返回后刷新列表
+    if (mounted) _load();
+  }
+
+  /// 创建预约
+  Future<void> _openReserve(DiningTable table) async {
+    final storeId = _storeId;
+    if (storeId == null || table.id == null) return;
+    final ok = await ReservationSheet.show(
+      context,
+      table: table,
+      storeId: storeId,
+    );
+    if (ok == true && mounted) {
+      await _load();
+    }
+  }
+
   /// 弹出状态切换菜单
   Future<void> _showStatusMenu(DiningTable table) async {
     final selected = await showModalBottomSheet<TableStatus>(
@@ -322,6 +356,10 @@ class _TablePageState extends ConsumerState<TablePage> {
 
   @override
   Widget build(BuildContext context) {
+    // 预约创建 / 餐桌状态变更会 bump 总线，重新拉取餐桌列表。
+    // ref.listen 只能在 build 中调用（放 initState 会触发 debugDoingBuild 断言）
+    ref.listen(dataRefreshProvider, (_, _) => _load());
+
     final visible = _statusFilter == null
         ? _tables
         : _tables.where((t) => t.status == _statusFilter).toList();
@@ -371,16 +409,14 @@ class _TablePageState extends ConsumerState<TablePage> {
   }
 
   Widget _buildBody(List<DiningTable> visible) {
+    final storeId = _storeId;
+    // 初始加载 / 全店无数据：用占位视图，不展示时间线（无 storeId）
     if (_loading && _tables.isEmpty) return const LoadingView();
     if (_error != null && _tables.isEmpty) {
       return ErrorView(message: _error!, onRetry: _load);
     }
-    if (visible.isEmpty) {
-      return const EmptyView(
-        title: '没有符合条件的餐桌',
-        subtitle: '点击右上角 + 新增餐桌',
-      );
-    }
+    if (storeId == null) return const EmptyView(title: '未选择门店');
+
     final freeCount = _tables.where((t) => t.status == 0).length;
     return RefreshIndicator(
       onRefresh: _load,
@@ -393,43 +429,54 @@ class _TablePageState extends ConsumerState<TablePage> {
             busy: _tables.length - freeCount,
           ),
           const SizedBox(height: 12),
-          GridView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 3,
-              crossAxisSpacing: 10,
-              mainAxisSpacing: 10,
-              childAspectRatio: 0.88,
+          if (visible.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 18),
+              child: EmptyView(
+                title: '没有符合条件的餐桌',
+                subtitle: '切换筛选或点击右上角 + 新增餐桌',
+                compact: true,
+                icon: Icons.table_restaurant_outlined,
+              ),
+            )
+          else
+            GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                crossAxisSpacing: 10,
+                mainAxisSpacing: 10,
+                childAspectRatio: 0.88,
+              ),
+              itemCount: visible.length,
+              itemBuilder: (context, index) {
+                final table = visible[index];
+                return TableTile(
+                  table: table,
+                  busy: _busy.contains(table.id),
+                  onViewDetail: () => _openDetail(table),
+                  onLongPress: () => _copyQrKey(table),
+                  onViewQr: () => _showQr(table),
+                  onReserve: () => _openReserve(table),
+                  onStatus: () => _showStatusMenu(table),
+                  onEdit: () => _showEditor(table: table),
+                  onDelete: () => _delete(table),
+                );
+              },
             ),
-            itemCount: visible.length,
-            itemBuilder: (context, index) {
-              final table = visible[index];
-              return TableTile(
-                table: table,
-                busy: _busy.contains(table.id),
-                onTap: () => _showStatusMenu(table),
-                onLongPress: () => _copyQrKey(table),
-                onViewQr: () => _showQr(table),
-                onEdit: () => _showEditor(table: table),
-                onDelete: () => _delete(table),
-              );
-            },
+          const SizedBox(height: 14),
+          SectionTitle(
+            title: '预约',
+            subtitle: '按日期查看与处理本店预约',
+            padding: const EdgeInsets.fromLTRB(0, 0, 0, 6),
           ),
+          ReservationTimelineSection(storeId: storeId),
         ],
       ),
     );
   }
 }
-
-/// 餐桌状态 → 颜色
-Color tableStatusColor(TableStatus status) => switch (status) {
-      TableStatus.free => AppColors.success,
-      TableStatus.occupied => AppColors.danger,
-      TableStatus.reserved => AppColors.warning,
-      TableStatus.cleaning => AppColors.info,
-      TableStatus.disabled => AppColors.disabled,
-    };
 
 /// 餐桌概览条
 class _TableSummary extends StatelessWidget {

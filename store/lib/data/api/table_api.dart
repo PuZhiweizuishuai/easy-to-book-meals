@@ -10,6 +10,16 @@ class TableApi {
 
   final ApiClient _client;
 
+  /// 查询单个餐桌详情
+  Future<DiningTable?> detail({required int id, required int storeId}) =>
+      _client.get<DiningTable?>(
+        '/dining-table/$id',
+        queryParameters: {'storefrontId': storeId},
+        parser: (raw) => raw is Map<String, dynamic>
+            ? DiningTable.fromJson(raw)
+            : null,
+      );
+
   /// 查询本店全部餐桌（不分页）
   Future<List<DiningTable>> listAll({required int storeId}) =>
       _client

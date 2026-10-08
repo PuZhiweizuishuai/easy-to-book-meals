@@ -44,7 +44,7 @@ class ManagePage extends ConsumerWidget {
       ),
       _ManageEntry(
         title: '餐桌管理',
-        subtitle: '桌号 · 状态 · 二维码',
+        subtitle: '桌号 · 状态 · 预约 · 订单',
         icon: Symbols.table_restaurant,
         color: AppColors.info,
         requiredPermissions: const ['table:view', 'table:manage'],

@@ -388,6 +388,12 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
           _DetailRow(label: '订单类型', value: order.typeEnum.label),
           if (order.tableNumber?.isNotEmpty == true)
             _DetailRow(label: '餐桌', value: '${order.tableNumber} 桌'),
+          if (order.deliveryAddress?.isNotEmpty == true)
+            _DetailRow(
+              label: '收货地址',
+              value: order.deliveryAddress!,
+              highlight: true,
+            ),
           _DetailRow(label: '下单用户', value: order.userNickname ?? '匿名顾客'),
           if (order.contactPhone?.isNotEmpty == true)
             _DetailRow(label: '联系电话', value: order.contactPhone!),

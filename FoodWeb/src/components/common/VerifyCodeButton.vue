@@ -22,6 +22,7 @@ import toast from '@/utils/toast'
  * 由 scene 决定场景与接口：
  * <ul>
  *   <li>注册场景（register）：调用 POST /user/register/verify-code/send，使用 target（手机号或邮箱）</li>
+ *   <li>忘记密码场景（reset_password）：调用 POST /user/reset/verify-code/send，使用 target，未登录可用</li>
  *   <li>其它场景（换绑手机号等）：调用 POST /user/verify-code/send，使用 phone</li>
  * </ul>
  * 倒计时与后端 resend-interval-seconds 保持一致（默认 60s）。
@@ -29,7 +30,7 @@ import toast from '@/utils/toast'
 const props = defineProps({
   /** 目标手机号（换绑场景下部分场景服务端会忽略） */
   phone: { type: String, default: '' },
-  /** 目标手机号或邮箱（注册场景使用） */
+  /** 目标手机号或邮箱（注册、忘记密码场景使用） */
   target: { type: String, default: '' },
   /** 场景编码（VerificationCodeScene） */
   scene: { type: String, required: true },
@@ -47,17 +48,21 @@ const sending = ref(false)
 const countdown = ref(0)
 let timer = null
 
-const isRegister = () => props.scene === 'register'
+/** 免登录场景：以 target（手机号或邮箱）为发送目标 */
+const PUBLIC_SCENES = {
+  register: '/user/register/verify-code/send',
+  reset_password: '/user/reset/verify-code/send'
+}
 
 const handleSend = async () => {
   if (props.disabled || sending.value || countdown.value > 0) return
   sending.value = true
   try {
-    const url = isRegister() ? '/user/register/verify-code/send' : '/user/verify-code/send'
-    const body = isRegister()
+    const publicUrl = PUBLIC_SCENES[props.scene]
+    const body = publicUrl
       ? { target: props.target, scene: props.scene }
       : { phone: props.phone, scene: props.scene }
-    const res = await httpPost(url, body)
+    const res = await httpPost(publicUrl || '/user/verify-code/send', body)
     if (isSuccess(res)) {
       toast.success(res.message || '验证码已发送')
       emit('sent')

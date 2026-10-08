@@ -3,6 +3,7 @@ package com.buguagaoshu.food.data;
 import com.buguagaoshu.food.enums.OrderStatus;
 import com.buguagaoshu.food.enums.OrderType;
 import com.buguagaoshu.food.enums.PayStatus;
+import com.buguagaoshu.food.utils.IpUtils;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -153,6 +154,14 @@ public class OrderData {
     private String contactPhone;
 
     /**
+     * 收货地址（仅外送订单，下单时快照）
+     * <p>
+     * 其它订单类型为空。
+     */
+    @Column(length = 255)
+    private String deliveryAddress;
+
+    /**
      * 订单备注（顾客留言，如：少辣、不要香菜）
      */
     @Column(length = 255)
@@ -163,6 +172,27 @@ public class OrderData {
      */
     @Column(length = 255)
     private String cancelReason;
+
+    /**
+     * 下单客户端 IP（审计用，取自 X-Forwarded-For / X-Real-IP / 直连地址）
+     */
+    @Column(length = IpUtils.IP_MAX_LENGTH)
+    private String clientIp;
+
+    /**
+     * 下单客户端 User-Agent（审计用）
+     */
+    @Column(length = IpUtils.USER_AGENT_MAX_LENGTH)
+    private String clientUa;
+
+    /**
+     * 下单客户端 IP 位置信息（审计用，ip2region 离线库解析）
+     * <p>
+     * 形如「中国|广东省|深圳市|电信」；关闭 {@code food.ip-audit.enabled}、
+     * 内网地址或非 HTTP 线程（定时任务）创建的记录为 null。
+     */
+    @Column(length = IpUtils.IP_LOCATION_MAX_LENGTH)
+    private String clientIpLocation;
 
     /**
      * 创建时间（自动插入）

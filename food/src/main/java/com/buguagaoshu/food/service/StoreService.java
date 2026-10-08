@@ -37,13 +37,16 @@ public class StoreService {
     private final StoreRepository storeRepository;
     private final StoreWithTagService storeWithTagService;
     private final UserRoleDataService userRoleDataService;
+    private final ClientAuditService clientAuditService;
 
     public StoreService(StoreRepository storeRepository,
                         StoreWithTagService storeWithTagService,
-                        UserRoleDataService userRoleDataService) {
+                        UserRoleDataService userRoleDataService,
+                        ClientAuditService clientAuditService) {
         this.storeRepository = storeRepository;
         this.storeWithTagService = storeWithTagService;
         this.userRoleDataService = userRoleDataService;
+        this.clientAuditService = clientAuditService;
     }
 
     /**
@@ -80,6 +83,8 @@ public class StoreService {
         store.setMonthlySales(0L);
         store.setAllSales(0L);
         store.setStatus(StoreStatus.PENDING_REVIEW.getCode());
+        // 开店申请来源留痕（IP/UA/位置）：由服务端按当前请求写入，不取请求体中的同名字段
+        clientAuditService.fill(store);
 
         Store savedStore = storeRepository.save(store);
         savedStore.setTags(new ArrayList<>());

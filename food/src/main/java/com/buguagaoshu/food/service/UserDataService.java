@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.service;
 
+import cn.dev33.satoken.stp.StpUtil;
 import com.buguagaoshu.food.cache.RolePermissionCache;
 import com.buguagaoshu.food.config.WebConstant;
 import com.buguagaoshu.food.data.*;
@@ -44,17 +45,20 @@ public class UserDataService {
     private final RoleDataService roleDataService;
     private final StoreService storeService;
     private final NotificationRepository notificationRepository;
+    private final ClientAuditService clientAuditService;
 
     public UserDataService(UserDataRepository userDataRepository,
                            UserRoleDataService userRoleDataService,
                            RoleDataService roleDataService,
                            StoreService storeService,
-                           NotificationRepository notificationRepository) {
+                           NotificationRepository notificationRepository,
+                           ClientAuditService clientAuditService) {
         this.userDataRepository = userDataRepository;
         this.userRoleDataService = userRoleDataService;
         this.roleDataService = roleDataService;
         this.storeService = storeService;
         this.notificationRepository = notificationRepository;
+        this.clientAuditService = clientAuditService;
     }
 
     @Transactional(rollbackFor = Exception.class)
@@ -74,6 +78,8 @@ public class UserDataService {
         userData.setUpdateTime(time);
         userData.setStatus(0);
         userData.setGender(userData.getGender() != null ? userData.getGender() : 0);
+        // 注册来源留痕（IP/UA/位置）：一律由服务端按当前请求覆盖，不信任请求体中的同名字段
+        clientAuditService.fill(userData);
 
         UserData savedUser = userDataRepository.save(userData);
         assignDefaultRole(savedUser.getId());
@@ -220,6 +226,61 @@ public class UserDataService {
             });
         }
         return normalized;
+    }
+
+    /**
+     * 校验「忘记密码」目标（手机号或邮箱）格式合法且已注册
+     * <p>
+     * 与 {@link #validateRegisterTarget(String)} 相反：重置密码要求目标已绑定某个账号，
+     * 否则无人可收到验证码。在发送重置验证码与最终提交重置时各调用一次。
+     *
+     * @param target 手机号或邮箱
+     * @return 归一化（去空白）后的目标
+     */
+    public String validateResetTarget(String target) {
+        if (target == null || target.isBlank()) {
+            throw new BusinessException(400, "请输入手机号或邮箱");
+        }
+        String normalized = target.trim();
+        if (normalized.contains("@")) {
+            if (!EMAIL_PATTERN.matcher(normalized).matches()) {
+                throw new BusinessException(400, "请输入正确的邮箱地址");
+            }
+            userDataRepository.findByEmail(normalized)
+                    .orElseThrow(() -> new BusinessException(404, "该邮箱未注册"));
+        } else {
+            if (!PHONE_PATTERN.matcher(normalized).matches()) {
+                throw new BusinessException(400, "请输入正确的 11 位手机号");
+            }
+            userDataRepository.findByPhone(normalized)
+                    .orElseThrow(() -> new BusinessException(404, "该手机号未注册"));
+        }
+        return normalized;
+    }
+
+    /**
+     * 忘记密码：凭已校验的手机号/邮箱验证码重置密码（无需原密码）
+     * <p>
+     * 仅更新密码字段，不动其它资料；重置成功后注销该账号的登录会话，
+     * 使「密码已泄露」的用户不会因旧 token 仍有效而继续处于风险中。
+     *
+     * @param target 手机号或邮箱（验证码已由其所属账号收到并校验通过）
+     * @param newRaw 新密码明文
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void resetPasswordByTarget(String target, String newRaw) {
+        if (newRaw == null || newRaw.length() < 6 || newRaw.length() > 32) {
+            throw new BusinessException(400, "新密码长度需在 6-32 位之间");
+        }
+        String normalized = validateResetTarget(target);
+        UserData user = (normalized.contains("@")
+                ? userDataRepository.findByEmail(normalized)
+                : userDataRepository.findByPhone(normalized))
+                .orElseThrow(() -> new BusinessException(404, "用户不存在"));
+        user.setPassword(PasswordUtil.encode(newRaw));
+        user.setUpdateTime(System.currentTimeMillis());
+        userDataRepository.save(user);
+        StpUtil.logout(user.getId());
     }
 
     /**
@@ -671,6 +732,8 @@ public class UserDataService {
         long now = System.currentTimeMillis();
         guest.setCreateTime(now);
         guest.setUpdateTime(now);
+        // 扫码下单来源留痕，与注册账号同口径便于审计
+        clientAuditService.fill(guest);
         UserData saved = userDataRepository.save(guest);
         assignDefaultRole(saved.getId());
         return saved;

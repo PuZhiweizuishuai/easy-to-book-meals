@@ -8,7 +8,9 @@ import com.buguagaoshu.food.dto.ChangePasswordDto;
 import com.buguagaoshu.food.dto.ChangePhoneDto;
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.dto.RegisterDto;
+import com.buguagaoshu.food.dto.ResetPasswordDto;
 import com.buguagaoshu.food.dto.SendRegisterCodeDto;
+import com.buguagaoshu.food.dto.SendResetCodeDto;
 import com.buguagaoshu.food.dto.SendVerifyCodeDto;
 import com.buguagaoshu.food.dto.UpdateProfileDto;
 import com.buguagaoshu.food.enums.VerificationCodeScene;
@@ -111,6 +113,34 @@ public class UserController {
         // 注册成功后作废验证码，保证一次性使用
         verificationCodeService.consumeCode(target, VerificationCodeScene.REGISTER);
         return ResponseDetails.ok("注册成功").put("data", savedUser);
+    }
+
+    /**
+     * 发送重置密码验证码（公开接口，无需登录）
+     * <p>
+     * 用户在登录页点「忘记密码」后调用：目标必须是已注册的手机号或邮箱，
+     * 验证码下发到该账号绑定的联系方式，与注册场景相互独立。
+     */
+    @PostMapping("/reset/verify-code/send")
+    public ResponseDetails sendResetCode(@Valid @RequestBody SendResetCodeDto dto) {
+        String target = userDataService.validateResetTarget(dto.getTarget());
+        verificationCodeService.sendCode(target, VerificationCodeScene.RESET_PASSWORD);
+        return ResponseDetails.ok("验证码已发送，请注意查收");
+    }
+
+    /**
+     * 忘记密码：验证码校验通过后重置密码（公开接口，无需登录）
+     * <p>
+     * 与登录态下的 {@link #changePassword(ChangePasswordDto)} 区分：本接口不校验原密码，
+     * 以对账号已绑定联系方式的验证码校验代替。重置成功后作废验证码并注销该账号会话。
+     */
+    @PostMapping("/reset/password")
+    public ResponseDetails resetPassword(@Valid @RequestBody ResetPasswordDto dto) {
+        String target = userDataService.validateResetTarget(dto.getTarget());
+        verificationCodeService.verifyCode(target, dto.getCode(), VerificationCodeScene.RESET_PASSWORD);
+        userDataService.resetPasswordByTarget(target, dto.getNewPassword());
+        verificationCodeService.consumeCode(target, VerificationCodeScene.RESET_PASSWORD);
+        return ResponseDetails.ok("密码重置成功，请使用新密码登录");
     }
 
     /**

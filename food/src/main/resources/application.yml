@@ -41,6 +41,16 @@ sa-token:
 
 # 业务自定义配置
 food:
+  ip-audit:
+    # 是否解析并保存客户端 IP 位置信息（ip2region 离线库）
+    # 关闭时：IP、UA 照常保存，IP 位置字段落库为 null
+    enabled: true
+    # ip2region xdb 库文件所在目录（https://gitee.com/lionsoul/ip2region）
+    # 相对路径基于进程工作目录（本地开发即 food 模块根目录）；生产用 IP2REGION_XDB_DIR 覆盖
+    xdb-dir: ${IP2REGION_XDB_DIR:ip}
+    # IPv4 / IPv6 库文件名
+    v4-file-name: ip2region_v4.xdb
+    v6-file-name: ip2region_v6.xdb
   sms:
     # 短信发送通道：
     #   log     = 打印到后端日志（当前测试用，默认）

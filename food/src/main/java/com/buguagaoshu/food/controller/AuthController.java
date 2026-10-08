@@ -3,8 +3,8 @@ package com.buguagaoshu.food.controller;
 
 import com.buguagaoshu.food.dto.ResponseDetails;
 import com.buguagaoshu.food.service.AuthService;
+import com.buguagaoshu.food.utils.IpUtils;
 import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -38,7 +38,7 @@ public class AuthController {
                 authService.login(
                         params.get("username"),
                         params.get("password"),
-                        getClientIp(request)));
+                        IpUtils.getClientIp(request)));
     }
 
     /**
@@ -56,26 +56,5 @@ public class AuthController {
     @GetMapping("/info")
     public ResponseDetails getCurrentUserInfo() {
         return ResponseDetails.ok().put("data", authService.getCurrentUserInfo());
-    }
-
-    /**
-     * 获取客户端 IP：优先 X-Forwarded-For 首个地址，其次 X-Real-IP，最后直连地址
-     */
-    private String getClientIp(HttpServletRequest request) {
-        String xff = request.getHeader("X-Forwarded-For");
-        if (StringUtils.hasText(xff)) {
-            // 多级代理时第一个为最初客户端地址
-            for (String part : xff.split(",")) {
-                String ip = part.trim();
-                if (!ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
-                    return ip;
-                }
-            }
-        }
-        String realIp = request.getHeader("X-Real-IP");
-        if (StringUtils.hasText(realIp) && !"unknown".equalsIgnoreCase(realIp)) {
-            return realIp.trim();
-        }
-        return request.getRemoteAddr();
     }
 }

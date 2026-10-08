@@ -179,6 +179,7 @@ class OrderData {
     this.confirmTime,
     this.completeTime,
     this.contactPhone,
+    this.deliveryAddress,
     this.remark,
     this.cancelReason,
     this.createTime,
@@ -233,6 +234,9 @@ class OrderData {
 
   /// 结算联系电话
   final String? contactPhone;
+
+  /// 收货地址（仅外送订单）
+  final String? deliveryAddress;
 
   /// 订单备注
   final String? remark;

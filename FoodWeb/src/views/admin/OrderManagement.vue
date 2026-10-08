@@ -12,7 +12,7 @@
           </svg>
           协助下单
         </router-link>
-        <button class="btn btn-ghost btn-sm bg-base-100 border border-base-200" @click="fetchOrders" :disabled="loading">
+        <button class="btn btn-ghost btn-sm bg-base-100 border border-base-200" @click="fetchOrders()" :disabled="loading">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
@@ -329,6 +329,7 @@ import AddItemsDialog from '@/components/order/AddItemsDialog.vue'
 import OrderDetailModal from '@/components/order/OrderDetailModal.vue'
 import { useAddItems } from '@/composables/useAddItems'
 import { useConfirm } from '@/composables/useConfirm'
+import { useNewOrderAlert } from '@/composables/useNewOrderAlert'
 import { formatSpecNames as specNamesText } from '@/utils/format'
 import {
   orderStatusText as statusText,
@@ -431,11 +432,32 @@ onMounted(() => {
 })
 
 /**
- * 加载门店订单列表
+ * 新订单轮询提醒（开关与频率见「店铺设置 - 新订单提醒」）
+ * 检测用固定的「最新 20 笔」查询，不受当前页签/搜索条件影响；
+ * 发现新单后静默刷新当前列表。
  */
-const fetchOrders = async () => {
+useNewOrderAlert({
+  kind: 'order',
+  title: '新订单提醒',
+  fetcher: async () => {
+    const res = await httpGet(
+      `/order/manage/list?storeId=${storeContext.currentStoreId}&page=1&size=20`
+    )
+    if (!isSuccess(res) || !res.data) return null
+    return parsePage(res.data).content.map(o => ({
+      key: o.id,
+      text: `${o.orderNo} ¥${o.payAmount} · ${orderTypeText(o.orderType)}${o.tableNumber ? ` · ${o.tableNumber}号桌` : ''}`,
+    }))
+  },
+  onFresh: () => fetchOrders(true),
+})
+
+/**
+ * 加载门店订单列表（silent=true 时不显示 loading 遮罩，供后台刷新使用）
+ */
+const fetchOrders = async (silent = false) => {
   if (!storeContext.currentStoreId) return
-  loading.value = true
+  if (!silent) loading.value = true
   try {
     let url = `/order/manage/list?storeId=${storeContext.currentStoreId}&page=${page.value}&size=${size}`
     if (activeStatus.value !== null) {
@@ -453,14 +475,14 @@ const fetchOrders = async () => {
       orders.value = p.content
       totalPages.value = p.totalPages
       totalElements.value = p.totalElements
-    } else {
+    } else if (!silent) {
       toast.error(res?.message || '获取订单失败')
     }
   } catch (e) {
     console.error('获取订单失败:', e)
-    toast.error('获取订单失败')
+    if (!silent) toast.error('获取订单失败')
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 

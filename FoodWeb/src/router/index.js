@@ -82,6 +82,13 @@ const router = createRouter({
       component: () => import('@/views/login/Register.vue'),
       meta: { guest: true },
     },
+    // 忘记密码页（手机号/邮箱验证码重置登录密码，公开）
+    {
+      path: '/forgot-password',
+      name: 'forgotPassword',
+      component: () => import('@/views/login/ForgotPassword.vue'),
+      meta: { guest: true },
+    },
     // 店面管理路由（店主、店员等门店角色可访问）
     {
       path: '/admin',
@@ -161,6 +168,13 @@ const router = createRouter({
             requiresAuth: true,
             permissions: ['table:manage', 'table:view'],
           },
+        },
+        {
+          // 提醒设置：所有门店角色都可访问（收银员/后厨也要能在自己浏览器上开启新订单提醒）
+          path: 'alert',
+          name: 'AlertSetting',
+          component: () => import('@/views/admin/AlertSetting.vue'),
+          meta: { requiresAuth: true },
         },
         {
           path: 'store',

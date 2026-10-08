@@ -105,6 +105,7 @@
             <div v-if="expandedId === order.id" class="bg-base-200 rounded-xl p-4 text-sm space-y-1">
               <p><span class="text-base-content/50">原价合计：</span>¥{{ order.totalAmount }}</p>
               <p v-if="Number(order.discountAmount) > 0"><span class="text-base-content/50">优惠：</span><span class="text-success">-¥{{ order.discountAmount }}</span></p>
+              <p v-if="order.deliveryAddress"><span class="text-base-content/50">收货地址：</span>{{ order.deliveryAddress }}</p>
               <p v-if="order.remark"><span class="text-base-content/50">备注：</span>{{ order.remark }}</p>
               <p v-if="order.cancelReason"><span class="text-base-content/50">取消原因：</span>{{ order.cancelReason }}</p>
               <p><span class="text-base-content/50">支付状态：</span>{{ order.payStatus === 1 ? '已支付' : '到店支付' }}</p>

@@ -104,6 +104,23 @@ void main() {
       expect(order.items!.last.isValid, isFalse);
     });
 
+    test('外送订单解析收货地址', () {
+      final takeout = OrderData.fromJson({
+        'id': 11,
+        'orderType': 1,
+        'contactPhone': '13800001111',
+        'deliveryAddress': '建设路 12 号 3 单元 501',
+      });
+      expect(takeout.typeEnum, OrderType.takeout);
+      expect(takeout.deliveryAddress, '建设路 12 号 3 单元 501');
+
+      // 非外送订单后端不落库地址，字段为空则详情页不显示该行
+      expect(
+        OrderData.fromJson({'id': 12, 'orderType': 0}).deliveryAddress,
+        isNull,
+      );
+    });
+
     test('状态/类型/支付状态解析兜底', () {
       expect(OrderStatus.fromCode(0), OrderStatus.pending);
       expect(OrderStatus.fromCode(99), isNull);

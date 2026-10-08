@@ -27,7 +27,14 @@ public enum VerificationCodeScene {
      * <p>
      * 手机号注册与邮箱注册共用本场景，验证码按「场景 + 目标号码/邮箱」分别存储，互不干扰。
      */
-    REGISTER("register", "用户注册-手机号/邮箱校验");
+    REGISTER("register", "用户注册-手机号/邮箱校验"),
+
+    /**
+     * 忘记密码：校验账号已绑定的手机号或邮箱，通过后允许重置密码
+     * <p>
+     * 与注册场景分开存储，避免注册验证码被复用来改他人密码。
+     */
+    RESET_PASSWORD("reset_password", "忘记密码-手机号/邮箱校验");
 
     private final String code;
 

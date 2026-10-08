@@ -145,6 +145,14 @@
           </a>
         </div>
 
+        <!-- 忘记密码入口 -->
+        <div class="mt-2 text-center text-sm text-base-content/60">
+          忘记密码？
+          <a href="javascript:void(0)" class="link link-primary link-hover font-medium" @click="goForgotPassword">
+            重置密码
+          </a>
+        </div>
+
         <!-- 开发环境提示 -->
         <!-- <div class="mt-8 bg-base-200/60 rounded-xl p-4">
           <div class="text-xs text-base-content/50 mb-2 font-medium">开发环境提示</div>
@@ -179,6 +187,10 @@ const formData = ref({
 
 const goRegister = () => {
   router.push({ name: 'register' })
+}
+
+const goForgotPassword = () => {
+  router.push({ name: 'forgotPassword' })
 }
 
 const goHome = () => {

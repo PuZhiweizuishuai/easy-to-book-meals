@@ -26,6 +26,7 @@
           </p>
           <p><span class="text-base-content/50">下单人：</span>{{ order.userNickname || ('用户#' + order.userId) }}</p>
           <p v-if="order.contactPhone"><span class="text-base-content/50">联系电话：</span><span class="font-mono">{{ order.contactPhone }}</span></p>
+          <p v-if="order.deliveryAddress"><span class="text-base-content/50">收货地址：</span>{{ order.deliveryAddress }}</p>
           <p v-if="order.tableNumber"><span class="text-base-content/50">桌号：</span>{{ order.tableNumber }}号桌</p>
           <p><span class="text-base-content/50">下单时间：</span>{{ formatTime(order.createTime) }}</p>
           <p v-if="order.remark"><span class="text-base-content/50">备注：</span>{{ order.remark }}</p>

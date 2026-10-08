@@ -81,6 +81,7 @@ public class OrderService {
     private final UserDataService userDataService;
     private final MembershipService membershipService;
     private final CouponService couponService;
+    private final ClientAuditService clientAuditService;
     /**
      * 逐订单独立事务模板（超时自动取消专用，REQUIRES_NEW）：
      * 单个订单取消失败只回滚该订单，不影响同批其他订单，也避免大事务长时间持锁
@@ -96,6 +97,7 @@ public class OrderService {
                         UserDataService userDataService,
                         MembershipService membershipService,
                         CouponService couponService,
+                        ClientAuditService clientAuditService,
                         PlatformTransactionManager transactionManager) {
         this.orderDataRepository = orderDataRepository;
         this.orderItemRepository = orderItemRepository;
@@ -106,6 +108,7 @@ public class OrderService {
         this.userDataService = userDataService;
         this.membershipService = membershipService;
         this.couponService = couponService;
+        this.clientAuditService = clientAuditService;
         this.requiresNewTransaction = new TransactionTemplate(transactionManager);
         this.requiresNewTransaction.setPropagationBehavior(
                 TransactionDefinition.PROPAGATION_REQUIRES_NEW);
@@ -1225,6 +1228,8 @@ public class OrderService {
 
         // 5. 构建订单与明细（价格快照）
         OrderData order = buildOrder(userId, dto, store, table, skuMap, dishMap, orderType, nickname);
+        // 下单来源留痕（IP/UA/位置）：顾客下单、扫码下单、店员协助下单共用本方法
+        clientAuditService.fill(order);
         OrderData savedOrder = orderDataRepository.save(order);
 
         List<OrderItem> orderItems = buildOrderItems(savedOrder.getId(), dto.getItems(), skuMap, dishMap, false);
@@ -1378,6 +1383,9 @@ public class OrderService {
         order.setRemark(dto.getRemark());
         // 联系电话（扫码点餐时由顾客填写，用于关联会员；外送订单为配送联系方式）
         order.setContactPhone(dto.getContactPhone());
+        // 收货地址仅外送订单需要，其它类型下单时忽略（避免脏数据）
+        order.setDeliveryAddress(orderType == OrderType.TAKEOUT && !isBlank(dto.getDeliveryAddress())
+                ? dto.getDeliveryAddress().trim() : null);
 
         // 金额计算
         java.math.BigDecimal total = java.math.BigDecimal.ZERO;

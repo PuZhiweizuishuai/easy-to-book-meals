@@ -1,6 +1,7 @@
 package com.buguagaoshu.food.data;
 
 import com.buguagaoshu.food.enums.StoreStatus;
+import com.buguagaoshu.food.utils.IpUtils;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -101,6 +102,26 @@ public class Store {
      * 总销量
      */
     private Long allSales;
+
+    /**
+     * 开店申请客户端 IP（审计用）
+     */
+    @Column(length = IpUtils.IP_MAX_LENGTH)
+    private String clientIp;
+
+    /**
+     * 开店申请客户端 User-Agent（审计用）
+     */
+    @Column(length = IpUtils.USER_AGENT_MAX_LENGTH)
+    private String clientUa;
+
+    /**
+     * 开店申请客户端 IP 位置信息（审计用，ip2region 离线库解析）
+     * <p>
+     * 形如「中国|广东省|深圳市|电信」；关闭 {@code food.ip-audit.enabled} 或内网地址时为 null。
+     */
+    @Column(length = IpUtils.IP_LOCATION_MAX_LENGTH)
+    private String clientIpLocation;
 
 
     /**

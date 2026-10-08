@@ -7,7 +7,7 @@
           {{ storeContext.currentStore.storeName }} · 今日经营概况
         </p>
       </div>
-      <button class="btn btn-ghost btn-sm bg-base-100 border border-base-200" @click="fetchStats" :disabled="loading">
+      <button class="btn btn-ghost btn-sm bg-base-100 border border-base-200" @click="fetchStats()" :disabled="loading">
         刷新
       </button>
     </div>
@@ -130,6 +130,7 @@
 import { ref, onMounted, watch } from 'vue'
 import { httpGet, isSuccess, parsePage } from '@/utils/fetch'
 import { useStoreContext } from '@/stores/storeContext'
+import { useNewOrderAlert } from '@/composables/useNewOrderAlert'
 import { orderStatusText as statusText, orderStatusBadge as statusBadge } from '@/utils/order'
 
 const storeContext = useStoreContext()
@@ -155,10 +156,33 @@ watch(() => storeContext.currentStoreId, () => {
   }
 })
 
-/** 加载经营统计 */
-const fetchStats = async () => {
+/**
+ * 新订单轮询提醒（开关与频率见「店铺设置 - 新订单提醒」）
+ * 只拉最新 20 笔用于比对，发现新单后再静默刷新统计与最近订单，避免整页 loading 闪烁。
+ */
+useNewOrderAlert({
+  kind: 'order',
+  title: '新订单提醒',
+  fetcher: async () => {
+    const res = await httpGet(
+      `/order/manage/list?storeId=${storeContext.currentStoreId}&page=1&size=20`
+    )
+    if (!isSuccess(res) || !res.data) return null
+    return parsePage(res.data).content.map(o => ({
+      key: o.id,
+      text: `${o.orderNo} ¥${o.payAmount}${o.tableNumber ? ` · ${o.tableNumber}号桌` : ''}`,
+    }))
+  },
+  onFresh: () => {
+    fetchStats(true)
+    fetchRecentOrders()
+  },
+})
+
+/** 加载经营统计（silent=true 时不显示整页 loading，供后台刷新使用） */
+const fetchStats = async (silent = false) => {
   if (!storeContext.currentStoreId) return
-  loading.value = true
+  if (!silent) loading.value = true
   try {
     const res = await httpGet(`/order/manage/stats?storeId=${storeContext.currentStoreId}`)
     if (isSuccess(res)) {
@@ -167,7 +191,7 @@ const fetchStats = async () => {
   } catch (e) {
     console.error('加载统计失败:', e)
   } finally {
-    loading.value = false
+    if (!silent) loading.value = false
   }
 }
 

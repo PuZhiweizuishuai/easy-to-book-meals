@@ -13,6 +13,43 @@
 
 ---
 
+## 截图
+
+### 主页
+
+![home](/img/home.png)
+
+
+### 商家
+
+![store](/img/store.png)
+
+### 管理
+
+![admin](/img/admin.png)
+
+
+![admin01](/img/admin01.png)
+
+
+![admin02](/img/admin02.png)
+
+
+![admin03](/img/admin03.png)
+
+
+### 店家版APP
+
+![app01](/img/app01.jpg)
+
+![app02](/img/app02.jpg)
+
+
+![app03](/img/app03.jpg)
+
+
+
+
 ## 核心能力
 
 ### 顾客端（网页，扫码进入）
@@ -45,6 +82,9 @@
 ```bash
 cd food
 ./mvnw spring-boot:run          # Windows: mvnw.cmd spring-boot:run
+
+# 打包
+mvn clean package -Dmaven.test.skip=true
 ```
 
 - 服务地址：`http://localhost:8081`

@@ -4,6 +4,7 @@ files/
 .mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
+ip/
 
 ### STS ###
 .apt_generated

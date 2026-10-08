@@ -29,6 +29,7 @@
     <properties>
         <java.version>21</java.version>
         <sa-token.version>1.45.0</sa-token.version>
+        <ip2region.version>3.3.7</ip2region.version>
     </properties>
     <dependencies>
         <dependency>
@@ -88,6 +89,12 @@
             <groupId>cn.dev33</groupId>
             <artifactId>sa-token-spring-boot4-starter</artifactId>
             <version>${sa-token.version}</version>
+        </dependency>
+        <!-- ip2region 离线 IP 归属地库（IPv4/IPv6 xdb），用于订单/门店/注册的审计留痕 -->
+        <dependency>
+            <groupId>org.lionsoul</groupId>
+            <artifactId>ip2region</artifactId>
+            <version>${ip2region.version}</version>
         </dependency>
     </dependencies>
 

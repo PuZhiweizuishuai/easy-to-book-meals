@@ -199,6 +199,7 @@ import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { httpGet, httpPost, isSuccess } from '@/utils/fetch'
 import { useStoreContext } from '@/stores/storeContext'
 import { useAuthStore } from '@/stores/auth'
+import { useNewOrderAlert } from '@/composables/useNewOrderAlert'
 import toast from '@/utils/toast'
 import { formatSpecNames as specNamesText } from '@/utils/format'
 import { orderTypeText, orderTypeBadge } from '@/utils/order'
@@ -277,6 +278,8 @@ const toggleAutoRefresh = () => {
 
 const startAutoRefresh = () => {
   stopAutoRefresh()
+  // 新菜品提醒的轮询已在刷新队列，避免同一页面两个定时器重复请求
+  if (newDishAlert.polling.value) return
   timer = setInterval(() => {
     if (!document.hidden) fetchQueue(true)
   }, REFRESH_INTERVAL)
@@ -325,6 +328,35 @@ const fetchQueue = async (silent = false) => {
     refreshing.value = false
   }
 }
+
+/**
+ * 轮询快照：拉取后厨队列并同步刷新页面列表，返回用于比对新菜品的条目
+ */
+const fetchQueueSnapshot = async () => {
+  if (!STORE_ID()) return null
+  const res = await httpGet(`/order/manage/kitchen/queue?storeId=${STORE_ID()}`)
+  if (!isSuccess(res) || !res.data) return null
+  items.value = res.data.items || []
+  itemCount.value = res.data.itemCount ?? 0
+  maxWaitedMinutes.value = res.data.maxWaitedMinutes ?? 0
+  return items.value.map(i => ({
+    key: i.itemId,
+    text: `${i.dishName} ×${qty(i.quantity)} · ${i.orderNo}${i.addedLater === 1 ? '（加菜）' : ''}`,
+  }))
+}
+
+/** 新菜品轮询提醒（开关与频率见「店铺设置 - 新订单提醒」） */
+const newDishAlert = useNewOrderAlert({
+  kind: 'item',
+  title: '新待制作菜品',
+  fetcher: fetchQueueSnapshot,
+})
+
+// 提醒轮询启停后，重新决定本页是否还需要自己的自动刷新定时器
+watch(() => newDishAlert.polling.value, () => {
+  if (autoRefresh.value) startAutoRefresh()
+  else stopAutoRefresh()
+})
 
 /** 开始制作（认领菜品） */
 const startPreparing = async (item) => {

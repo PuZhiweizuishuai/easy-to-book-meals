@@ -1,5 +1,6 @@
 package com.buguagaoshu.food.data;
 
+import com.buguagaoshu.food.utils.IpUtils;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -105,6 +106,27 @@ public class UserData {
      * 账号状态 0-正常 1-禁用
      */
     private Integer status = 0;
+
+    /**
+     * 注册时客户端 IP（审计用，注册后不再变更）
+     */
+    @Column(length = IpUtils.IP_MAX_LENGTH)
+    private String clientIp;
+
+    /**
+     * 注册时客户端 User-Agent（审计用，注册后不再变更）
+     */
+    @Column(length = IpUtils.USER_AGENT_MAX_LENGTH)
+    private String clientUa;
+
+    /**
+     * 注册时客户端 IP 位置信息（审计用，ip2region 离线库解析）
+     * <p>
+     * 形如「中国|广东省|深圳市|电信」；关闭 {@code food.ip-audit.enabled}、内网地址或
+     * 扫码点餐等非注册来源（无请求上下文）时为 null。
+     */
+    @Column(length = IpUtils.IP_LOCATION_MAX_LENGTH)
+    private String clientIpLocation;
 
     /**
      * 创建时间（自动插入）

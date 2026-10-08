@@ -15,6 +15,7 @@ import '../../providers/session_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
+import '../../shared/widgets/app_feedback.dart';
 
 /// 服务器地址配置页
 ///
@@ -114,9 +115,7 @@ class _ServerConfigPageState extends ConsumerState<ServerConfigPage> {
       ref.read(sessionProvider.notifier).markConfigured();
       AppLogger.i('服务器地址已保存：$_normalizedInput');
       if (!mounted) return;
-      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-        const SnackBar(content: Text('服务器地址已保存')),
-      );
+      AppToast.success(context, '服务器地址已保存');
     } finally {
       if (mounted) setState(() => _saving = false);
     }

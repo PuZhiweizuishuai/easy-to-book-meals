@@ -14,6 +14,7 @@ class SessionState {
     this.user,
     this.token,
     this.errorMessage,
+    this.expired = false,
   });
 
   /// 初始态（正在读取本地缓存）
@@ -42,6 +43,13 @@ class SessionState {
         user: user,
       );
 
+  /// 令牌已失效（过期 / 被服务端踢下线），需要重新登录
+  factory SessionState.expired() => const SessionState(
+        status: SessionStatus.loggedOut,
+        errorMessage: '登录已过期，请重新登录',
+        expired: true,
+      );
+
   factory SessionState.failure(String message) => SessionState(
         status: SessionStatus.loggedOut,
         errorMessage: message,
@@ -51,6 +59,9 @@ class SessionState {
   final UserData? user;
   final String? token;
   final String? errorMessage;
+
+  /// 登录态失效导致的未登录：登录页据此提示「已过期」
+  final bool expired;
 
   bool get isChecking => status == SessionStatus.checking;
   bool get isAuthenticated => status == SessionStatus.authenticated;
@@ -107,6 +118,10 @@ class SessionController extends Notifier<SessionState> {
   PreferencesService get _prefs => ref.read(preferencesProvider);
 
   /// 读取本地缓存恢复会话
+  ///
+  /// 缓存里的令牌可能已在服务端过期（Sa-Token 超时），所以先用缓存乐观进入
+  /// 首页，再立即向后端校验一次：校验失败会走 [handleUnauthorized] 跳回登录页，
+  /// 而网络不可用时保留本地会话，避免离线时被误登出。
   Future<void> restore() async {
     final prefs = _prefs;
     if (!prefs.hasServerAddress) {
@@ -114,14 +129,15 @@ class SessionController extends Notifier<SessionState> {
       return;
     }
     final cachedUser = prefs.userMap;
-    if (prefs.hasToken && cachedUser != null) {
-      state = SessionState.authenticated(
-        token: prefs.token,
-        user: UserData.fromJson(cachedUser),
-      );
-    } else {
+    if (!prefs.hasToken || cachedUser == null) {
       state = SessionState.loggedOut();
+      return;
     }
+    state = SessionState.authenticated(
+      token: prefs.token,
+      user: UserData.fromJson(cachedUser),
+    );
+    await validateSession();
   }
 
   /// 登录
@@ -153,18 +169,22 @@ class SessionController extends Notifier<SessionState> {
     }
   }
 
-  /// 重新拉取用户信息（角色/权限可能已在服务端变更）
-  Future<void> refreshUser() async {
+  /// 校验令牌是否仍然有效，并顺带刷新角色/权限缓存
+  Future<void> validateSession() async {
     if (!state.isAuthenticated) return;
     try {
       final user = await _authApi.info();
-      if (user != null) {
+      if (user != null && state.isAuthenticated) {
         await _prefs.setUserMap(user.toJson());
         state = state.copyWith(user: user);
       }
+    } on ApiException catch (e) {
+      // 401/403 已由网络层回调统一登出，这里只需保留离线场景的缓存
+      if (!e.isUnauthorized) {
+        AppLogger.w('校验登录态失败，保留本地会话', error: e);
+      }
     } catch (e) {
-      // 刷新失败保留原有缓存
-      AppLogger.w('刷新用户信息失败', error: e);
+      AppLogger.w('校验登录态失败，保留本地会话', error: e);
     }
   }
 
@@ -179,11 +199,13 @@ class SessionController extends Notifier<SessionState> {
     state = SessionState.loggedOut();
   }
 
-  /// 登录态失效（401/403）时由上层调用
+  /// 登录态失效（401/403）时由网络层回调与业务页调用
+  ///
+  /// 幂等：并发请求同时收到 401 时只有第一次会真正清态。
   Future<void> handleUnauthorized() async {
     if (!state.isAuthenticated) return;
     await _prefs.clearSession();
-    state = SessionState.loggedOut();
+    state = SessionState.expired();
   }
 
   /// 服务器地址配置完成后调用

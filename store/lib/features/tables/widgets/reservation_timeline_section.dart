@@ -7,7 +7,6 @@ import '../../../core/utils/time_format.dart';
 import '../../../data/models/models.dart';
 import '../../../providers/core_providers.dart';
 import '../../../providers/refresh_bus.dart';
-import '../../../providers/session_provider.dart';
 import '../../../shared/widgets/app_card.dart';
 import '../../../shared/widgets/app_feedback.dart';
 import '../../../shared/widgets/state_views.dart';
@@ -265,10 +264,6 @@ class _ReservationTimelineSectionState
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -298,10 +293,6 @@ class _ReservationTimelineSectionState
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;

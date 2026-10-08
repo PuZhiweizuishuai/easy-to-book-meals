@@ -9,7 +9,6 @@ import '../../core/utils/time_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/refresh_bus.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -81,10 +80,6 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
       if (mounted) setState(() {});
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -112,10 +107,6 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
       });
     }).catchError((Object e) {
       if (!mounted) return;
-      if (e is ApiException && e.isUnauthorized) {
-        ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _currentOrder = null;
         _orderLoading = false;
@@ -149,11 +140,8 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
           .compareTo(b.reservedStartTime ?? 0));
       if (!mounted) return;
       setState(() => _reservations = merged);
-    } on ApiException catch (e) {
+    } on ApiException {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        ref.read(sessionProvider.notifier).handleUnauthorized();
-      }
       // 预约加载失败不阻塞整体页面，静默置空
       setState(() => _reservations = const []);
     } catch (_) {
@@ -178,10 +166,6 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
       ref.read(dataRefreshProvider.notifier).bump();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;
@@ -211,10 +195,6 @@ class _TableDetailPageState extends ConsumerState<TableDetailPage> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;

@@ -8,7 +8,6 @@ import '../../core/utils/money_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/refresh_bus.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
 import 'coupon_scan_page.dart';
@@ -129,10 +128,6 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _coupon = null;
         _couponError = e.message;
@@ -190,10 +185,6 @@ class _CheckoutSheetState extends ConsumerState<CheckoutSheet> {
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
       setState(() => _submitting = false);
     } catch (_) {

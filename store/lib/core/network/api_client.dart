@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import '../config/app_config.dart';
 import '../services/app_logger.dart';
@@ -12,6 +13,7 @@ import 'api_response.dart';
 /// - 读取本地保存的服务器地址作为 baseUrl（设置页更换地址后调用 [rebuild]）
 /// - 自动携带 Sa-Token 请求头 `Token`
 /// - 统一解析 ResponseDetails：非 200 抛 [ApiException]，网络类错误同样转成 [ApiException]
+/// - 任一接口返回 401/403（令牌过期或被服务端踢下线）时回调 [onUnauthorized]
 ///
 /// 业务层只接触 [ApiClient.get/post]，不直接处理 Dio 异常。
 class ApiClient {
@@ -24,10 +26,18 @@ class ApiClient {
   /// 可选的地址覆盖：用于「服务器设置」页在保存前先测试连通性
   final String? baseUrlOverride;
 
+  /// 登录态失效回调，由网络层统一触发，页面不必各自判断 401/403。
+  /// 只在正式的 [apiClientProvider] 上挂载；连通性测试用的临时实例保持为 null。
+  void Function()? onUnauthorized;
+
   late Dio _dio;
 
   /// 当前实际使用的接口根地址（诊断/测试用）
   String get baseUrl => _dio.options.baseUrl;
+
+  /// 底层 Dio，仅用于在测试里替换 HttpClientAdapter
+  @visibleForTesting
+  Dio get dio => _dio;
 
   /// 构建 Dio 实例
   ///
@@ -78,7 +88,7 @@ class ApiClient {
         cancelToken: cancelToken,
       ),
     );
-    return parseResponse<T>(response, parser).data;
+    return _parse<T>(response, parser);
   }
 
   /// POST 请求（body 为 JSON）
@@ -97,7 +107,7 @@ class ApiClient {
         cancelToken: cancelToken,
       ),
     );
-    return parseResponse<T>(response, parser).data;
+    return _parse<T>(response, parser);
   }
 
   /// 文件上传（multipart/form-data）
@@ -135,7 +145,7 @@ class ApiClient {
         ),
       ),
     );
-    return parseResponse<T>(response, parser).data;
+    return _parse<T>(response, parser);
   }
 
   /// DELETE 请求
@@ -150,7 +160,7 @@ class ApiClient {
         queryParameters: cleanParams(queryParameters),
       ),
     );
-    return parseResponse<T>(response, parser).data;
+    return _parse<T>(response, parser);
   }
 
   /// 过滤空值参数，避免把 null / 空串拼进 queryString
@@ -181,6 +191,22 @@ class ApiClient {
         '网络异常，请稍后重试',
         code: networkErrorCode,
       );
+    }
+  }
+
+  /// 解析统一响应体；命中 401/403 时先通知上层再原样抛出
+  ///
+  /// 后端把「未登录 / 令牌过期 / 无权限」都收敛为业务码 403，因此这里不区分
+  /// 具体原因，一律交给 [onUnauthorized] 决定是否清态重新登录。
+  T? _parse<T>(Response<dynamic> response, T? Function(Object? raw) parser) {
+    try {
+      return parseResponse<T>(response, parser).data;
+    } on ApiException catch (e) {
+      if (e.isUnauthorized) {
+        AppLogger.w('登录态失效: ${response.requestOptions.path}');
+        onUnauthorized?.call();
+      }
+      rethrow;
     }
   }
 }

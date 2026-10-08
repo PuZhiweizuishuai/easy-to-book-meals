@@ -9,7 +9,6 @@ import '../../core/utils/money_format.dart';
 import '../../core/utils/time_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -71,10 +70,6 @@ class _MemberDetailPageState extends ConsumerState<MemberDetailPage> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;

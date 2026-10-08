@@ -9,6 +9,7 @@ import 'core/theme/app_theme.dart';
 import 'features/root/root_page.dart';
 import 'providers/settings_provider.dart';
 import 'providers/alert_provider.dart';
+import 'providers/session_provider.dart';
 
 /// 应用根 Widget
 class StoreApp extends ConsumerStatefulWidget {
@@ -57,6 +58,16 @@ class _StoreAppState extends ConsumerState<StoreApp>
 
   @override
   Widget build(BuildContext context) {
+    // 登录态失效：先出栈回到根路由，RootPage 才会真正渲染出登录页；
+    // 否则已 push 的二级页面会继续盖在 home 之上，用户看不到重新登录入口。
+    ref.listen<SessionState>(sessionProvider, (previous, next) {
+      if (previous?.isAuthenticated == true && !next.isAuthenticated) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          AppNavigator.popToRoot();
+        });
+      }
+    });
+
     return MaterialApp(
       title: AppConfig.appName,
       debugShowCheckedModeBanner: false,

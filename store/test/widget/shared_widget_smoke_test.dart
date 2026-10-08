@@ -185,4 +185,60 @@ void main() {
     await tester.pumpWidget(_host(sevenDays(), width: 300));
     expect(find.text('7,777'), findsOneWidget);
   });
+
+  testWidgets('顶部提示：贴着状态栏出现、点击可提前关闭', (tester) async {
+    final context = await _pumpToastHost(tester);
+
+    AppToast.success(context, '餐桌状态已更新');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+
+    expect(find.text('餐桌状态已更新'), findsOneWidget);
+    // 提示条应位于屏幕上部（默认视口高 600），不再压在底部导航栏上
+    expect(tester.getTopLeft(find.text('餐桌状态已更新')).dy, lessThan(60));
+
+    await tester.tap(find.text('餐桌状态已更新'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('餐桌状态已更新'), findsNothing);
+  });
+
+  testWidgets('顶部提示：到时自动收起，新消息顶掉旧消息不堆叠', (tester) async {
+    final context = await _pumpToastHost(tester);
+
+    AppToast.error(context, '库存不足');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 2300));
+    expect(find.text('库存不足'), findsNothing);
+
+    AppToast.info(context, '第一条');
+    await tester.pump();
+    AppToast.info(context, '第二条');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 250));
+    expect(find.text('第一条'), findsNothing);
+    expect(find.text('第二条'), findsOneWidget);
+
+    // 收尾：等第二条也自然消失，避免遗留定时器
+    await tester.pump(const Duration(milliseconds: 2600));
+  });
+}
+
+/// 挂载一个空白 Scaffold，取其内部 BuildContext 用于触发 [AppToast]
+Future<BuildContext> _pumpToastHost(WidgetTester tester) async {
+  late BuildContext context;
+  await tester.pumpWidget(
+    MaterialApp(
+      theme: AppTheme.light(),
+      home: Scaffold(
+        body: Builder(
+          builder: (inner) {
+            context = inner;
+            return const SizedBox.shrink();
+          },
+        ),
+      ),
+    ),
+  );
+  return context;
 }

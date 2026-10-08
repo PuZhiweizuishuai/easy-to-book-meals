@@ -6,7 +6,6 @@ import '../../core/network/api_exception.dart';
 import '../../core/theme/app_colors.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_button.dart';
@@ -50,10 +49,6 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -129,10 +124,6 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
       await _load();
     }
@@ -153,10 +144,6 @@ class _CategoryPageState extends ConsumerState<CategoryPage> {
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     }
   }

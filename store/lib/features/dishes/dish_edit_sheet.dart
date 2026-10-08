@@ -8,7 +8,6 @@ import '../../core/theme/app_colors.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/refresh_bus.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/app_filter_chip.dart';
@@ -233,10 +232,6 @@ class _DishEditSheetState extends ConsumerState<DishEditSheet> {
       AppToast.success(context, '已上传 ${files.length} 张图片');
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (mounted) AppToast.error(context, '图片上传失败，请稍后重试');
@@ -411,10 +406,6 @@ class _DishEditSheetState extends ConsumerState<DishEditSheet> {
       Navigator.of(context).pop(true);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
       setState(() => _submitting = false);
     } catch (_) {

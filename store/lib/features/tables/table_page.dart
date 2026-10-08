@@ -8,7 +8,6 @@ import '../../core/theme/app_colors.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/refresh_bus.dart';
-import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -63,10 +62,6 @@ class _TablePageState extends ConsumerState<TablePage> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -185,10 +180,6 @@ class _TablePageState extends ConsumerState<TablePage> {
       await _load();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
       await _load();
     }

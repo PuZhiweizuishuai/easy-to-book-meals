@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/config/app_config.dart';
-import '../core/network/api_exception.dart';
 import '../core/services/app_logger.dart';
 import '../core/services/notification_service.dart';
 import '../core/services/sound_service.dart';
@@ -153,10 +152,7 @@ class AlertController extends Notifier<AlertState> {
       ]);
       state = state.copyWith(clearError: true);
     } catch (e) {
-      if (e is ApiException && e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        stop();
-      }
+      // 登录态失效交给网络层统一处理；这里不 stop，定时器空转等重新登录后无缝恢复
       state = state.copyWith(error: e.toString());
     } finally {
       _polling = false;

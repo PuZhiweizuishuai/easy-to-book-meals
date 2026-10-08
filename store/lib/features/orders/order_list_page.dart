@@ -82,10 +82,6 @@ class _OrderListPageState extends ConsumerState<OrderListPage> {
       _listController.refresh();
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (e) {
       if (!mounted) return;

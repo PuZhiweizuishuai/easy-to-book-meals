@@ -16,6 +16,7 @@ import '../data/api/order_api.dart';
 import '../data/api/report_api.dart';
 import '../data/api/table_api.dart';
 import '../data/api/table_reservation_api.dart';
+import 'session_provider.dart';
 
 /// 在 main 中通过 override 注入的 SharedPreferences 实例
 final sharedPreferencesProvider =
@@ -51,9 +52,17 @@ class ServerConfigVersion extends Notifier<int> {
 /// [ApiClient.rebuild] 只替换底层 Dio；ApiClient 实例本身保持稳定，
 /// 这样长期持有 API 对象的 Notifier（如 SessionController 中缓存的
 /// authApi）无需重建即可拿到新地址，避免继续请求旧地址。
+///
+/// 这里同时挂上登录态失效回调：任何接口返回 401/403 都会清掉本地会话，
+/// RootPage 随之切到登录页，业务页无需再各自判断。
 final apiClientProvider = Provider<ApiClient>((ref) {
   final prefs = ref.watch(preferencesProvider);
   final client = ApiClient(prefs);
+  client.onUnauthorized = () {
+    // 容器已销毁（测试结束 / 热重启）时不再回写会话
+    if (!ref.mounted) return;
+    ref.read(sessionProvider.notifier).handleUnauthorized();
+  };
   ref.listen(serverConfigVersionProvider, (_, _) => client.rebuild());
   ref.onDispose(client.close);
   return client;

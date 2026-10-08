@@ -27,6 +27,14 @@ class AppNavigator {
   static void pop<T extends Object?>([T? result]) {
     navigatorKey.currentState?.pop<T>(result);
   }
+
+  /// 回到根路由（RootPage）
+  ///
+  /// RootPage 变化只影响 home 子树，已 push 的二级页面/弹层仍盖在上面，
+  /// 登录态失效时必须先出栈，用户才会真正看到登录页。
+  static void popToRoot() {
+    navigatorKey.currentState?.popUntil((route) => route.isFirst);
+  }
 }
 
 /// Tab 跳转通道

@@ -7,7 +7,6 @@ import '../../core/theme/app_colors.dart';
 import '../../core/utils/money_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
-import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_network_image.dart';
@@ -351,10 +350,6 @@ Future<void> toggleDishStatus(
     AppToast.success(context, onSale ? '已上架' : '已下架');
   } on ApiException catch (e) {
     if (!context.mounted) return;
-    if (e.isUnauthorized) {
-      await ref.read(sessionProvider.notifier).handleUnauthorized();
-      return;
-    }
     AppToast.error(context, e.message);
   }
 }

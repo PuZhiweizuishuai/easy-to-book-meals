@@ -74,10 +74,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       }
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -115,10 +111,6 @@ class _OrderDetailPageState extends ConsumerState<OrderDetailPage> {
       if (successText != null) AppToast.success(context, successText);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       if (!mounted) return;

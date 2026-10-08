@@ -10,7 +10,6 @@ import '../../core/utils/time_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/alert_provider.dart';
 import '../../providers/core_providers.dart';
-import '../../providers/session_provider.dart';
 import '../../providers/store_context_provider.dart';
 import '../../shared/widgets/app_feedback.dart';
 import '../../shared/widgets/state_views.dart';
@@ -92,10 +91,6 @@ class _KitchenPageState extends ConsumerState<KitchenPage> {
       });
     } on ApiException catch (e) {
       if (!mounted || token != _requestToken) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       if (_items.isEmpty) {
         setState(() {
           _loading = false;

@@ -7,7 +7,6 @@ import '../../core/utils/money_format.dart';
 import '../../data/models/models.dart';
 import '../../providers/core_providers.dart';
 import '../../providers/refresh_bus.dart';
-import '../../providers/session_provider.dart';
 import '../../shared/widgets/app_button.dart';
 import '../../shared/widgets/app_card.dart';
 import '../../shared/widgets/app_feedback.dart';
@@ -76,10 +75,6 @@ class _OrderAddItemsPageState extends ConsumerState<OrderAddItemsPage> {
       setState(() => _order = order);
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       AppToast.error(context, e.message);
     } catch (_) {
       // 摘要加载失败不阻塞选菜，保留空头部
@@ -106,10 +101,6 @@ class _OrderAddItemsPageState extends ConsumerState<OrderAddItemsPage> {
       });
     } on ApiException catch (e) {
       if (!mounted) return;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return;
-      }
       setState(() {
         _error = e.message;
         _loading = false;
@@ -191,10 +182,6 @@ class _OrderAddItemsPageState extends ConsumerState<OrderAddItemsPage> {
       return true;
     } on ApiException catch (e) {
       if (!mounted) return false;
-      if (e.isUnauthorized) {
-        await ref.read(sessionProvider.notifier).handleUnauthorized();
-        return false;
-      }
       AppToast.error(context, e.message);
       return false;
     } catch (_) {

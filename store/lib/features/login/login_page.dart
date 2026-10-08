@@ -8,6 +8,7 @@ import '../../core/theme/app_colors.dart';
 import '../../providers/session_provider.dart';
 import '../../providers/settings_provider.dart';
 import '../../shared/widgets/app_button.dart';
+import '../../shared/widgets/app_feedback.dart';
 import 'server_address_editor.dart';
 
 /// 登录页
@@ -38,11 +39,11 @@ class _LoginPageState extends ConsumerState<LoginPage> {
     final account = _accountController.text.trim();
     final password = _passwordController.text;
     if (account.isEmpty) {
-      _toast('请输入手机号或邮箱');
+      AppToast.info(context, '请输入手机号或邮箱');
       return;
     }
     if (password.isEmpty) {
-      _toast('请输入密码');
+      AppToast.info(context, '请输入密码');
       return;
     }
 
@@ -51,14 +52,8 @@ class _LoginPageState extends ConsumerState<LoginPage> {
         .login(username: account, password: password);
     if (!ok && mounted) {
       final error = ref.read(sessionProvider).errorMessage;
-      _toast(error ?? '登录失败');
+      AppToast.error(context, error ?? '登录失败');
     }
-  }
-
-  void _toast(String message) {
-    ScaffoldMessenger.maybeOf(context)?.showSnackBar(
-      SnackBar(content: Text(message), behavior: SnackBarBehavior.floating),
-    );
   }
 
   @override
@@ -130,6 +125,10 @@ class _LoginPageState extends ConsumerState<LoginPage> {
                 ),
               ),
               const SizedBox(height: 42),
+              if (session.expired) ...[
+                const _SessionExpiredBanner(),
+                const SizedBox(height: 18),
+              ],
               TextField(
                 controller: _accountController,
                 keyboardType: TextInputType.emailAddress,
@@ -184,3 +183,36 @@ class _LoginPageState extends ConsumerState<LoginPage> {
 /// 记录一次登录失败的local（便于排查）
 void logLoginFailure(String reason) =>
     AppLogger.w('登录失败：$reason');
+
+/// 登录态过期提示
+///
+/// 令牌失效被网络层踢回登录页时展示，让用户知道是「过期」而不是「没登录过」。
+class _SessionExpiredBanner extends StatelessWidget {
+  const _SessionExpiredBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: AppColors.warningLight,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.lock_clock, size: 16, color: AppColors.warning),
+          SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '登录已过期，请重新登录',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: Color(0xFF8A5A00),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
